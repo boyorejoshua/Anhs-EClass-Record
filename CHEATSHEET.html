@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mendtrix E-Class — Developer Cheat Sheet</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+  :root {
+    --blue:#1a56db; --blue2:#e8f0fe; --green:#0d9488; --green2:#e6faf8;
+    --amber:#d97706; --amber2:#fffbeb; --red:#dc2626; --red2:#fef2f2;
+    --purple:#7c3aed; --purple2:#f3f0ff; --gray:#6b7280; --gray2:#f9fafb;
+    --border:#e5e7eb; --text:#111827; --text2:#374151; --text3:#6b7280;
+    --r:8px;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'DM Sans',sans-serif; font-size:14px; color:var(--text); background:#f3f4f6; }
+  .page-wrap { max-width:1100px; margin:0 auto; padding:32px 24px; }
+  h1 { font-size:26px; font-weight:600; color:var(--blue); margin-bottom:4px; }
+  .subtitle { font-size:13px; color:var(--text3); margin-bottom:32px; }
+  h2 { font-size:16px; font-weight:600; color:var(--text); margin-bottom:16px; padding-bottom:8px; border-bottom:2px solid var(--border); display:flex; align-items:center; gap:8px; }
+  h3 { font-size:13px; font-weight:600; color:var(--text2); margin:16px 0 8px; }
+  .section { background:#fff; border:1px solid var(--border); border-radius:var(--r); padding:24px; margin-bottom:20px; }
+  .section-intro { font-size:12px; color:var(--text3); margin-bottom:16px; line-height:1.6; }
+
+  /* File structure */
+  .file-tree { font-family:'DM Mono',monospace; font-size:12px; background:var(--gray2); border:1px solid var(--border); border-radius:var(--r); padding:16px; line-height:2; }
+  .tree-folder { color:var(--blue); font-weight:500; }
+  .tree-file { color:var(--text2); }
+  .tree-comment { color:var(--gray); }
+  .tree-indent { margin-left:24px; }
+
+  /* Tables */
+  table { width:100%; border-collapse:collapse; font-size:12px; margin-bottom:8px; }
+  th { background:var(--gray2); text-align:left; padding:8px 10px; font-weight:600; font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:0.4px; border:1px solid var(--border); }
+  td { padding:7px 10px; border:1px solid var(--border); vertical-align:top; line-height:1.5; }
+  tr:nth-child(even) td { background:#fafafa; }
+
+  /* Code snippets */
+  code { font-family:'DM Mono',monospace; font-size:11px; background:var(--gray2); border:1px solid var(--border); padding:2px 6px; border-radius:4px; color:var(--purple); }
+  .code-block { font-family:'DM Mono',monospace; font-size:11px; background:#1e293b; color:#e2e8f0; padding:16px; border-radius:var(--r); line-height:1.8; overflow-x:auto; margin:8px 0; }
+  .code-block .cm { color:#64748b; } /* comment */
+  .code-block .ck { color:#7dd3fc; } /* keyword */
+  .code-block .cs { color:#86efac; } /* string */
+  .code-block .cv { color:#fbbf24; } /* variable */
+
+  /* Tags / badges */
+  .tag { display:inline-flex; align-items:center; padding:2px 8px; border-radius:99px; font-size:10px; font-weight:500; }
+  .tag-blue { background:var(--blue2); color:var(--blue); }
+  .tag-green { background:var(--green2); color:var(--green); }
+  .tag-amber { background:var(--amber2); color:var(--amber); }
+  .tag-red { background:var(--red2); color:var(--red); }
+  .tag-purple { background:var(--purple2); color:var(--purple); }
+  .tag-gray { background:var(--gray2); color:var(--gray); border:1px solid var(--border); }
+
+  /* Color swatches */
+  .swatch-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:8px; }
+  .swatch { border-radius:var(--r); overflow:hidden; border:1px solid var(--border); }
+  .swatch-color { height:36px; }
+  .swatch-info { padding:8px 10px; background:#fff; }
+  .swatch-name { font-size:11px; font-weight:600; }
+  .swatch-var { font-family:'DM Mono',monospace; font-size:10px; color:var(--text3); }
+  .swatch-hex { font-family:'DM Mono',monospace; font-size:10px; color:var(--gray); }
+
+  /* Grid */
+  .g2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .g3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+
+  /* Warning / tip boxes */
+  .tip { background:var(--blue2); border-left:3px solid var(--blue); padding:10px 14px; border-radius:0 var(--r) var(--r) 0; margin:8px 0; font-size:12px; }
+  .warn { background:var(--amber2); border-left:3px solid var(--amber); padding:10px 14px; border-radius:0 var(--r) var(--r) 0; margin:8px 0; font-size:12px; }
+  .danger { background:var(--red2); border-left:3px solid var(--red); padding:10px 14px; border-radius:0 var(--r) var(--r) 0; margin:8px 0; font-size:12px; }
+
+  /* Print */
+  @media print { body { background:#fff; } .page-wrap { padding:0; } }
+</style>
+</head>
+<body>
+<div class="page-wrap">
+
+  <h1>Mendtrix E-Class Record System</h1>
+  <div class="subtitle">Developer Cheat Sheet — Reference guide for editing, customizing, and maintaining the system</div>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 1: PROJECT STRUCTURE
+  ═══════════════════════════════════════════ -->
+  <div class="section">
+    <h2>📁 1. Project File Structure</h2>
+    <p class="section-intro">The project is split into three files. Each file has a single responsibility. Never put CSS in the JS file or HTML structure in the CSS file.</p>
+    <div class="file-tree">
+      <div><span class="tree-folder">mendtrix/</span> <span class="tree-comment">← root folder (deploy this whole folder)</span></div>
+      <div class="tree-indent"><span class="tree-file">index.html</span> <span class="tree-comment">← HTML structure only. No CSS. No logic.</span></div>
+      <div class="tree-indent"><span class="tree-file">CHEATSHEET.html</span> <span class="tree-comment">← this file</span></div>
+      <div class="tree-indent"><span class="tree-folder">assets/</span></div>
+      <div class="tree-indent" style="margin-left:48px"><span class="tree-folder">css/</span></div>
+      <div class="tree-indent" style="margin-left:72px"><span class="tree-file">style.css</span> <span class="tree-comment">← ALL visual styling (colors, fonts, layout, spacing)</span></div>
+      <div class="tree-indent" style="margin-left:48px"><span class="tree-folder">js/</span></div>
+      <div class="tree-indent" style="margin-left:72px"><span class="tree-file">main.js</span> <span class="tree-comment">← ALL application logic (grades, attendance, exports)</span></div>
+    </div>
+
+    <div class="tip" style="margin-top:16px">
+      <strong>Rule of thumb:</strong> If it's about how something <em>looks</em> → edit <code>style.css</code>. If it's about what something <em>does</em> → edit <code>main.js</code>. If it's about page <em>structure or text labels</em> → edit <code>index.html</code>.
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 2: QUICK EDIT GUIDE
+  ═══════════════════════════════════════════ -->
+  <div class="section">
+    <h2>✏️ 2. Quick Edit Guide — What to Change and Where</h2>
+    <p class="section-intro">Use this table whenever you want to change something. Find what you want to change in the left column, then go to the file and location listed.</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:30%">What you want to change</th>
+          <th style="width:20%">File</th>
+          <th style="width:25%">Where exactly</th>
+          <th style="width:25%">What to edit</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>App name / brand</strong> ("Mendtrix E-Class")</td><td><code>index.html</code></td><td>Line ~15 (title tag) and div <code>rs-logo</code></td><td>Change text inside <code>&lt;title&gt;</code> and <code>&lt;div class="rs-logo"&gt;</code></td></tr>
+        <tr><td><strong>Page title in browser tab</strong></td><td><code>index.html</code></td><td><code>&lt;title&gt;</code> tag near top</td><td>Replace text between title tags</td></tr>
+        <tr><td><strong>Role card descriptions</strong> (Subject / Advisory)</td><td><code>index.html</code></td><td><code>class="rs-desc"</code> divs</td><td>Edit the description text inside each card</td></tr>
+        <tr><td><strong>Navigation menu labels</strong> (Record Book, Grade Summary…)</td><td><code>assets/js/main.js</code></td><td>Search <code>buildNav()</code> function</td><td>Change the <code>label:</code> values in the items array</td></tr>
+        <tr><td><strong>Sub-tab labels</strong> inside Record Book</td><td><code>index.html</code></td><td>Buttons inside <code>id="rbNav"</code></td><td>Change the button text (e.g. "⚙ Setup")</td></tr>
+        <tr><td><strong>All colors (theme)</strong></td><td><code>assets/css/style.css</code></td><td>Top of file inside <code>:root { }</code></td><td>Change CSS variable hex values — see Color Reference below</td></tr>
+        <tr><td><strong>Font family</strong></td><td><code>assets/css/style.css</code></td><td>First line (@import) and <code>body { font-family }</code></td><td>Replace Google Fonts URL and font-family value</td></tr>
+        <tr><td><strong>Font sizes</strong></td><td><code>assets/css/style.css</code></td><td>Search <code>font-size:</code></td><td>Edit individual font-size values</td></tr>
+        <tr><td><strong>Grade Entry table text</strong></td><td><code>assets/js/main.js</code></td><td>Search <code>function renderGradeEntry()</code></td><td>Edit HTML template strings inside the function</td></tr>
+        <tr><td><strong>DepEd weights</strong> (WW 30%, PT 50%, QA 20%)</td><td><code>assets/js/main.js</code></td><td>Search <code>const W={ww:0.30</code></td><td>Change the decimal values (must add up to 1.0)</td></tr>
+        <tr><td><strong>Transmutation table</strong></td><td><code>assets/js/main.js</code></td><td>Search <code>const TRANS=</code> (line ~25)</td><td>Edit the array of [min, max, grade] triplets</td></tr>
+        <tr><td><strong>Grade Level options</strong> (Grade 7–12 dropdown)</td><td><code>index.html</code></td><td>Select inside <code>id="csGrade"</code></td><td>Add/remove <code>&lt;option&gt;</code> elements</td></tr>
+        <tr><td><strong>School Year format</strong></td><td><code>assets/js/main.js</code></td><td>Search <code>placeholder="e.g. 2024-2025"</code></td><td>Change placeholder text</td></tr>
+        <tr><td><strong>LOA band labels / ranges</strong></td><td><code>assets/js/main.js</code></td><td>Search <code>function renderLOAContent()</code></td><td>Edit the band label strings and percentage ranges</td></tr>
+        <tr><td><strong>Analytics band ranges</strong></td><td><code>assets/js/main.js</code></td><td>Search <code>function renderAnalyticsContent()</code></td><td>Edit <code>mn:</code> and <code>mx:</code> values in the bands array</td></tr>
+        <tr><td><strong>Auto-save interval</strong> (currently 15 min)</td><td><code>assets/js/main.js</code></td><td>Bottom of file, search <code>15 * 60 * 1000</code></td><td>Change to e.g. <code>10 * 60 * 1000</code> for 10 minutes</td></tr>
+        <tr><td><strong>Unsaved changes warning text</strong></td><td><code>assets/js/main.js</code></td><td>Search <code>beforeunload</code></td><td>Edit the string in <code>e.returnValue = '...'</code></td></tr>
+        <tr><td><strong>Export file name format</strong> (Excel/JSON)</td><td><code>assets/js/main.js</code></td><td>Search <code>a.download=</code> (multiple places)</td><td>Edit the template string after <code>a.download=</code></td></tr>
+        <tr><td><strong>Toast notification duration</strong></td><td><code>assets/js/main.js</code></td><td>Search <code>function toast(</code></td><td>Change the millisecond value in <code>setTimeout</code></td></tr>
+        <tr><td><strong>Card/element border radius</strong></td><td><code>assets/css/style.css</code></td><td><code>:root</code> block, <code>--r</code> and <code>--rs</code></td><td>Change <code>--r:10px</code> (cards) and <code>--rs:6px</code> (small)</td></tr>
+        <tr><td><strong>Topbar height</strong></td><td><code>assets/css/style.css</code></td><td>Search <code>.topbar{</code></td><td>Change <code>height:</code> value</td></tr>
+        <tr><td><strong>Attendance statuses</strong> (P/A/L)</td><td><code>assets/js/main.js</code></td><td>Search <code>function renderAttGrid(</code></td><td>Edit the P/A/L button labels and <code>setAtt()</code> function</td></tr>
+        <tr><td><strong>PDF print page size</strong></td><td><code>assets/js/main.js</code></td><td>Search <code>size:A4 landscape</code></td><td>Change to <code>A4 portrait</code>, <code>letter</code>, etc.</td></tr>
+        <tr><td><strong>Passing grade threshold</strong> (currently 75)</td><td><code>assets/js/main.js</code></td><td>Search <code>>=75</code> (multiple places)</td><td>Change all instances of <code>>=75</code> to your new threshold</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 3: COLOR REFERENCE
+  ═══════════════════════════════════════════ -->
+  <div class="section">
+    <h2>🎨 3. Color Reference — CSS Variables in style.css</h2>
+    <p class="section-intro">All colors are defined as CSS variables at the top of <code>style.css</code> inside the <code>:root { }</block. Change a variable once and it updates everywhere.</p>
+
+    <h3>Background & Surface Colors</h3>
+    <div class="swatch-grid" style="margin-bottom:16px">
+      <div class="swatch"><div class="swatch-color" style="background:#f0f2f5"></div><div class="swatch-info"><div class="swatch-name">Page Background</div><div class="swatch-var">--bg</div><div class="swatch-hex">#f0f2f5</div></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#ffffff;border-bottom:1px solid #e5e7eb"></div><div class="swatch-info"><div class="swatch-name">Surface (Cards)</div><div class="swatch-var">--surf</div><div class="swatch-hex">#ffffff</div></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#f7f8fa"></div><div class="swatch-info"><div class="swatch-name">Surface 2 (Rows)</div><div class="swatch-var">--surf2</div><div class="swatch-hex">#f7f8fa</div></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#e2e6ea"></div><div class="swatch-info"><div class="swatch-name">Border (Default)</div><div class="swatch-var">--bdr</div><div class="swatch-hex">#e2e6ea</div></div></div>
+    </div>
+
+    <h3>Text Colors</h3>
+    <div class="swatch-grid" style="margin-bottom:16px">
+      <div class="swatch"><div class="swatch-color" style="background:#1a1d23"></div><div class="swatch-info"><div class="swatch-name">Primary Text</div><div class="swatch-var">--tx</div><div class="swatch-hex">#1a1d23</div></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#4a5568"></div><div class="swatch-info"><div class="swatch-name">Secondary Text</div><div class="swatch-var">--tx2</div><div class="swatch-hex">#4a5568</div></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#8a94a6"></div><div class="swatch-info"><div class="swatch-name">Muted Text</div><div class="swatch-var">--tx3</div><div class="swatch-hex">#8a94a6</div></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#b8bfc9"></div><div class="swatch-info"><div class="swatch-name">Placeholder Text</div><div class="swatch-var">--tx4</div><div class="swatch-hex">#b8bfc9</div></div></div>
+    </div>
+
+    <h3>Brand / Accent Colors</h3>
+    <div class="swatch-grid" style="margin-bottom:16px">
+      <div class="swatch"><div class="swatch-color" style="background:#1a56db"></div><div class="swatch-info"><div class="swatch-name">Blue (Primary)</div><div class="swatch-var">--blue</div><div class="swatch-hex">#1a56db</div></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#e8f0fe"></div><div class="swatch-info"><div class="swatch-name">Blue Light</div><div class="swatch-var">--blue2</div><div class="swatch-hex">#e8f0fe</div></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#0d9488"></div><div class="swatch-info"><div class="swatch-name">Green (Pass/Save)</div><div class="swatch-var">--green</div><div class="swatch-hex">#0d9488</div></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#dc2626"></div><div class="swatch-info"><div class="swatch-name">Red (Fail/Delete)</div><div class="swatch-var">--red</div><div class="swatch-hex">#dc2626</div></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#d97706"></div><div class="swatch-info"><div class="swatch-name">Amber (Warning)</div><div class="swatch-var">--amber</div><div class="swatch-hex">#d97706</div></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#7c3aed"></div><div class="swatch-info"><div class="swatch-name">Purple (Computed)</div><div class="swatch-var">--purple</div><div class="swatch-hex">#7c3aed</div></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#0891b2"></div><div class="swatch-info"><div class="swatch-name">Teal (LOA)</div><div class="swatch-var">--teal</div><div class="swatch-hex">#0891b2</div></div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#db2777"></div><div class="swatch-info"><div class="swatch-name">Pink (Female)</div><div class="swatch-var">--pink</div><div class="swatch-hex">#db2777</div></div></div>
+    </div>
+
+    <h3>How to change the brand color (example: from blue to indigo)</h3>
+    <div class="code-block">
+<span class="cm">/* In assets/css/style.css, find :root { } and change: */</span>
+<span class="ck">:root</span> {
+  <span class="cv">--blue</span>: <span class="cs">#4f46e5</span>;   <span class="cm">/* was #1a56db — now indigo */</span>
+  <span class="cv">--blue2</span>: <span class="cs">#ede9fe</span>;  <span class="cm">/* was #e8f0fe — lighter shade */</span>
+  <span class="cv">--blue3</span>: <span class="cs">#6366f1</span>;  <span class="cm">/* was #4285f4 — mid shade */</span>
+}</div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 4: FONT GUIDE
+  ═══════════════════════════════════════════ -->
+  <div class="section">
+    <h2>🔤 4. Font Reference & How to Change</h2>
+    <p class="section-intro">The system uses two fonts: <strong>DM Sans</strong> for all UI text, and <strong>DM Mono</strong> for numbers, grades, and code-style data.</p>
+
+    <table>
+      <thead><tr><th>Font</th><th>Used for</th><th>CSS variable / property</th></tr></thead>
+      <tbody>
+        <tr><td><strong>DM Sans</strong></td><td>All body text, labels, buttons, navigation, names</td><td><code>font-family:'DM Sans',sans-serif</code> on <code>body</code></td></tr>
+        <tr><td><strong>DM Mono</strong></td><td>All grades, scores, percentages, dates, IDs</td><td><code>font-family:'DM Mono',monospace</code> on number cells</td></tr>
+      </tbody>
+    </table>
+
+    <h3>How to change to a different Google Font</h3>
+    <div class="code-block">
+<span class="cm">/* Step 1: In style.css, replace the @import line at the very top */</span>
+@<span class="ck">import</span> <span class="cs">url('https://fonts.googleapis.com/css2?family=YOUR+FONT:wght@400;500;600&display=swap')</span>;
+
+<span class="cm">/* Step 2: Update the body font-family */</span>
+<span class="ck">body</span> {
+  <span class="cv">font-family</span>: <span class="cs">'Your Font', sans-serif</span>;
+}
+
+<span class="cm">/* Example: Switch to Poppins */</span>
+@<span class="ck">import</span> <span class="cs">url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap')</span>;
+<span class="ck">body</span> { <span class="cv">font-family</span>: <span class="cs">'Poppins', sans-serif</span>; }</div>
+
+    <div class="warn">When offline (no internet), Google Fonts will not load. The browser falls back to <code>sans-serif</code> system font. To work fully offline, download the font files and use <code>@font-face</code> instead.</div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 5: DATA STRUCTURE REFERENCE
+  ═══════════════════════════════════════════ -->
+  <div class="section">
+    <h2>🗄️ 5. Data Structure — How Data is Stored</h2>
+    <p class="section-intro">All data lives in the <code>APP</code> object in <code>main.js</code>. It is automatically saved to <code>localStorage</code> and exported to <code>.json</code> files. Understanding this helps when you need to change what gets saved or exported.</p>
+
+    <div class="code-block">
+<span class="cv">APP</span> = {
+  <span class="cv">role</span>: <span class="cs">'subject'</span> | <span class="cs">'advisory'</span>,   <span class="cm">// selected role</span>
+  <span class="cv">ac</span>: { <span class="cv">grade</span>: <span class="cs">'Grade 10'</span>, <span class="cv">section</span>: <span class="cs">'PEARL'</span> },  <span class="cm">// active class</span>
+  <span class="cv">cd</span>: {                    <span class="cm">// classData — keyed by "Grade10_PEARL"</span>
+    <span class="cs">'Grade10_PEARL'</span>: {
+      <span class="cv">school</span>: {            <span class="cm">// filled in Setup tab</span>
+        <span class="cv">name</span>: <span class="cs">''</span>, <span class="cv">id</span>: <span class="cs">''</span>, <span class="cv">region</span>: <span class="cs">''</span>, <span class="cv">division</span>: <span class="cs">''</span>,
+        <span class="cv">section</span>: <span class="cs">''</span>, <span class="cv">teacher</span>: <span class="cs">''</span>, <span class="cv">subject</span>: <span class="cs">''</span>, <span class="cv">year</span>: <span class="cs">''</span>
+      },
+      <span class="cv">students</span>: {
+        <span class="cv">male</span>: [ <span class="cs">'DELA CRUZ, JUAN'</span>, <span class="cs">'SANTOS, MARIO'</span>, ... ],
+        <span class="cv">female</span>: [ <span class="cs">'REYES, ANNA'</span>, ... ]
+      },
+      <span class="cv">hps</span>: {               <span class="cm">// Highest Possible Score per quarter</span>
+        <span class="cv">1</span>: { <span class="cv">ww</span>: [40,20,10,...], <span class="cv">pt</span>: [10,15,...], <span class="cv">qa</span>: 40 },
+        <span class="cv">2</span>: { ... }, <span class="cv">3</span>: { ... }, <span class="cv">4</span>: { ... }
+      },
+      <span class="cv">grades</span>: {            <span class="cm">// grade entries keyed by student name</span>
+        <span class="cv">1</span>: {                 <span class="cm">// quarter 1</span>
+          <span class="cs">'DELA CRUZ, JUAN'</span>: {
+            <span class="cv">ww</span>: [22, 13, 4, 8, null, ...],  <span class="cm">// WW1-WW10 scores</span>
+            <span class="cv">pt</span>: [10, 14, 13, null, ...],    <span class="cm">// PT1-PT10 scores</span>
+            <span class="cv">qa</span>: 18                          <span class="cm">// QA score</span>
+          }
+        },
+        <span class="cv">2</span>: { ... }, <span class="cv">3</span>: { ... }, <span class="cv">4</span>: { ... }
+      },
+      <span class="cv">att</span>: {               <span class="cm">// attendance keyed by date string</span>
+        <span class="cs">'2025-01-06'</span>: {
+          <span class="cs">'DELA CRUZ, JUAN'</span>: <span class="cs">'P'</span>,  <span class="cm">// P=Present, A=Absent, L=Late</span>
+          <span class="cs">'SANTOS, MARIO'</span>: <span class="cs">'A'</span>
+        }
+      },
+      <span class="cv">diag</span>: { <span class="cv">items</span>: 50, <span class="cv">hso</span>: 48, <span class="cv">lso</span>: 12 }  <span class="cm">// diagnostic test</span>
+    }
+  },
+  <span class="cv">imported</span>: [ ... ],      <span class="cm">// advisory: imported subject JSONs</span>
+  <span class="cv">page</span>: <span class="cs">'recordbook'</span>,    <span class="cm">// current active page</span>
+  <span class="cv">rbtab</span>: <span class="cs">'setup'</span>,       <span class="cm">// current Record Book sub-tab</span>
+  <span class="cv">gq</span>: 1,                 <span class="cm">// current grade entry quarter</span>
+  <span class="cv">attDate</span>: <span class="cs">'2025-01-06'</span> <span class="cm">// current attendance date</span>
+}
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 6: KEY FUNCTIONS REFERENCE
+  ═══════════════════════════════════════════ -->
+  <div class="section">
+    <h2>⚙️ 6. Key Functions in main.js</h2>
+    <p class="section-intro">These are the most important functions. If you need to change behavior, these are your entry points.</p>
+
+    <table>
+      <thead><tr><th>Function</th><th>What it does</th><th>Where to find it (search this)</th></tr></thead>
+      <tbody>
+        <tr><td><code>calcQ(name, q)</code></td><td>Computes all grades for one student for one quarter: WW total, PS, WS, PT total, PS, WS, QA PS/WS, Initial Grade, Quarterly Grade</td><td>Search <code>function calcQ(</code></td></tr>
+        <tr><td><code>transmute(v)</code></td><td>Converts initial grade to quarterly grade using DepEd transmutation table</td><td>Search <code>function transmute(</code></td></tr>
+        <tr><td><code>save()</code></td><td>Saves entire APP state to localStorage. Called on every change.</td><td>Search <code>function save()</code></td></tr>
+        <tr><td><code>load()</code></td><td>Loads APP state from localStorage on startup</td><td>Search <code>function load()</code></td></tr>
+        <tr><td><code>saveFile()</code></td><td>Downloads the current class data as a .json file</td><td>Search <code>function saveFile(</code></td></tr>
+        <tr><td><code>loadFile(inp)</code></td><td>Reads an uploaded .json file and restores all data</td><td>Search <code>function loadFile(</code></td></tr>
+        <tr><td><code>excelGrades()</code></td><td>Exports full E-Class Record to .xlsx in DepEd format with all sheets</td><td>Search <code>function excelGrades(</code></td></tr>
+        <tr><td><code>jsonExport()</code></td><td>Exports grade summary as .json for Advisory Teacher</td><td>Search <code>function jsonExport(</code></td></tr>
+        <tr><td><code>renderGradeEntry()</code></td><td>Builds the full grade entry table with HPS row and student rows</td><td>Search <code>function renderGradeEntry(</code></td></tr>
+        <tr><td><code>renderLOAContent()</code></td><td>Builds the 5-section LOA report cards</td><td>Search <code>function renderLOAContent(</code></td></tr>
+        <tr><td><code>renderCons()</code></td><td>Builds the Advisory Teacher's consolidated grades table from imported JSONs</td><td>Search <code>function renderCons(</code></td></tr>
+        <tr><td><code>buildNav()</code></td><td>Builds the top navigation tabs based on current role</td><td>Search <code>function buildNav(</code></td></tr>
+        <tr><td><code>selectRole(role)</code></td><td>Sets the teacher role and initializes the app</td><td>Search <code>function selectRole(</code></td></tr>
+        <tr><td><code>showPage(name)</code></td><td>Switches between main pages (recordbook, gradesummary, etc.)</td><td>Search <code>function showPage(</code></td></tr>
+        <tr><td><code>showRB(tab)</code></td><td>Switches between Record Book sub-tabs</td><td>Search <code>function showRB(</code></td></tr>
+        <tr><td><code>toast(msg)</code></td><td>Shows a temporary notification message at bottom-right</td><td>Search <code>function toast(</code></td></tr>
+        <tr><td><code>init()</code></td><td>App startup: loads data, restores state, sets up timers and warnings</td><td>Last function in the file</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 7: PAGE & MODULE MAP
+  ═══════════════════════════════════════════ -->
+  <div class="section">
+    <h2>🗺️ 7. Page & Module Map</h2>
+    <p class="section-intro">Shows which HTML element ID corresponds to which page, and which JS function renders it.</p>
+
+    <table>
+      <thead><tr><th>Page / Module</th><th>HTML ID</th><th>JS Render Function</th><th>Available to</th></tr></thead>
+      <tbody>
+        <tr><td>Record Book — Setup</td><td><code>rb-setup</code></td><td><code>renderSetup()</code></td><td><span class="tag tag-blue">Subject</span> <span class="tag tag-green">Advisory</span></td></tr>
+        <tr><td>Record Book — Grade Entry</td><td><code>rb-gradeentry</code></td><td><code>renderGradeEntry()</code></td><td><span class="tag tag-blue">Subject</span> <span class="tag tag-green">Advisory</span></td></tr>
+        <tr><td>Record Book — Bulk Entry</td><td><code>rb-bulkentry</code></td><td><code>renderBulkEntry()</code></td><td><span class="tag tag-blue">Subject</span> <span class="tag tag-green">Advisory</span></td></tr>
+        <tr><td>Record Book — Summary</td><td><code>rb-summary</code></td><td><code>renderRBSummary()</code></td><td><span class="tag tag-blue">Subject</span> <span class="tag tag-green">Advisory</span></td></tr>
+        <tr><td>Record Book — Analytics</td><td><code>rb-analytics</code></td><td><code>renderAnalytics()</code></td><td><span class="tag tag-blue">Subject</span> <span class="tag tag-green">Advisory</span></td></tr>
+        <tr><td>Record Book — LOA Reports</td><td><code>rb-loa</code></td><td><code>renderLOA()</code></td><td><span class="tag tag-blue">Subject</span> <span class="tag tag-green">Advisory</span></td></tr>
+        <tr><td>Grade Summary (Class)</td><td><code>gstabTable</code> → <code>gradeSummaryCard</code></td><td><code>renderGradeSummaryPage()</code></td><td><span class="tag tag-blue">Subject</span> <span class="tag tag-green">Advisory</span></td></tr>
+        <tr><td>Grade Summary (LOA Overview)</td><td><code>gstabLOA</code> → <code>gsLOAContent</code></td><td><code>renderGSLOA()</code></td><td><span class="tag tag-blue">Subject</span> <span class="tag tag-green">Advisory</span></td></tr>
+        <tr><td>Grade Summary (Student Detail)</td><td><code>gstabStudent</code> → <code>gsStudContent</code></td><td><code>renderGSStudent()</code></td><td><span class="tag tag-blue">Subject</span> <span class="tag tag-green">Advisory</span></td></tr>
+        <tr><td>Attendance Summary</td><td><code>attSumContent</code></td><td><code>renderAttSum()</code></td><td><span class="tag tag-blue">Subject</span> <span class="tag tag-green">Advisory</span></td></tr>
+        <tr><td>Daily Attendance</td><td><code>dailyAttContent</code></td><td><code>renderDailyAtt()</code></td><td><span class="tag tag-blue">Subject</span> <span class="tag tag-green">Advisory</span></td></tr>
+        <tr><td>Consolidated Grades</td><td><code>consContent</code></td><td><code>renderCons()</code></td><td><span class="tag tag-green">Advisory only</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 8: ADDING A NEW PAGE
+  ═══════════════════════════════════════════ -->
+  <div class="section">
+    <h2>➕ 8. How to Add a New Page or Module</h2>
+    <p class="section-intro">Follow these 4 steps every time you want to add a new main page.</p>
+
+    <h3>Step 1 — Add the page container in index.html</h3>
+    <div class="code-block">
+<span class="cm">&lt;!-- Add inside &lt;div id="pagesContainer"&gt; --&gt;</span>
+&lt;<span class="ck">div</span> <span class="cv">class</span>=<span class="cs">"page"</span> <span class="cv">id</span>=<span class="cs">"page-mypage"</span>&gt;
+  &lt;<span class="ck">div</span> <span class="cv">class</span>=<span class="cs">"pi"</span> <span class="cv">id</span>=<span class="cs">"myPageContent"</span>&gt;
+    &lt;<span class="ck">div</span> <span class="cv">class</span>=<span class="cs">"ws"</span>&gt;&lt;<span class="ck">h2</span>&gt;Loading...&lt;/<span class="ck">h2</span>&gt;&lt;/<span class="ck">div</span>&gt;
+  &lt;/<span class="ck">div</span>&gt;
+&lt;/<span class="ck">div</span>&gt;</div>
+
+    <h3>Step 2 — Add it to the navigation in buildNav() in main.js</h3>
+    <div class="code-block">
+<span class="cm">// Inside buildNav(), add to the items array:</span>
+{ <span class="cv">id</span>: <span class="cs">'mypage'</span>, <span class="cv">icon</span>: <span class="cs">'📋'</span>, <span class="cv">label</span>: <span class="cs">'My New Page'</span> }</div>
+
+    <h3>Step 3 — Create a render function in main.js</h3>
+    <div class="code-block">
+<span class="ck">function</span> <span class="cv">renderMyPage</span>() {
+  <span class="ck">const</span> el = document.<span class="cv">getElementById</span>(<span class="cs">'myPageContent'</span>);
+  <span class="ck">if</span> (!<span class="cv">hasClass</span>()) { el.<span class="cv">innerHTML</span> = <span class="cs">'&lt;div class="ws"&gt;&lt;h2&gt;Select a class first&lt;/h2&gt;&lt;/div&gt;'</span>; <span class="ck">return</span>; }
+  el.<span class="cv">innerHTML</span> = <span class="cs">`&lt;div class="card"&gt;Your content here&lt;/div&gt;`</span>;
+}</div>
+
+    <h3>Step 4 — Hook it up in showPage() in main.js</h3>
+    <div class="code-block">
+<span class="cm">// Inside showPage(), add:</span>
+<span class="ck">if</span> (n === <span class="cs">'mypage'</span>) <span class="cv">renderMyPage</span>();</div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 9: DEPLOYMENT GUIDE
+  ═══════════════════════════════════════════ -->
+  <div class="section">
+    <h2>🚀 9. Deployment Guide</h2>
+
+    <div class="g2">
+      <div>
+        <h3>Option A — Vercel (recommended for online access)</h3>
+        <ol style="margin:8px 0 0 16px;line-height:2;font-size:12px">
+          <li>Push the <code>mendtrix/</code> folder to a GitHub repository</li>
+          <li>Go to <a href="https://vercel.com">vercel.com</a> → New Project → Import GitHub repo</li>
+          <li>Vercel auto-detects it as a static site</li>
+          <li>Deploy — done. Teachers get a URL like <code>mendtrix.vercel.app</code></li>
+          <li>Every git push auto-deploys the update</li>
+        </ol>
+        <div class="tip" style="margin-top:10px">Free tier supports unlimited users. No server needed.</div>
+      </div>
+      <div>
+        <h3>Option B — Direct HTML file (offline use)</h3>
+        <ol style="margin:8px 0 0 16px;line-height:2;font-size:12px">
+          <li>Copy the entire <code>mendtrix/</code> folder to the teacher's computer</li>
+          <li>Teacher double-clicks <code>index.html</code> to open in any browser</li>
+          <li>Works 100% offline — no internet needed</li>
+          <li>To update: replace the folder with the new version</li>
+        </ol>
+        <div class="warn" style="margin-top:10px">When opening as a local file, some browsers may block font loading (CORS). Use Chrome or Edge for best results.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 10: COMMON TASKS
+  ═══════════════════════════════════════════ -->
+  <div class="section">
+    <h2>🔧 10. Common Tasks — Step by Step</h2>
+
+    <h3>Change the system from DepEd (30/50/20) to a different weighting</h3>
+    <div class="code-block">
+<span class="cm">// In main.js, find: const W={ww:0.30,pt:0.50,qa:0.20}</span>
+<span class="cm">// Change to your weights (must sum to 1.0):</span>
+<span class="ck">const</span> W = { <span class="cv">ww</span>: <span class="cv">0.40</span>, <span class="cv">pt</span>: <span class="cv">0.40</span>, <span class="cv">qa</span>: <span class="cv">0.20</span> }; <span class="cm">// Example: 40/40/20</span></div>
+
+    <h3>Add a new grade level option (e.g. Kinder)</h3>
+    <div class="code-block">
+<span class="cm">&lt;!-- In index.html, find the csGrade select and add: --&gt;</span>
+&lt;<span class="ck">option</span>&gt;Kinder&lt;/<span class="ck">option</span>&gt;
+&lt;<span class="ck">option</span>&gt;Grade 1&lt;/<span class="ck">option</span>&gt;</div>
+
+    <h3>Change auto-save interval from 15 to 10 minutes</h3>
+    <div class="code-block">
+<span class="cm">// In main.js, at the very bottom, find:</span>
+}, <span class="cv">15</span> * <span class="cv">60</span> * <span class="cv">1000</span>);
+<span class="cm">// Change to:</span>
+}, <span class="cv">10</span> * <span class="cv">60</span> * <span class="cv">1000</span>); <span class="cm">// 10 minutes</span></div>
+
+    <h3>Disable the unsaved-changes warning popup</h3>
+    <div class="code-block">
+<span class="cm">// In main.js, find the beforeunload block and comment it out:</span>
+<span class="cm">/*
+window.addEventListener('beforeunload', function(e){
+  ...
+});
+*/</span></div>
+
+    <h3>Add a new column to the Excel export</h3>
+    <div class="code-block">
+<span class="cm">// In main.js, find: function excelGrades()</span>
+<span class="cm">// Inside the student data row building loop, add to the row array:</span>
+row.<span class="cv">push</span>(yourNewValue);</div>
+
+    <div class="tip">After any change to <code>main.js</code> or <code>style.css</code>, just refresh the browser. No build step needed — this is a plain HTML/CSS/JS project.</div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 11: TEACHER WORKFLOW GUIDE
+  ═══════════════════════════════════════════ -->
+  <div class="section">
+    <h2>👩‍🏫 11. Teacher Workflow Guide (Data Safety)</h2>
+    <p class="section-intro">Share this section with teachers so they understand how to keep their data safe.</p>
+
+    <table>
+      <thead><tr><th>Storage Type</th><th>Where</th><th>Survives browser close?</th><th>Survives clearing history?</th><th>Works on other computers?</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Auto-save (localStorage)</strong></td><td>Inside the browser on that specific computer</td><td><span class="tag tag-green">✓ Yes</span></td><td><span class="tag tag-red">✗ Lost</span></td><td><span class="tag tag-red">✗ No</span></td></tr>
+        <tr><td><strong>Exported .json file</strong></td><td>Teacher's Downloads folder / USB / Google Drive</td><td><span class="tag tag-green">✓ Yes</span></td><td><span class="tag tag-green">✓ Yes</span></td><td><span class="tag tag-green">✓ Yes</span></td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top:16px">Recommended daily habit for teachers</h3>
+    <ol style="margin:8px 0 0 16px;line-height:2.2;font-size:12px">
+      <li><strong>Start of session:</strong> Open the app → Click <strong>Load File</strong> → Select their latest <code>.json</code> file</li>
+      <li><strong>During session:</strong> Enter grades normally — app auto-saves every keystroke to the browser</li>
+      <li><strong>Every 15 minutes:</strong> App automatically downloads an <code>AutoSave_...</code> file — keep this in Google Drive</li>
+      <li><strong>End of session:</strong> Go to <strong>Setup tab</strong> → Click <strong>Save &amp; Export File</strong> → Save it to a named folder or USB</li>
+      <li><strong>Never do:</strong> Clear browser history / use incognito mode / switch browsers without exporting first</li>
+    </ol>
+  </div>
+
+  <div style="text-align:center;margin-top:32px;padding-top:20px;border-top:1px solid var(--border);font-size:11px;color:var(--text3)">
+    Mendtrix E-Class Record System — Developer Cheat Sheet &nbsp;·&nbsp; Built by Mendtrix IT Services
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- ─────────────────────────────────────────
+       PAGE TITLE
+       Edit this to change the browser tab title
+  ───────────────────────────────────────────── -->
+  <title>Mendtrix E-Class Record System</title>
+
+  <!-- ─────────────────────────────────────────
+       FAVICON (optional)
+       Place a favicon.ico in the root folder
+       and uncomment the line below
+  ───────────────────────────────────────────── -->
+  <!-- <link rel="icon" type="image/x-icon" href="favicon.ico"> -->
+
+  <!-- ─────────────────────────────────────────
+       EXTERNAL LIBRARY — SheetJS (Excel export)
+       Do not remove or change this line.
+       Required for .xlsx file generation.
+  ───────────────────────────────────────────── -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <!-- ─────────────────────────────────────────
+       STYLES
+       All visual styling lives in assets/css/style.css
+       Edit that file to change colors, fonts, spacing, etc.
+  ───────────────────────────────────────────── -->
+  <link rel="stylesheet" href="assets/css/style.css">
+
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════
+     ROLE SELECTOR SCREEN
+     Shows on first open — teacher picks Subject or Advisory
+     To edit the role card text: search "rs-name" in this file
+════════════════════════════════════════════════════════ -->
+<div id="roleScreen">
+  <div class="rs-logo">Mendtrix <span>E-Class</span></div>
+  <div class="rs-tag">Official Digital Grading &amp; Attendance System</div>
+  <div class="rs-cards">
+    <div class="rs-card" onclick="selectRole('subject')">
+      <div class="rs-icon">📚</div>
+      <div class="rs-name">Subject Teacher</div>
+      <div class="rs-desc">Manage grades, attendance, LOA reports and analytics for your subject class</div>
+    </div>
+    <div class="rs-card" onclick="selectRole('advisory')">
+      <div class="rs-icon">🏫</div>
+      <div class="rs-name">Advisory Teacher</div>
+      <div class="rs-desc">Consolidate grades across subjects and manage your advisory class</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     MAIN APP SHELL
+     The topbar, class selector, and page containers live here
+════════════════════════════════════════════════════════ -->
+<div id="app">
+
+  <!-- ── TOP NAVIGATION BAR ── -->
+  <div class="topbar">
+    <div class="brand">
+      <div class="bmark">M</div>
+      <div class="bname">Mendtrix</div>
+      <div class="brole" id="roleLabel">Subject Teacher</div>
+    </div>
+    <div class="tdiv"></div>
+    <div class="mainnav" id="mainNav"></div>
+    <div class="tr">
+      <div class="cbadge" id="classBadge">No class selected</div>
+      <button class="swbtn" onclick="switchRole()" style="background:#dbeafe;color:#1d4ed8;border-color:#93c5fd;font-weight:600;display:flex;align-items:center;gap:4px">⇄ Switch Role</button>
+    </div>
+  </div>
+
+  <!-- ── CLASS SELECTOR BAR ── -->
+  <div class="csbar">
+    <span class="cslbl">Active Class:</span>
+    <select class="cssel" id="csGrade">
+      <option value="">Grade Level</option>
+      <option>Grade 7</option>
+      <option>Grade 8</option>
+      <option>Grade 9</option>
+      <option>Grade 10</option>
+      <option>Grade 11</option>
+      <option>Grade 12</option>
+    </select>
+    <input class="cssel" id="csSection" placeholder="Section (e.g. PEARL)" style="width:160px">
+    <button class="csbtn" onclick="applyClass()">Load Class</button>
+    <div class="csinfo" id="csInfo">Select grade and section to begin</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       PAGE CONTAINERS
+       Each page is a <div class="page" id="page-xxx">
+       Pages are shown/hidden by showPage() in main.js
+  ════════════════════════════════════════════════════════ -->
+  <div id="pagesContainer">
+
+    <!-- ── RECORD BOOK PAGE ── -->
+    <div class="page" id="page-recordbook"><div class="pi">
+      <!-- Sub-navigation tabs inside Record Book -->
+      <div class="subnav" id="rbNav">
+        <button class="stab active" onclick="showRB('setup')">⚙ Setup</button>
+        <button class="stab" onclick="showRB('gradeentry')">📝 Grade Entry</button>
+        <button class="stab" onclick="showRB('bulkentry')">⚡ Bulk Entry</button>
+        <button class="stab" onclick="showRB('summary')">📊 Summary</button>
+        <button class="stab" onclick="showRB('analytics')">📈 Analytics</button>
+        <button class="stab" onclick="showRB('loa')">📋 LOA Reports</button>
+      </div>
+      <!-- Sub-tab content containers (rendered by JS) -->
+      <div id="rb-setup" class="rbtab"></div>
+      <div id="rb-gradeentry" class="rbtab" style="display:none"></div>
+      <div id="rb-bulkentry" class="rbtab" style="display:none"></div>
+      <div id="rb-summary" class="rbtab" style="display:none"></div>
+      <div id="rb-analytics" class="rbtab" style="display:none"></div>
+      <div id="rb-loa" class="rbtab" style="display:none"></div>
+    </div></div>
+
+    <!-- ── GRADE SUMMARY PAGE ── -->
+    <div class="page" id="page-gradesummary"><div class="pi">
+      <!-- Export buttons -->
+      <div class="ebar">
+        <span class="elbl">📤 Export:</span>
+        <button class="btn br bsm" onclick="pdfSummary()">📄 PDF</button>
+        <button class="btn bg bsm" onclick="excelGrades()">📊 Excel (DepEd Format)</button>
+        <button class="btn ba bsm" onclick="jsonExport()">📦 JSON for Advisory</button>
+        <div class="sp"></div>
+        <button class="btn bo bsm" onclick="window.print()">🖨 Print</button>
+      </div>
+      <!-- Summary sub-tabs -->
+      <div class="fl" style="margin-bottom:12px">
+        <div class="subnav" style="width:fit-content">
+          <button class="stab active" id="gsTbl" onclick="showGSTab('table')">📋 Class Summary</button>
+          <button class="stab" id="gsLOA" onclick="showGSTab('loa')">📊 LOA Overview</button>
+          <button class="stab" id="gsStud" onclick="showGSTab('student')">🔍 Student Detail</button>
+        </div>
+      </div>
+      <div id="gstabTable">
+        <div class="card" id="gradeSummaryCard">
+          <div class="ws"><h2>Select a class first</h2></div>
+        </div>
+      </div>
+      <div id="gstabLOA" style="display:none">
+        <div id="gsLOAContent"><div class="ws"><h2>Select a class first</h2></div></div>
+      </div>
+      <div id="gstabStudent" style="display:none">
+        <div id="gsStudContent"><div class="ws"><h2>Select a class first</h2></div></div>
+      </div>
+    </div></div>
+
+    <!-- ── ATTENDANCE SUMMARY PAGE ── -->
+    <div class="page" id="page-attsummary">
+      <div class="pi" id="attSumContent">
+        <div class="ws"><h2>Select a class first</h2></div>
+      </div>
+    </div>
+
+    <!-- ── DAILY ATTENDANCE PAGE ── -->
+    <div class="page" id="page-dailyatt">
+      <div class="pi" id="dailyAttContent">
+        <div class="ws"><h2>Select a class first</h2></div>
+      </div>
+    </div>
+
+    <!-- ── CONSOLIDATED GRADES PAGE (Advisory Teacher only) ── -->
+    <div class="page" id="page-consolidated">
+      <div class="pi" id="consContent">
+        <div class="ws">
+          <h2>Consolidated Grades</h2>
+          <p>Import JSON files from subject teachers.</p>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /pagesContainer -->
+</div><!-- /app -->
+
+<!-- ═══════════════════════════════════════════════════════
+     MODAL — used for detail views and popups
+════════════════════════════════════════════════════════ -->
+<div class="mbg" id="mainModal">
+  <div class="modal">
+    <div class="mh">
+      <div>
+        <div class="ct" id="mTitle"></div>
+        <div class="cs" id="mSub"></div>
+      </div>
+      <button class="mx" onclick="closeModal()">✕</button>
+    </div>
+    <div id="mBody"></div>
+  </div>
+</div>
+
+<!-- ── TOAST NOTIFICATION ── -->
+<div id="toast"></div>
+
+<!-- ═══════════════════════════════════════════════════════
+     MAIN APPLICATION SCRIPT
+     All logic lives in assets/js/main.js
+     Do NOT add business logic here — put it in main.js
+════════════════════════════════════════════════════════ -->
+<script src="assets/js/main.js"></script>
+
+</body>
+</html>
