@@ -209,7 +209,7 @@ function loadFile(inp){
 // ══════════════════════════════════════════════
 function showRB(tab){
   APP.rbtab=tab;
-  const tabs=['setup','gradeentry','bulkentry','summary','analytics','loa'];
+  const tabs=['setup','gradeentry','bulkentry','summary','analytics','loa','instructions'];
   document.querySelectorAll('#rbNav .stab').forEach((t,i)=>t.classList.toggle('active',tabs[i]===tab));
   document.querySelectorAll('.rbtab').forEach(el=>el.style.display='none');
   const el=document.getElementById('rb-'+tab);if(el)el.style.display='block';
@@ -223,6 +223,7 @@ function renderRB(tab){
   else if(tab==='summary')renderRBSummary();
   else if(tab==='analytics')renderAnalytics();
   else if(tab==='loa')renderLOA();
+  else if(tab==='instructions')renderInstructions();
 }
 
 // ── SETUP
@@ -685,6 +686,262 @@ function renderAnalContent(){
 // ══════════════════════════════════════════════
 // LOA SUMMARY REPORTS MODULE
 // ══════════════════════════════════════════════
+// ══════════════════════════════════════════════
+// INSTRUCTIONS MODULE
+// ══════════════════════════════════════════════
+function renderInstructions(){
+  const el=document.getElementById('rb-instructions');
+  if(!el)return;
+  el.innerHTML=`
+  <!-- Hero Banner -->
+  <div class="inst-hero">
+    <div class="inst-hero-title">📖 Welcome to Mendtrix E-Class Record System</div>
+    <div class="inst-hero-sub">This guide will help you understand how to use the system step by step. Read this before you start entering grades.</div>
+  </div>
+
+  <!-- Quick Overview Cards -->
+  <div class="inst-section-title">🗺️ What can this system do?</div>
+  <div class="inst-grid">
+    <div class="inst-card">
+      <div class="inst-card-icon">📝</div>
+      <div class="inst-card-title">Grade Entry</div>
+      <div class="inst-card-desc">Enter scores for Written Works (WW1–WW10), Performance Tasks (PT1–PT10), and Quarterly Assessment for each student. The system automatically computes the Percentage Score, Weighted Score, Initial Grade, and Quarterly Grade based on DepEd K-12 formula.</div>
+    </div>
+    <div class="inst-card">
+      <div class="inst-card-icon">⚡</div>
+      <div class="inst-card-title">Bulk Entry</div>
+      <div class="inst-card-desc">Enter scores for one specific item (e.g. WW3) for all students at the same time in a single column. This is much faster than entering one student at a time when you are scoring a specific activity or test.</div>
+    </div>
+    <div class="inst-card">
+      <div class="inst-card-icon">📊</div>
+      <div class="inst-card-title">Summary & Reports</div>
+      <div class="inst-card-desc">View the final grades for all students across all 4 quarters, export to Excel in official DepEd E-Class Record format, export to PDF, and send a JSON file to your Advisory Teacher for consolidated grading.</div>
+    </div>
+    <div class="inst-card">
+      <div class="inst-card-icon">📅</div>
+      <div class="inst-card-title">Attendance</div>
+      <div class="inst-card-desc">Record daily attendance for your students. Mark each student as Present (P), Absent (A), or Late (L). View a monthly summary, export to Excel or PDF, and track total absences per student.</div>
+    </div>
+    <div class="inst-card">
+      <div class="inst-card-icon">📋</div>
+      <div class="inst-card-title">LOA Reports</div>
+      <div class="inst-card-desc">Level of Achievement reports automatically computed from your grade entries. Shows proficiency bands for Written Works, Performance Tasks, Quarterly Assessment, and final Quarterly Grades — ready for submission.</div>
+    </div>
+    <div class="inst-card">
+      <div class="inst-card-icon">🏫</div>
+      <div class="inst-card-title">Advisory Teacher Mode</div>
+      <div class="inst-card-desc">Advisory Teachers can import JSON files from multiple subject teachers and generate a Consolidated Grades report showing General Average and Promotion Status for every student across all subjects.</div>
+    </div>
+  </div>
+
+  <!-- Step by Step: First Time Setup -->
+  <div class="card">
+    <div class="ch"><div class="ct">🚀 First Time Setup — Do This Before Entering Grades</div></div>
+    <div class="inst-step">
+      <div class="inst-step-num">1</div>
+      <div class="inst-step-body">
+        <div class="inst-step-title">Select your Grade Level and Section</div>
+        <div class="inst-step-desc">At the top of the screen, you will see a bar that says "Active Class". Click the <strong>Grade Level</strong> dropdown and select your grade (e.g. Grade 10). Then type your <strong>Section</strong> name (e.g. PEARL). Click the <strong>Load Class</strong> button. The system will create a new empty class for you.</div>
+      </div>
+    </div>
+    <div class="inst-step">
+      <div class="inst-step-num">2</div>
+      <div class="inst-step-body">
+        <div class="inst-step-title">Fill in School Information</div>
+        <div class="inst-step-desc">Go to the <strong>Setup</strong> tab. Fill in your School Name, School ID, Region, Division, Teacher Name, Subject, and School Year. This information will appear on all your printed reports and Excel exports.</div>
+      </div>
+    </div>
+    <div class="inst-step">
+      <div class="inst-step-num">3</div>
+      <div class="inst-step-body">
+        <div class="inst-step-title">Set the Highest Possible Score (HPS) for each quarter</div>
+        <div class="inst-step-desc">Still in Setup, scroll down to the <strong>HPS section</strong>. For each quarter, enter the maximum possible score for each Written Work item (WW1, WW2, etc.), each Performance Task (PT1, PT2, etc.), and the Quarterly Assessment. Leave a box blank if that item is not used for that quarter. This is very important — grades cannot be computed correctly without HPS values.</div>
+      </div>
+    </div>
+    <div class="inst-step">
+      <div class="inst-step-num">4</div>
+      <div class="inst-step-body">
+        <div class="inst-step-title">Add your students</div>
+        <div class="inst-step-desc">Scroll to the bottom of Setup. Add all <strong>Male students</strong> in the left column and all <strong>Female students</strong> in the right column. Type the full name and press <strong>Enter</strong> or click the <strong>+ Add</strong> button. Names are automatically converted to uppercase.</div>
+      </div>
+    </div>
+    <div class="inst-step">
+      <div class="inst-step-num">5</div>
+      <div class="inst-step-body">
+        <div class="inst-step-title">Save your work</div>
+        <div class="inst-step-desc">Click the <strong>Save Setup</strong> button, then click <strong>💾 Save &amp; Export File</strong>. This downloads a <code>.json</code> file to your computer. Keep this file safe — it is your backup. You can load it again anytime using the <strong>📂 Load File</strong> button.</div>
+      </div>
+    </div>
+    <div class="inst-tip">✅ You only need to do the Setup once per subject per school year. After that, just load your saved file at the start of each session.</div>
+  </div>
+
+  <!-- Step by Step: Entering Grades -->
+  <div class="card">
+    <div class="ch"><div class="ct">✏️ How to Enter Grades</div></div>
+    <div class="inst-step">
+      <div class="inst-step-num">1</div>
+      <div class="inst-step-body">
+        <div class="inst-step-title">Go to the Grade Entry tab</div>
+        <div class="inst-step-desc">Click the <strong>📝 Grade Entry</strong> tab at the top of the Record Book. You will see the full class list with columns for all Written Works, Performance Tasks, and Quarterly Assessment scores.</div>
+      </div>
+    </div>
+    <div class="inst-step">
+      <div class="inst-step-num">2</div>
+      <div class="inst-step-body">
+        <div class="inst-step-title">Select the correct Quarter</div>
+        <div class="inst-step-desc">Click the <strong>Quarter 1</strong>, <strong>Quarter 2</strong>, <strong>Quarter 3</strong>, or <strong>Quarter 4</strong> button to switch between quarters. Each quarter has its own separate set of scores.</div>
+      </div>
+    </div>
+    <div class="inst-step">
+      <div class="inst-step-num">3</div>
+      <div class="inst-step-body">
+        <div class="inst-step-title">Type scores directly into the table</div>
+        <div class="inst-step-desc">Click any score box in the table and type the student's score. The columns on the right (Total, PS, WS, Initial Grade, Quarterly Grade) will automatically update as you type. You do not need to press Save — the system saves automatically after every entry.</div>
+      </div>
+    </div>
+    <div class="inst-step">
+      <div class="inst-step-num">4</div>
+      <div class="inst-step-body">
+        <div class="inst-step-title">Leave blank if no score yet</div>
+        <div class="inst-step-desc">If a student did not take an activity yet, just leave the box empty. Do not type 0 unless the student's actual score is zero. Blank means "not yet graded" and will be shown as missing in the analytics.</div>
+      </div>
+    </div>
+    <div class="inst-warn">⚠️ Important: The yellow row at the top of the table shows the HPS (Highest Possible Score) for each item. Make sure you set these correctly in Setup first, or the computed grades will be wrong.</div>
+  </div>
+
+  <!-- Bulk Entry Guide -->
+  <div class="card">
+    <div class="ch"><div class="ct">⚡ How to Use Bulk Entry (Fast Way)</div></div>
+    <div class="inst-step">
+      <div class="inst-step-num">1</div>
+      <div class="inst-step-body">
+        <div class="inst-step-title">Select the filters</div>
+        <div class="inst-step-desc">Go to the <strong>⚡ Bulk Entry</strong> tab. Choose the <strong>Quarter</strong>, <strong>Gender</strong> (All, Male, or Female), <strong>Category</strong> (Written Works, Performance Tasks, or Quarterly Assessment), and the specific <strong>Item</strong> number (e.g. WW3).</div>
+      </div>
+    </div>
+    <div class="inst-step">
+      <div class="inst-step-num">2</div>
+      <div class="inst-step-body">
+        <div class="inst-step-title">Click Load Students</div>
+        <div class="inst-step-desc">Click the <strong>Load</strong> button. All students matching your filter will appear in a simple two-column list: student name and a score box.</div>
+      </div>
+    </div>
+    <div class="inst-step">
+      <div class="inst-step-num">3</div>
+      <div class="inst-step-body">
+        <div class="inst-step-title">Enter all scores then click Save</div>
+        <div class="inst-step-desc">Type each student's score in the box next to their name. You can skip students by leaving the box blank. When done, click <strong>Save Grades</strong>. You will see a message showing how many scores were saved and how many were left blank.</div>
+      </div>
+    </div>
+    <div class="inst-tip">💡 Bulk Entry is the fastest way to encode grades. Use it after scoring a set of papers — you can enter an entire class's scores for one activity in under 2 minutes.</div>
+  </div>
+
+  <!-- Saving Data -->
+  <div class="card">
+    <div class="ch"><div class="ct">💾 How to Save and Protect Your Data</div></div>
+    <div class="inst-step">
+      <div class="inst-step-num">1</div>
+      <div class="inst-step-body">
+        <div class="inst-step-title">The system auto-saves as you type</div>
+        <div class="inst-step-desc">Every grade you enter is automatically saved inside the browser on your current computer. This means if you close the tab and reopen the same website or file on the same computer and same browser, your data will still be there.</div>
+      </div>
+    </div>
+    <div class="inst-step">
+      <div class="inst-step-num">2</div>
+      <div class="inst-step-body">
+        <div class="inst-step-title">Every 15 minutes — download your auto-save file</div>
+        <div class="inst-step-desc">The system automatically downloads a file called <code>AutoSave_...</code> to your Downloads folder every 15 minutes. Keep this file. If something goes wrong, you can load it using <strong>📂 Load File</strong> in Setup.</div>
+      </div>
+    </div>
+    <div class="inst-step">
+      <div class="inst-step-num">3</div>
+      <div class="inst-step-body">
+        <div class="inst-step-title">At the end of every session — Export your file</div>
+        <div class="inst-step-desc">Before closing the browser, go to <strong>Setup</strong> and click <strong>💾 Save &amp; Export File</strong>. Save this <code>.json</code> file to a folder on your computer, USB drive, or Google Drive. This is your master backup file.</div>
+      </div>
+    </div>
+    <div class="inst-step">
+      <div class="inst-step-num">4</div>
+      <div class="inst-step-body">
+        <div class="inst-step-title">At the start of every session — Load your file</div>
+        <div class="inst-step-desc">When you open the system again, click <strong>📂 Load File</strong> in Setup and select your saved <code>.json</code> file. All your students, HPS settings, and grades will be fully restored exactly as you left them.</div>
+      </div>
+    </div>
+    <div class="inst-warn">⚠️ Never clear your browser history while working. This will delete all auto-saved data. Always export your <code>.json</code> file first before clearing history or using a different computer.</div>
+  </div>
+
+  <!-- Exporting -->
+  <div class="card">
+    <div class="ch"><div class="ct">📤 Exporting Your Reports</div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+      <div style="padding:16px;background:var(--surf2);border-radius:var(--r);border:1px solid var(--bdr)">
+        <div style="font-size:20px;margin-bottom:8px">📊</div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:6px">Excel Export</div>
+        <div style="font-size:13px;color:var(--tx2);line-height:1.7">Go to <strong>Grade Summary</strong> and click <strong>📊 Excel (DepEd Format)</strong>. Downloads an <code>.xlsx</code> file with all quarter sheets in the official DepEd E-Class Record format including Input Data, Q1–Q4 sheets, Summary, and LOA Summary.</div>
+      </div>
+      <div style="padding:16px;background:var(--surf2);border-radius:var(--r);border:1px solid var(--bdr)">
+        <div style="font-size:20px;margin-bottom:8px">📄</div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:6px">PDF Export</div>
+        <div style="font-size:13px;color:var(--tx2);line-height:1.7">Each section has a <strong>📄 PDF</strong> button. This opens a print preview window. Click <strong>Print</strong> in your browser and select <strong>Save as PDF</strong> as the printer. You can also click <strong>🖨 Print</strong> to send directly to a printer.</div>
+      </div>
+      <div style="padding:16px;background:var(--surf2);border-radius:var(--r);border:1px solid var(--bdr)">
+        <div style="font-size:20px;margin-bottom:8px">📦</div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:6px">JSON for Advisory</div>
+        <div style="font-size:13px;color:var(--tx2);line-height:1.7">Go to <strong>Grade Summary</strong> and click <strong>📦 JSON for Advisory</strong>. Send this file to your Advisory Teacher. They will upload it into their system to generate the Consolidated Grades report.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAQ -->
+  <div class="inst-section-title">❓ Frequently Asked Questions</div>
+
+  <div class="inst-faq">
+    <div class="inst-faq-q" onclick="toggleFAQ(this)">My grades disappeared when I opened the system again. What happened? <span>▼</span></div>
+    <div class="inst-faq-a">This usually happens when: (1) you opened the system on a different computer or different browser, (2) your browser history/cache was cleared, or (3) you used Incognito/Private mode. The solution is to always export your <code>.json</code> file before closing the system, then load it again at the start of the next session using <strong>📂 Load File</strong> in Setup.</div>
+  </div>
+  <div class="inst-faq">
+    <div class="inst-faq-q" onclick="toggleFAQ(this)">The Quarterly Grade is not showing up. Why? <span>▼</span></div>
+    <div class="inst-faq-a">The Quarterly Grade only computes when the Highest Possible Score (HPS) has been set for that quarter. Go to <strong>Setup → HPS section</strong> and make sure you have entered the HPS values for the current quarter. After setting the HPS, go back to Grade Entry and the grades will appear automatically.</div>
+  </div>
+  <div class="inst-faq">
+    <div class="inst-faq-q" onclick="toggleFAQ(this)">Can I use this on my phone or tablet? <span>▼</span></div>
+    <div class="inst-faq-a">Yes, the system works on phones and tablets, but the Grade Entry table has many columns and works best on a computer or laptop. For entering grades, we recommend using a desktop or laptop browser. Attendance recording and viewing summaries work well on a tablet.</div>
+  </div>
+  <div class="inst-faq">
+    <div class="inst-faq-q" onclick="toggleFAQ(this)">How do I add a student who enrolled after the school year started? <span>▼</span></div>
+    <div class="inst-faq-a">Go to <strong>Setup → Student List</strong> and type the new student's name in the correct gender column, then click <strong>+ Add</strong>. The student will immediately appear in Grade Entry and Bulk Entry. Remember to click <strong>Save Setup</strong> and <strong>💾 Save &amp; Export File</strong> after adding them.</div>
+  </div>
+  <div class="inst-faq">
+    <div class="inst-faq-q" onclick="toggleFAQ(this)">I accidentally entered the wrong score. How do I fix it? <span>▼</span></div>
+    <div class="inst-faq-a">Just click on the score box that has the wrong value and type the correct score. The system will immediately update all the computed values. You can also clear a score by deleting everything in the box — this will remove the score and leave it as blank (not graded).</div>
+  </div>
+  <div class="inst-faq">
+    <div class="inst-faq-q" onclick="toggleFAQ(this)">How do I handle a student who was absent for a quarterly assessment? <span>▼</span></div>
+    <div class="inst-faq-a">Leave the QA score box empty for that student. The system will compute the Quarterly Grade based only on the components that have scores. If the student later takes a make-up test, just enter the score at that time.</div>
+  </div>
+  <div class="inst-faq">
+    <div class="inst-faq-q" onclick="toggleFAQ(this)">Can multiple teachers share one account or class record? <span>▼</span></div>
+    <div class="inst-faq-a">Not at the same time. Each teacher has their own copy of the system with their own data. If two teachers need to work on the same class record, they should agree on who is the primary encoder and share the <code>.json</code> file between them. The last person to export and save the file has the most recent data.</div>
+  </div>
+  <div class="inst-faq">
+    <div class="inst-faq-q" onclick="toggleFAQ(this)">What is the difference between Subject Teacher and Advisory Teacher mode? <span>▼</span></div>
+    <div class="inst-faq-a"><strong>Subject Teacher mode</strong> is for teachers who handle one specific subject. You enter grades for your subject only.<br><br><strong>Advisory Teacher mode</strong> is for the class adviser. You can do everything a Subject Teacher can, plus you get the <strong>Consolidated Grades</strong> module where you upload the JSON files from all subject teachers and generate the General Average and Promotion Status for every student. You can switch between modes anytime using the <strong>⇄ Switch Role</strong> button at the top right.</div>
+  </div>
+
+  <div class="inst-tip" style="margin-top:20px">📞 Need help? Contact Mendtrix IT Services for technical support and training.</div>
+  `;
+}
+
+function toggleFAQ(el){
+  const ans=el.nextElementSibling;
+  const isOpen=ans.classList.contains('open');
+  // Close all
+  document.querySelectorAll('.inst-faq-a').forEach(a=>a.classList.remove('open'));
+  document.querySelectorAll('.inst-faq-q span').forEach(s=>s.textContent='▼');
+  // Open this one if it was closed
+  if(!isOpen){ans.classList.add('open');el.querySelector('span').textContent='▲';}
+}
+
 function renderLOA(){
   const el=document.getElementById('rb-loa');const cd=getCD();
   el.innerHTML=`
