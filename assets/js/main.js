@@ -2180,10 +2180,71 @@ function excelCons(){
 }
 
 // ══════════════════════════════════════════════
+// ZOOM CONTROL
+// ══════════════════════════════════════════════
+const ZOOM_LEVELS = [90, 100, 110, 120, 130, 140, 150];
+let currentZoom = 100;
+
+function applyZoom(level) {
+  currentZoom = level;
+  document.documentElement.setAttribute('data-zoom', level);
+  const lbl = document.getElementById('zoomLabel');
+  if (lbl) lbl.textContent = level + '%';
+  try { localStorage.setItem('mendtrix_zoom', level); } catch(e) {}
+}
+
+function zoomIn() {
+  const idx = ZOOM_LEVELS.indexOf(currentZoom);
+  if (idx < ZOOM_LEVELS.length - 1) applyZoom(ZOOM_LEVELS[idx + 1]);
+  else toast('Maximum zoom reached');
+}
+
+function zoomOut() {
+  const idx = ZOOM_LEVELS.indexOf(currentZoom);
+  if (idx > 0) applyZoom(ZOOM_LEVELS[idx - 1]);
+  else toast('Minimum zoom reached');
+}
+
+function loadZoom() {
+  try {
+    const saved = localStorage.getItem('mendtrix_zoom');
+    if (saved) applyZoom(parseInt(saved));
+  } catch(e) {}
+}
+
+// ══════════════════════════════════════════════
+// DARK MODE
+// ══════════════════════════════════════════════
+let darkMode = false;
+
+function toggleDarkMode() {
+  darkMode = !darkMode;
+  document.body.classList.toggle('dark-mode', darkMode);
+  const btn = document.getElementById('dmBtn');
+  if (btn) btn.textContent = darkMode ? '☀️' : '🌙';
+  try { localStorage.setItem('mendtrix_dark', darkMode ? '1' : '0'); } catch(e) {}
+  toast(darkMode ? '🌙 Dark mode on' : '☀️ Light mode on');
+}
+
+function loadDarkMode() {
+  try {
+    const saved = localStorage.getItem('mendtrix_dark');
+    if (saved === '1') {
+      darkMode = true;
+      document.body.classList.add('dark-mode');
+      const btn = document.getElementById('dmBtn');
+      if (btn) btn.textContent = '☀️';
+    }
+  } catch(e) {}
+}
+
+// ══════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════
 function init(){
   load();
+  loadZoom();
+  loadDarkMode();
   if(APP.role){
     document.getElementById('roleScreen').classList.add('hidden');
     document.getElementById('app').classList.add('visible');

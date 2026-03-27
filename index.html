@@ -65,15 +65,24 @@
   <!-- ── TOP NAVIGATION BAR ── -->
   <div class="topbar">
     <div class="brand">
-      <div class="bmark">ANHS</div>
-      <div class="bname">Angono National High School</div>
+      <div class="bmark">M</div>
+      <div class="bname">Mendtrix</div>
       <div class="brole" id="roleLabel">Subject Teacher</div>
     </div>
     <div class="tdiv"></div>
     <div class="mainnav" id="mainNav"></div>
     <div class="tr">
       <div class="cbadge" id="classBadge">No class selected</div>
-      <button class="swbtn" onclick="switchRole()" style="background:#dbeafe;color:#1d4ed8;border-color:#93c5fd;font-weight:600;display:flex;align-items:center;gap:4px">⇄ Switch Role</button>
+      <!-- Zoom Controls -->
+      <div class="zoom-ctrl">
+        <button class="zoom-btn" onclick="zoomOut()" title="Zoom Out">−</button>
+        <span class="zoom-label" id="zoomLabel">100%</span>
+        <button class="zoom-btn" onclick="zoomIn()" title="Zoom In">+</button>
+      </div>
+      <!-- Dark Mode Toggle -->
+      <button class="dm-btn" id="dmBtn" onclick="toggleDarkMode()" title="Toggle Dark Mode">🌙</button>
+      <!-- Switch Role -->
+      <button class="swbtn" onclick="switchRole()">⇄ Switch Role</button>
     </div>
   </div>
 
@@ -207,6 +216,21 @@
      Do NOT add business logic here — put it in main.js
 ════════════════════════════════════════════════════════ -->
 <script src="assets/js/main.js"></script>
+
+  <!-- ═══════════════════════════════════
+       FOOTER
+  ════════════════════════════════════ -->
+  <footer class="app-footer" id="appFooter">
+    <div class="footer-left">
+      <div class="footer-dot"></div>
+      <div class="footer-brand">Mendtrix <span>IT Services</span></div>
+      <div class="footer-tagline">— Official Digital Grading &amp; Attendance System</div>
+    </div>
+    <div class="footer-right">
+      <span class="footer-version">v3.0</span>
+      <span class="footer-tagline">© 2025 Mendtrix IT Services. All rights reserved.</span>
+    </div>
+  </footer>
 
 </body>
 </html>
