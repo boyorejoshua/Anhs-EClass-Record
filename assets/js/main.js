@@ -479,7 +479,13 @@ function saveBulk(){
     const val=inp.value.trim()===''?null:parseFloat(inp.value);
     if(!cd.grades[q])cd.grades[q]={};
     if(!cd.grades[q][name])cd.grades[q][name]={ww:Array(10).fill(null),pt:Array(10).fill(null),qa:null};
-    if(cat==='QA')cd.grades[q][name].qa=val;else cd.grades[q][name][cat][idx]=val;
+    if(cat==='QA'){
+  cd.grades[q][name].qa = val;
+}else{
+  const key = cat.toLowerCase(); // WW -> ww, PT -> pt
+  if(!cd.grades[q][name][key]) cd.grades[q][name][key] = Array(10).fill(null);
+  cd.grades[q][name][key][idx] = val;
+}
     if(val!==null)saved++;
   });
   save();
@@ -649,12 +655,70 @@ function renderAnalContent(){
   const area=document.getElementById('analContent');if(!area)return;
   const stu=allStu();const cd=getCD();const q=APP.aq;
   if(!stu.length){area.innerHTML='<div class="ws"><h2>No students</h2></div>';return}
-  let grades=q===0?stu.map(s=>{const vq=[1,2,3,4].map(qq=>calcQ(s.name,qq).quarterly).filter(v=>v!==null);return vq.length?Math.round(vq.reduce((a,b)=>a+b,0)/vq.length):null}).filter(v=>v!==null):stu.map(s=>calcQ(s.name,q).quarterly).filter(v=>v!==null);
-  if(!grades.length){area.innerHTML='<div class="ws"><h2>No grades entered yet</h2></div>';return}
-  const avg=r2(grades.reduce((a,b)=>a+b,0)/grades.length);const hi=Math.max(...grades);const lo=Math.min(...grades);
-  const pass=grades.filter(g=>g>=75).length;const fail=grades.filter(g=>g<75).length;
-  const bands=[{l:'96–100',mn:96,mx:100,c:'#0d9488'},{l:'91–95',mn:91,mx:95,c:'#0284c7'},{l:'86–90',mn:86,mx:90,c:'#7c3aed'},{l:'81–85',mn:81,mx:85,c:'#d97706'},{l:'76–80',mn:76,mx:80,c:'#f59e0b'},{l:'75',mn:75,mx:75,c:'#84cc16'},{l:'Below 75',mn:0,mx:74,c:'#dc2626'}].map(b=>({...b,cnt:grades.filter(g=>g>=b.mn&&g<=b.mx).length}));
-  const mx=Math.max(...bands.map(b=>b.cnt),1);const miss=stu.length-grades.length;
+
+  let gradedStudents = [];
+  let missingStudents = [];
+
+  if(q===0){
+    // All Quarters = require all 4 quarters to exist
+    stu.forEach(s=>{
+      const quarters=[1,2,3,4].map(qq=>calcQ(s.name,qq).quarterly);
+      const complete=quarters.every(v=>v!==null);
+      if(complete){
+        const avg=Math.round(quarters.reduce((a,b)=>a+b,0)/4);
+        gradedStudents.push({name:s.name, grade:avg, gender:s.g});
+      }else{
+        missingStudents.push({name:s.name, gender:s.g});
+      }
+    });
+  }else{
+    stu.forEach(s=>{
+      const grade=calcQ(s.name,q).quarterly;
+      if(grade!==null){
+        gradedStudents.push({name:s.name, grade, gender:s.g});
+      }else{
+        missingStudents.push({name:s.name, gender:s.g});
+      }
+    });
+  }
+
+  const grades=gradedStudents.map(x=>x.grade);
+
+  if(!grades.length){
+    area.innerHTML=`
+      <div class="ws">
+        <h2>No grades entered yet</h2>
+        ${missingStudents.length ? `
+          <div style="margin-top:12px;text-align:left">
+            <div style="font-size:11px;font-weight:600;color:var(--red);margin-bottom:6px">Students with Missing Grades</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px">
+              ${missingStudents.map(s=>`<span style="background:var(--red2);color:var(--red);padding:3px 7px;border-radius:99px;font-size:10px">${escH(s.name)}</span>`).join('')}
+            </div>
+          </div>
+        `:''}
+      </div>`;
+    return;
+  }
+
+  const avg=r2(grades.reduce((a,b)=>a+b,0)/grades.length);
+  const hi=Math.max(...grades);
+  const lo=Math.min(...grades);
+  const pass=grades.filter(g=>g>=75).length;
+  const fail=grades.filter(g=>g<75).length;
+
+  const bands=[
+    {l:'96–100',mn:96,mx:100,c:'#0d9488'},
+    {l:'91–95',mn:91,mx:95,c:'#0284c7'},
+    {l:'86–90',mn:86,mx:90,c:'#7c3aed'},
+    {l:'81–85',mn:81,mx:85,c:'#d97706'},
+    {l:'76–80',mn:76,mx:80,c:'#f59e0b'},
+    {l:'75',mn:75,mx:75,c:'#84cc16'},
+    {l:'Below 75',mn:0,mx:74,c:'#dc2626'}
+  ].map(b=>({...b,cnt:grades.filter(g=>g>=b.mn&&g<=b.mx).length}));
+
+  const mx=Math.max(...bands.map(b=>b.cnt),1);
+  const miss=missingStudents.length;
+
   area.innerHTML=`
     <div style="font-size:10px;color:var(--tx3);margin-bottom:10px">${cd.school.subject||'—'} · ${APP.ac.grade} ${APP.ac.section} · ${q===0?'All Quarters (Final)':'Quarter '+q}</div>
     <div class="ag4">
@@ -663,12 +727,16 @@ function renderAnalContent(){
       <div class="sc"><div class="sn2" style="color:var(--red)">${lo}</div><div class="sl2">Lowest</div></div>
       <div class="sc"><div class="sn2" style="color:var(--amber)">${grades.length}/${stu.length}</div><div class="sl2">Graded</div></div>
     </div>
+
     <div class="g2">
-      <div class="card"><div class="ch"><div class="ct">Performance Bands</div></div>
+      <div class="card">
+        <div class="ch"><div class="ct">Performance Bands</div></div>
         ${bands.map(b=>`<div class="brow"><div class="bla">${b.l}</div><div class="bbw"><div class="bb" style="width:${Math.round((b.cnt/mx)*100)}%;background:${b.c}"></div></div><div class="bcnt">${b.cnt}</div></div>`).join('')}
         ${miss>0?`<div class="brow"><div class="bla" style="color:var(--tx3)">Missing</div><div class="bbw"></div><div class="bcnt" style="color:var(--tx3)">${miss}</div></div>`:''}
       </div>
-      <div class="card"><div class="ch"><div class="ct">Pass / Fail</div></div>
+
+      <div class="card">
+        <div class="ch"><div class="ct">Pass / Fail</div></div>
         ${[{l:'Passing (≥75)',v:pass,c:'var(--green)'},{l:'Below 75',v:fail,c:'var(--red)'}].map(r=>`
         <div style="margin-bottom:13px">
           <div class="fl" style="margin-bottom:5px;justify-content:space-between"><span style="font-size:11px;color:${r.c};font-weight:500">${r.l}</span><span style="font-size:11px;font-family:'DM Mono',monospace;font-weight:600">${r.v}/${grades.length}</span></div>
@@ -680,7 +748,27 @@ function renderAnalContent(){
           <div style="text-align:center;padding:10px;background:var(--red2);border-radius:var(--rs)"><div style="font-size:10px;color:var(--red);margin-bottom:2px">Missing</div><div style="font-size:19px;font-weight:700;font-family:'DM Mono',monospace;color:var(--red)">${miss}</div></div>
         </div>
       </div>
-    </div>`;
+    </div>
+
+    ${miss>0?`
+    <div class="card" style="margin-top:14px">
+      <div class="ch"><div class="ct">Students with Missing Grades</div><div class="cs">${miss} student(s)</div></div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${missingStudents.map(s=>`
+          <button class="btn bo bsm" onclick="goToMissingFromAnalytics('${esc(s.name)}', ${q})">
+            ${escH(s.name)}
+          </button>
+        `).join('')}
+      </div>
+    </div>`:''}
+  `;
+}
+
+function goToMissingFromAnalytics(name,q){
+  APP.gq = q===0 ? 1 : q;
+  APP.hlStudent = name;
+  showRB('gradeentry');
+  showPage('recordbook');
 }
 
 // ══════════════════════════════════════════════
