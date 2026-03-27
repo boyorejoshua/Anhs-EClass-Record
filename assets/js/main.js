@@ -444,16 +444,15 @@ function loadBulk(){
   let rows='';stu.forEach((s,i)=>{
     const g=(cd.grades[q]&&cd.grades[q][s.name])||{};
     let cur=cat==='WW'?(g.ww&&g.ww[idx]!==null?g.ww[idx]:''):cat==='PT'?(g.pt&&g.pt[idx]!==null?g.pt[idx]:''):(g.qa!==null&&g.qa!==undefined?g.qa:'');
-    const gc=s.g==='male'?'#eef5ff':'#fff0f7';const sid=s.name.replace(/[^a-zA-Z0-9]/g,'_');
+    const gClass = s.g === 'male' ? 'male' : 'female';const sid=s.name.replace(/[^a-zA-Z0-9]/g,'_');
     rows+=`<tr>
       <td style="padding:5px 6px;font-size:10px;color:var(--tx3);border:1px solid var(--bdr);text-align:center;width:26px">${i+1}</td>
-      <td style="padding:5px 7px;font-size:11px;font-weight:500;border:1px solid var(--bdr);background:${gc}">${escH(s.name)}</td>
+      <td class="bulk-name ${gClass}" style="padding:5px 7px;font-size:11px;font-weight:500;border:1px solid var(--bdr)">${escH(s.name)}</td>
       <td style="padding:0;border:1px solid var(--bdr);width:68px;text-align:center">
         <input type="number" min="0" ${hv?`max="${hv}"`:''}
-          value="${cur}" data-name="${escH(s.name)}" data-q="${q}" data-cat="${cat}" data-idx="${idx}"
-          style="width:68px;height:29px;border:none;outline:none;text-align:center;font-family:'DM Mono',monospace;font-size:11px;background:transparent"
-          onchange="bPrev(this,'bp_${sid}',${hv||0})"
-          onfocus="this.style.background='#eef3ff'" onblur="this.style.background='transparent'">
+  value="${cur}" data-name="${escH(s.name)}" data-q="${q}" data-cat="${cat}" data-idx="${idx}"
+  class="bulk-score-input"
+  onchange="bPrev(this,'bp_${sid}',${hv||0})">
       </td>
       <td id="bp_${sid}" style="padding:4px;font-size:10px;color:var(--tx3);border:1px solid var(--bdr);background:var(--surf2);text-align:center;width:48px">${hv&&cur!==''?r2((parseFloat(cur)/hv)*100)+'%':''}</td>
     </tr>`;
