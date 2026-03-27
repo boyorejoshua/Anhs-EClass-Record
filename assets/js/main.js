@@ -1570,69 +1570,126 @@ function renderGSStudent(){
     </div>
   </div>
   <div id="gssdArea"><div class="ws gs-stud-empty"><h2>Select a student above</h2></div></div>`;
-}function renderGSStudDetail(){
+}
+function renderGSStudDetail(){
   const name=document.getElementById('gssdName')?.value;
   const q=parseInt(document.getElementById('gssdQ')?.value||'1');
-  const area=document.getElementById('gssdArea');if(!area)return;
-  if(!name){area.innerHTML='<div class="ws"><h2>Select a student</h2></div>';return}
-  const cd=getCD();const h=cd.hps[q];
-  const g=(cd.grades[q]&&cd.grades[q][name])||{};
-  const ww=g.ww||Array(10).fill(null);const pt=g.pt||Array(10).fill(null);const qa=g.qa!==undefined?g.qa:null;
+  const area=document.getElementById('gssdArea');
+  if(!area)return;
+  if(!name){
+    area.innerHTML='<div class="ws gs-stud-empty"><h2>Select a student above</h2></div>';
+    return;
+  }
+
+  const cd=getCD();
+  const h=(cd.hps&&cd.hps[q])?cd.hps[q]:{ww:Array(10).fill(null),pt:Array(10).fill(null),qa:null};
+  const g=(((cd.grades||{})[q]||{})[name])||{ww:Array(10).fill(null),pt:Array(10).fill(null),qa:null};
   const c=calcQ(name,q);
-  const wwC=Math.max(h.ww.filter(v=>v).length,1);const ptC=Math.max(h.pt.filter(v=>v).length,1);
-  const allQ=[1,2,3,4].map(qq=>({q:qq,c:calcQ(name,qq)}));
-  const vq=allQ.map(a=>a.c.quarterly).filter(v=>v!==null);
-  const final=vq.length?Math.round(vq.reduce((a,b)=>a+b,0)/vq.length):null;
+
+  const ww=(g.ww||Array(10).fill(null)).slice(0,10);
+  const pt=(g.pt||Array(10).fill(null)).slice(0,10);
+  const qa=g.qa;
+
+  const q1=calcQ(name,1).quarterly;
+  const q2=calcQ(name,2).quarterly;
+  const q3=calcQ(name,3).quarterly;
+  const q4=calcQ(name,4).quarterly;
+  const finals=[q1,q2,q3,q4].filter(v=>v!==null);
+  const finalGrade=finals.length?Math.round(finals.reduce((a,b)=>a+b,0)/finals.length):null;
+  const finalRemark=finalGrade!==null?(finalGrade>=75?'PASSED':'FAILED'):'';
+
+  const buildMini=(label,hps,val)=>`
+    <div class="gs-mini-cell ${isMissingGrade(val)?'missing-grade':''}">
+      <div class="gs-mini-k">${label}</div>
+      <div class="gs-mini-hps">/${hps??'0'}</div>
+      <div class="gs-mini-v">${val??'—'}</div>
+    </div>`;
+
   area.innerHTML=`
-  <div class="card">
-    <div class="ch">
-      <div><div class="ct">${escH(name)}</div><div class="cs">${APP.ac.grade} ${APP.ac.section} · Q${q} Detail</div></div>
-      <div class="fl">
-        <div style="text-align:center;padding:8px 14px;background:${c.quarterly?(c.quarterly>=75?'var(--green2)':' var(--red2)'):'var(--surf2)'};border-radius:var(--r);border:1px solid var(--bdr)">
-          <div style="font-size:18px;font-weight:700;font-family:'DM Mono',monospace;color:${c.quarterly?(c.quarterly>=75?'var(--green)':' var(--red)'):'var(--tx3)'}">Q${q}: ${c.quarterly||'—'}</div>
+    <div class="card gs-stud-panel">
+      <div class="gs-stud-head">
+        <div>
+          <div class="gs-stud-head-title">${escH(name)}</div>
+          <div class="gs-stud-head-sub">${APP.ac.grade} ${APP.ac.section} · Q${q} Detail</div>
         </div>
-        <div style="text-align:center;padding:8px 14px;background:${final?(final>=75?'var(--blue2)':' var(--red2)'):'var(--surf2)'};border-radius:var(--r);border:1px solid 2px solid var(--blue)">
-          <div style="font-size:18px;font-weight:700;font-family:'DM Mono',monospace;color:${final?(final>=75?'var(--blue)':' var(--red)'):'var(--tx3)'}">Final: ${final||'—'}</div>
-          <div style="font-size:10px;color:var(--tx3)">${final?(final>=75?'PASSED':'FAILED'):''}</div>
+        <div class="gs-stud-badges">
+          <div class="gs-stud-badge" style="background:var(--teal2);color:var(--teal)">Q${q}: ${c.quarterly??'—'}</div>
+          <div class="gs-stud-badge" style="background:var(--red2);color:var(--red)">Final: ${finalGrade??'—'} <span style="display:block;font-size:.72em;font-family:inherit">${finalRemark||''}</span></div>
         </div>
       </div>
-    </div>
-    <div class="fl" style="margin-bottom:14px;gap:7px">
-      ${allQ.map(a=>`<div style="flex:1;min-width:65px;text-align:center;padding:7px;border:1px solid ${a.q===q?'var(--blue)':' var(--bdr)'};border-radius:var(--rs);background:${a.q===q?'var(--blue2)':' var(--surf2)'}">
-        <div style="font-size:9px;color:var(--tx3);margin-bottom:2px">Q${a.q}</div>
-        <div style="font-size:13px;font-weight:600;font-family:'DM Mono',monospace;color:${a.q===q?'var(--blue)':(a.c.quarterly?(a.c.quarterly>=75?'var(--green)':' var(--red)'):'var(--tx3)')}"> ${a.c.quarterly||'—'}</div>
-      </div>`).join('')}
-      <div style="flex:1;min-width:65px;text-align:center;padding:7px;border:2px solid var(--blue);border-radius:var(--rs);background:var(--blue2)">
-        <div style="font-size:9px;color:var(--blue);margin-bottom:2px;font-weight:600">FINAL</div>
-        <div style="font-size:14px;font-weight:700;font-family:'DM Mono',monospace;color:var(--blue)">${final||'—'}</div>
+
+      <div class="gs-stud-grid">
+        <div class="gs-stud-stat">
+          <div class="gs-stud-stat-k">Q1</div>
+          <div class="gs-stud-stat-v" style="color:var(--blue)">${q1??'—'}</div>
+        </div>
+        <div class="gs-stud-stat">
+          <div class="gs-stud-stat-k">Q2</div>
+          <div class="gs-stud-stat-v" style="color:var(--red)">${q2??'—'}</div>
+        </div>
+        <div class="gs-stud-stat">
+          <div class="gs-stud-stat-k">Q3</div>
+          <div class="gs-stud-stat-v">${q3??'—'}</div>
+        </div>
+        <div class="gs-stud-stat">
+          <div class="gs-stud-stat-k">Q4</div>
+          <div class="gs-stud-stat-v">${q4??'—'}</div>
+        </div>
+        <div class="gs-stud-stat" style="border-color:var(--blue);box-shadow:inset 0 0 0 1px var(--blue)">
+          <div class="gs-stud-stat-k">Final</div>
+          <div class="gs-stud-stat-v" style="color:var(--blue)">${finalGrade??'—'}</div>
+        </div>
       </div>
-    </div>
-    <div style="margin-bottom:12px">
-      <div class="fl" style="margin-bottom:7px"><span class="tag tb">Written Works (30%)</span><span style="font-size:10px;color:var(--tx2)">Total: ${c.wwT!==null?c.wwT:'—'} · PS: ${c.wwPS!==null?c.wwPS:'—'}% · WS: ${c.wwWS!==null?c.wwWS:'—'}</span></div>
-      <div style="display:flex;flex-wrap:wrap;gap:4px">
-        ${Array.from({length:wwC},(_,i)=>`<div style="text-align:center;padding:5px 3px;border:1px solid var(--bdr);border-radius:var(--rs);min-width:50px;background:var(--surf)">
-          <div style="font-size:9px;color:var(--tx3);margin-bottom:2px">WW${i+1}${h.ww[i]?'<br>/'+h.ww[i]:''}</div>
-          <div style="font-size:12px;font-weight:600;font-family:'DM Mono',monospace">${ww[i]!==null&&ww[i]!==undefined?ww[i]:'—'}</div>
-        </div>`).join('')}
+
+      <div class="gs-stud-sections">
+        <div class="gs-stud-card">
+          <div class="gs-stud-card-title" style="color:var(--blue)">Written Works (30%)</div>
+          <div class="gs-stud-head-sub" style="margin-bottom:8px">Total: ${c.wwT??'—'} · PS: ${c.wwPS??'—'}% · WS: ${c.wwWS??'—'}</div>
+          <div class="gs-mini-grid">
+            ${ww.map((v,i)=>h.ww&&h.ww[i]!==null?buildMini(`WW${i+1}`,h.ww[i],v):'').join('')}
+          </div>
+
+          <div class="gs-stud-card-title" style="color:var(--amber);margin-top:14px">Performance Tasks (50%)</div>
+          <div class="gs-stud-head-sub" style="margin-bottom:8px">Total: ${c.ptT??'—'} · PS: ${c.ptPS??'—'}% · WS: ${c.ptWS??'—'}</div>
+          <div class="gs-mini-grid">
+            ${pt.map((v,i)=>h.pt&&h.pt[i]!==null?buildMini(`PT${i+1}`,h.pt[i],v):'').join('')}
+          </div>
+
+          ${h.qa!==null?`
+            <div class="gs-stud-card-title" style="color:var(--teal);margin-top:14px">QA (20%)</div>
+            <div class="gs-stud-head-sub" style="margin-bottom:8px">Score: ${qa??'—'} / ${h.qa} · PS: ${c.qaPS??'—'}% · WS: ${c.qaWS??'—'}</div>
+          `:''}
+
+          <div class="gs-stud-summary" style="margin-top:14px">
+            <div class="gs-mini-cell ${isMissingGrade(c.wwWS)?'missing-grade':''}">
+              <div class="gs-mini-k">WW WS</div>
+              <div class="gs-mini-v">${c.wwWS??'—'}</div>
+            </div>
+            <div class="gs-mini-cell ${isMissingGrade(c.ptWS)?'missing-grade':''}">
+              <div class="gs-mini-k">PT WS</div>
+              <div class="gs-mini-v">${c.ptWS??'—'}</div>
+            </div>
+            <div class="gs-mini-cell ${isMissingGrade(c.qaWS)?'missing-grade':''}">
+              <div class="gs-mini-k">QA WS</div>
+              <div class="gs-mini-v">${c.qaWS??'—'}</div>
+            </div>
+            <div class="gs-mini-cell ${isMissingGrade(c.initial)?'missing-grade':''}">
+              <div class="gs-mini-k">Initial</div>
+              <div class="gs-mini-v">${c.initial??'—'}</div>
+            </div>
+            <div class="gs-mini-cell ${isMissingGrade(c.quarterly)?'missing-grade':''}">
+              <div class="gs-mini-k">Q${q} Grade</div>
+              <div class="gs-mini-v" style="color:var(--teal)">${c.quarterly??'—'}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="gs-stud-card">
+          <div class="gs-stud-card-title">Quarter Summary</div>
+          <div class="gs-stud-head-sub">This panel scales better with zoom and gives a clearer breakdown of the student's computed values.</div>
+        </div>
       </div>
-    </div>
-    <div style="margin-bottom:12px">
-      <div class="fl" style="margin-bottom:7px"><span class="tag ta">Performance Tasks (50%)</span><span style="font-size:10px;color:var(--tx2)">Total: ${c.ptT!==null?c.ptT:'—'} · PS: ${c.ptPS!==null?c.ptPS:'—'}% · WS: ${c.ptWS!==null?c.ptWS:'—'}</span></div>
-      <div style="display:flex;flex-wrap:wrap;gap:4px">
-        ${Array.from({length:ptC},(_,i)=>`<div style="text-align:center;padding:5px 3px;border:1px solid var(--bdr);border-radius:var(--rs);min-width:50px;background:var(--surf)">
-          <div style="font-size:9px;color:var(--tx3);margin-bottom:2px">PT${i+1}${h.pt[i]?'<br>/'+h.pt[i]:''}</div>
-          <div style="font-size:12px;font-weight:600;font-family:'DM Mono',monospace">${pt[i]!==null&&pt[i]!==undefined?pt[i]:'—'}</div>
-        </div>`).join('')}
-      </div>
-    </div>
-    ${h.qa?`<div style="margin-bottom:12px">
-      <div class="fl" style="margin-bottom:7px"><span class="tag tg">QA (20%)</span><span style="font-size:10px;color:var(--tx2)">Score: ${qa!==null?qa:'—'} / ${h.qa} · PS: ${c.qaPS!==null?c.qaPS:'—'}% · WS: ${c.qaWS!==null?c.qaWS:'—'}</span></div>
-    </div>`:''}
-    <div style="padding:10px 14px;background:var(--surf2);border-radius:var(--r);border:1px solid var(--bdr);display:flex;gap:16px;flex-wrap:wrap">
-      ${[['WW WS',c.wwWS],['PT WS',c.ptWS],['QA WS',c.qaWS],['Initial',c.initial]].map(([l,v])=>`<div><div style="font-size:9px;color:var(--tx3)">${l}</div><div style="font-size:12px;font-weight:600;font-family:'DM Mono',monospace">${v!==null?v:'—'}</div></div>`).join('')}
-      <div><div style="font-size:9px;color:var(--tx3)">Q${q} Grade</div><div style="font-size:16px;font-weight:700;font-family:'DM Mono',monospace;color:${c.quarterly?(c.quarterly>=75?'var(--green)':' var(--red)'):'var(--tx3)'}">${c.quarterly||'—'}</div></div>
-    </div>
-  </div>`;
+    </div>`;
 }
 function goToStudRow(){
   const name=document.getElementById('gssdName')?.value;
