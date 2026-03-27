@@ -1684,23 +1684,6 @@ function renderGradeSummaryPage(){
   });
 
   el.innerHTML=`
-    <div class="ebar">
-      <span class="elbl">📤 Export:</span>
-      <button class="btn br bsm" onclick="pdfSummary()">📄 PDF</button>
-      <button class="btn bg bsm" onclick="excelGrades()">📊 Excel (DepEd Format)</button>
-      <button class="btn ba bsm" onclick="jsonExport()">📦 JSON for Advisory</button>
-      <div class="sp"></div>
-      <button class="btn bo bsm" onclick="window.print()">🖨 Print</button>
-    </div>
-
-    <div class="fl" style="margin-bottom:12px">
-      <div class="qtabs">
-        <button class="qtab active" id="gsTbl" onclick="showGSTab('table')">📋 Class Summary</button>
-        <button class="qtab" id="gsLOA" onclick="showGSTab('loa')">📊 LOA Overview</button>
-        <button class="qtab" id="gsStud" onclick="showGSTab('student')">🔍 Student Detail</button>
-      </div>
-    </div>
-
     <div id="gstabTable">
       <div style="font-size:10px;color:var(--tx3);margin-bottom:9px">${cd.school.subject||'—'} · ${APP.ac.grade} ${APP.ac.section} · ${cd.school.teacher||'—'} · SY ${cd.school.year||'—'}</div>
       <div style="overflow-x:auto">
@@ -1722,7 +1705,7 @@ function renderGradeSummaryPage(){
       </div>
     </div>
 
-    <div id="gstabLoa" style="display:none">
+    <div id="gstabLOA" style="display:none">
       <div id="gsLOAContent"></div>
     </div>
 
@@ -1730,8 +1713,6 @@ function renderGradeSummaryPage(){
       <div id="gsStudContent"></div>
     </div>
   `;
-
-  showGSTab('table');
 }
 
 // ══════════════════════════════════════════════
