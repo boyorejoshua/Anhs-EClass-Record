@@ -1382,99 +1382,152 @@ function showGSTab(tab){
 }
 function renderGSLOA(){
   const el=document.getElementById('gsLOAContent');
-  if(!hasClass()){el.innerHTML='<div class="ws"><h2>Select a class first</h2></div>';return}
-  const cd=getCD();const stu=allStu();const N=stu.length;
-  if(!N){el.innerHTML='<div class="ws"><h2>No students</h2></div>';return}
-  // Build overall LOA from all 4 quarters combined
+  if(!el)return;
+  if(!hasClass()){
+    el.innerHTML='<div class="ws"><h2>Select a class first</h2></div>';
+    return;
+  }
+
+  const cd=getCD();
+  const stu=allStu();
+  const N=stu.length;
+
+  if(!N){
+    el.innerHTML='<div class="ws"><h2>No students</h2></div>';
+    return;
+  }
+
   const section=`${APP.ac.grade} – ${APP.ac.section}`;
+
   function descBands(scores){
     const r={dnm:0,fs:0,s:0,vs:0,o1:0,o2:0,o3:0,miss:0};
-    scores.forEach(v=>{if(v===null||v===undefined){r.miss++;return;}
-      if(v>=98)r.o3++;else if(v>=95)r.o2++;else if(v>=90)r.o1++;
-      else if(v>=85)r.vs++;else if(v>=80)r.s++;else if(v>=75)r.fs++;else r.dnm++;
-    });return r;
+    scores.forEach(v=>{
+      if(v===null||v===undefined){r.miss++;return;}
+      if(v>=98)r.o3++;
+      else if(v>=95)r.o2++;
+      else if(v>=90)r.o1++;
+      else if(v>=85)r.vs++;
+      else if(v>=80)r.s++;
+      else if(v>=75)r.fs++;
+      else r.dnm++;
+    });
+    return r;
   }
+
   function pct(n,t){return t?r2((n/t)*100):0}
-  // Final grade bands
+
   const finals=stu.map(s=>{
     const vq=[1,2,3,4].map(q=>calcQ(s.name,q).quarterly).filter(v=>v!==null);
     return vq.length?Math.round(vq.reduce((a,b)=>a+b,0)/vq.length):null;
   });
+
   const fb=descBands(finals);
   const pass=finals.filter(v=>v!==null&&v>=75).length;
   const fail=finals.filter(v=>v!==null&&v<75).length;
   const withGrade=finals.filter(v=>v!==null).length;
   const avg=withGrade?r2(finals.filter(v=>v!==null).reduce((a,b)=>a+b,0)/withGrade):0;
-  // Per-quarter summary
+
   const qSummaries=[1,2,3,4].map(q=>{
     const qg=stu.map(s=>calcQ(s.name,q).quarterly);
     const valid=qg.filter(v=>v!==null);
     const qb=descBands(qg);
-    return{q,avg:valid.length?r2(valid.reduce((a,b)=>a+b,0)/valid.length):null,pass:valid.filter(v=>v>=75).length,fail:valid.filter(v=>v<75).length,total:valid.length,bands:qb};
+    return {
+      q,
+      avg:valid.length?r2(valid.reduce((a,b)=>a+b,0)/valid.length):null,
+      pass:valid.filter(v=>v>=75).length,
+      fail:valid.filter(v=>v<75).length,
+      total:valid.length,
+      bands:qb
+    };
   });
+
   const bandDefs=[
     {key:'dnm',label:'Did Not Meet Expectations',range:'≤74',color:'#991b1b',bg:'#fee2e2'},
     {key:'fs',label:'Fairly Satisfactory',range:'75–79',color:'#92400e',bg:'#fef3c7'},
     {key:'s',label:'Satisfactory',range:'80–84',color:'#14532d',bg:'#dcfce7'},
     {key:'vs',label:'Very Satisfactory',range:'85–89',color:'#065f46',bg:'#d1fae5'},
     {key:'o1',label:'Outstanding',range:'90–94',color:'#1e40af',bg:'#dbeafe'},
-    {key:'o2',label:'Outstanding',range:'95–97',color:'#1e40af',bg:'#bfdbfe'},
-    {key:'o3',label:'Outstanding',range:'98–100',color:'#1e40af',bg:'#93c5fd'},
+    {key:'o2',label:'Outstanding',range:'95–97',color:'#1d4ed8',bg:'#bfdbfe'},
+    {key:'o3',label:'Outstanding',range:'98–100',color:'#1e3a8a',bg:'#93c5fd'}
   ];
+
   el.innerHTML=`
   <div style="font-size:11px;color:var(--tx2);padding:8px 12px;background:var(--surf2);border:1px solid var(--bdr);border-radius:var(--r);margin-bottom:14px;font-weight:500">
     📊 LOA Overview — ${escH(cd.school.subject||'Subject')} · ${escH(section)} · ${escH(cd.school.teacher||'Teacher')} · SY ${escH(cd.school.year||'—')}
   </div>
-  <!-- Overall stats -->
+
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px">
     <div class="stat-c"><div class="stat-n" style="color:var(--blue)">${avg}</div><div class="stat-l">Overall Avg</div></div>
     <div class="stat-c"><div class="stat-n" style="color:var(--green)">${pass}</div><div class="stat-l">Passing</div></div>
     <div class="stat-c"><div class="stat-n" style="color:var(--red)">${fail}</div><div class="stat-l">Below 75</div></div>
     <div class="stat-c"><div class="stat-n" style="color:var(--tx2)">${withGrade}/${N}</div><div class="stat-l">With Final Grade</div></div>
   </div>
-  <!-- Final Grade Descriptor Breakdown -->
+
   <div class="card" style="margin-bottom:14px">
     <div class="ch"><div class="ct">Final Grade Distribution (Overall)</div><div class="cs">Based on transmuted quarterly grades</div></div>
     <div style="overflow-x:auto">
-    <table class="loa-full-table">
-      <thead>
-        <tr>
-          <th class="sec-col" rowspan="2">Section</th><th rowspan="2">Learners</th>
-          ${bandDefs.map(b=>`<th colspan="2" style="background:${b.bg};color:${b.color};font-size:9px">${b.label}<br><span style="font-weight:400">${b.range}</span></th>`).join('')}
-        </tr>
-        <tr>${bandDefs.map(()=>'<th style="font-size:9px">No.</th><th style="font-size:9px">%</th>').join('')}</tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td class="sec-col">${escH(section)}</td><td>${N}</td>
-          ${bandDefs.map(b=>`<td>${fb[b.key]||0}</td><td>${pct(fb[b.key]||0,N)}%</td>`).join('')}
-        </tr>
-        <tr class="total-row">
-          <td class="sec-col">Total</td><td>${N}</td>
-          ${bandDefs.map(b=>`<td>${fb[b.key]||0}</td><td>${pct(fb[b.key]||0,N)}%</td>`).join('')}
-        </tr>
-      </tbody>
-    </table></div>
+      <table class="loa-full-table">
+        <thead>
+          <tr>
+            <th class="sec-col" rowspan="2">Section</th>
+            <th rowspan="2">Learners</th>
+            ${bandDefs.map(b=>`<th colspan="2" class="gs-dist-head" style="background:${b.bg};color:${b.color}">${b.label}<br><span class="gs-dist-sub" style="font-weight:400">${b.range}</span></th>`).join('')}
+          </tr>
+          <tr>${bandDefs.map(()=>'<th class="gs-dist-head">No.</th><th class="gs-dist-head">%</th>').join('')}</tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="sec-col">${escH(section)}</td>
+            <td>${N}</td>
+            ${bandDefs.map(b=>`<td>${fb[b.key]||0}</td><td>${pct(fb[b.key]||0,N)}%</td>`).join('')}
+          </tr>
+          <tr class="total-row">
+            <td class="sec-col">Total</td>
+            <td>${N}</td>
+            ${bandDefs.map(b=>`<td>${fb[b.key]||0}</td><td>${pct(fb[b.key]||0,N)}%</td>`).join('')}
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
-  <!-- Per-Quarter Summary Cards -->
-  <div class="g2" style="margin-bottom:14px">
+
+  <div class="g2">
     ${qSummaries.map(qs=>`
-    <div class="card card-sm">
-      <div class="ch"><div class="ct">Quarter ${qs.q} Summary</div><div class="cs">${qs.total} graded of ${N}</div></div>
-      <div style="display:flex;gap:12px;margin-bottom:12px">
-        <div class="att-stat"><div class="att-stat-n" style="color:var(--blue)">${qs.avg||'—'}</div><div class="att-stat-l">Average</div></div>
-        <div class="att-stat"><div class="att-stat-n" style="color:var(--green)">${qs.pass}</div><div class="att-stat-l">Passing</div></div>
-        <div class="att-stat"><div class="att-stat-n" style="color:var(--red)">${qs.fail}</div><div class="att-stat-l">Below 75</div></div>
-        <div class="att-stat"><div class="att-stat-n" style="color:var(--amber)">${N-qs.total}</div><div class="att-stat-l">Missing</div></div>
+      <div class="card card-sm gs-qcard">
+        <div class="ch">
+          <div class="ct">Quarter ${qs.q}</div>
+          <div class="cs gs-qmeta">${qs.total} graded · ${N-qs.total} missing</div>
+        </div>
+
+        <div class="gs-qstats">
+          <div class="att-stat gs-qstat">
+            <div class="att-stat-n" style="color:var(--blue)">${qs.avg||'—'}</div>
+            <div class="att-stat-l">Average</div>
+          </div>
+          <div class="att-stat gs-qstat">
+            <div class="att-stat-n" style="color:var(--green)">${qs.pass}</div>
+            <div class="att-stat-l">Passing</div>
+          </div>
+          <div class="att-stat gs-qstat">
+            <div class="att-stat-n" style="color:var(--red)">${qs.fail}</div>
+            <div class="att-stat-l">Below 75</div>
+          </div>
+          <div class="att-stat gs-qstat">
+            <div class="att-stat-n" style="color:var(--amber)">${N-qs.total}</div>
+            <div class="att-stat-l">Missing</div>
+          </div>
+        </div>
+
+        ${bandDefs.map(b=>`
+          <div class="gs-band-row">
+            <div class="gs-band-dot" style="background:${b.bg};border:1px solid ${b.color};"></div>
+            <div class="gs-band-label">${b.label} <span style="color:var(--tx3)">${b.range}</span></div>
+            <div class="gs-band-count">${qs.bands[b.key]||0}</div>
+            <div class="gs-band-pct">${pct(qs.bands[b.key]||0,N)}%</div>
+          </div>
+        `).join('')}
       </div>
-      <div style="font-size:10px;font-weight:600;color:var(--tx3);margin-bottom:6px">DESCRIPTOR BREAKDOWN</div>
-      ${bandDefs.map(b=>`<div style="display:flex;align-items:center;gap:8px;padding:3px 0;border-bottom:1px solid var(--bdr)">
-        <div style="width:10px;height:10px;border-radius:50%;background:${b.bg};border:1px solid ${b.color};flex-shrink:0"></div>
-        <div style="font-size:10px;flex:1;color:var(--tx2)">${b.label} <span style="color:var(--tx3)">${b.range}</span></div>
-        <div style="font-family:'DM Mono',monospace;font-size:10px;font-weight:600">${qs.bands[b.key]||0}</div>
-        <div style="font-size:10px;color:var(--tx3);width:36px;text-align:right">${pct(qs.bands[b.key]||0,N)}%</div>
-      </div>`).join('')}
-    </div>`).join('')}
+    `).join('')}
   </div>`;
 }
 function renderGSStudent(){
