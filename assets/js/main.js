@@ -133,8 +133,16 @@ function selectRole(role){
   document.getElementById('roleScreen').classList.add('hidden');
   document.getElementById('app').classList.add('visible');
   document.getElementById('roleLabel').textContent=role==='subject'?'Subject Teacher':'Advisory Teacher';
-  buildNav();showPage('recordbook');
+
+  renderSavedClasses();
+
+  const saved=document.getElementById('savedClassSelect');
+  if(saved) saved.value='';
+
+  buildNav();
+  showPage('recordbook');
 }
+
 function switchRole(){document.getElementById('roleScreen').classList.remove('hidden');document.getElementById('app').classList.remove('visible');}
 function buildNav(){
   const nav=document.getElementById('mainNav');
@@ -251,12 +259,14 @@ function loadFile(inp){
       }
       if(!cd.att)cd.att={};if(!cd.diag)cd.diag={items:0,hso:0,lso:0};
       if(cd.school.grade&&cd.school.section){
-        APP.ac={grade:cd.school.grade,section:cd.school.section};
-        document.getElementById('csGrade').value=cd.school.grade;
-        document.getElementById('csSection').value=cd.school.section;
-        document.getElementById('csInfo').textContent=`Active: ${cd.school.grade} – ${cd.school.section}`;
-        document.getElementById('classBadge').textContent=`${cd.school.grade} · ${cd.school.section}`;
-      }
+  APP.ac={grade:cd.school.grade,section:cd.school.section};
+  rememberClass(cd.school.grade,cd.school.section);
+  renderSavedClasses();
+  document.getElementById('csGrade').value=cd.school.grade;
+  document.getElementById('csSection').value=cd.school.section;
+  document.getElementById('csInfo').textContent=`Active: ${cd.school.grade} – ${cd.school.section}`;
+  document.getElementById('classBadge').textContent=`${cd.school.grade} · ${cd.school.section}`;
+}
       save();showPage(APP.page);toast('✓ File loaded');
     }catch(err){toast('Error reading file');}
   };
@@ -2567,17 +2577,21 @@ function init(){
   loadZoom();
   loadDarkMode();
   if(APP.role){
-    document.getElementById('roleScreen').classList.add('hidden');
-    document.getElementById('app').classList.add('visible');
-    document.getElementById('roleLabel').textContent=APP.role==='subject'?'Subject Teacher':'Advisory Teacher';
-    if(APP.ac.grade){
-      document.getElementById('csGrade').value=APP.ac.grade;
-      document.getElementById('csSection').value=APP.ac.section;
-      document.getElementById('csInfo').textContent=`Active: ${APP.ac.grade} – ${APP.ac.section}`;
-      document.getElementById('classBadge').textContent=`${APP.ac.grade} · ${APP.ac.section}`;
-    }
-    buildNav();showPage(APP.page||'recordbook');
+  document.getElementById('roleScreen').classList.add('hidden');
+  document.getElementById('app').classList.add('visible');
+  document.getElementById('roleLabel').textContent=APP.role==='subject'?'Subject Teacher':'Advisory Teacher';
+
+  if(APP.ac.grade){
+    document.getElementById('csGrade').value=APP.ac.grade;
+    document.getElementById('csSection').value=APP.ac.section;
+    document.getElementById('csInfo').textContent=`Active: ${APP.ac.grade} – ${APP.ac.section}`;
+    document.getElementById('classBadge').textContent=`${APP.ac.grade} · ${APP.ac.section}`;
   }
+
+  renderSavedClasses();
+  buildNav();
+  showPage(APP.page||'recordbook');
+}
   document.getElementById('mainModal').addEventListener('click',function(e){if(e.target===this)closeModal()});
 
   // ── Auto-export reminder on tab/window close
