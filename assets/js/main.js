@@ -745,14 +745,17 @@ function renderAnalContent(){
   const fail=grades.filter(g=>g<75).length;
 
   const bands=[
-    {l:'96–100',mn:96,mx:100,c:'#0d9488'},
-    {l:'91–95',mn:91,mx:95,c:'#0284c7'},
-    {l:'86–90',mn:86,mx:90,c:'#7c3aed'},
-    {l:'81–85',mn:81,mx:85,c:'#d97706'},
-    {l:'76–80',mn:76,mx:80,c:'#f59e0b'},
-    {l:'75',mn:75,mx:75,c:'#84cc16'},
-    {l:'Below 75',mn:0,mx:74,c:'#dc2626'}
-  ].map(b=>({...b,cnt:grades.filter(g=>g>=b.mn&&g<=b.mx).length}));
+  {l:'96–100',mn:96,mx:100,c:'#0d9488'},
+  {l:'91–95',mn:91,mx:95,c:'#0284c7'},
+  {l:'86–90',mn:86,mx:90,c:'#7c3aed'},
+  {l:'81–85',mn:81,mx:85,c:'#d97706'},
+  {l:'76–80',mn:76,mx:80,c:'#f59e0b'},
+  {l:'75',mn:75,mx:75,c:'#84cc16'},
+  {l:'Below 75',mn:0,mx:74,c:'#dc2626'}
+].map(b=>{
+  const students=gradedStudents.filter(x=>x.grade>=b.mn&&x.grade<=b.mx);
+  return {...b,cnt:students.length,students};
+});
 
   const mx=Math.max(...bands.map(b=>b.cnt),1);
   const miss=missingStudents.length;
@@ -788,17 +791,43 @@ function renderAnalContent(){
       </div>
     </div>
 
-    ${miss>0?`
     <div class="card" style="margin-top:14px">
-      <div class="ch"><div class="ct">Students with Missing Grades</div><div class="cs">${miss} student(s)</div></div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px">
-        ${missingStudents.map(s=>`
-          <button class="btn bo bsm" onclick="goToMissingFromAnalytics('${esc(s.name)}', ${q})">
-            ${escH(s.name)}
-          </button>
-        `).join('')}
+  <div class="ch"><div class="ct">Students per Performance Band</div><div class="cs">${gradedStudents.length} graded student(s)</div></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px">
+    ${bands.map(b=>`
+      <div style="border:1px solid var(--bdr);border-radius:12px;padding:12px;background:var(--panel)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-size:12px;font-weight:700;color:${b.c}">${b.l}</div>
+          <div style="font-size:11px;color:var(--tx3)">${b.cnt} student(s)</div>
+        </div>
+        ${
+          b.students.length
+          ? `<div style="display:flex;flex-wrap:wrap;gap:6px">
+              ${b.students.map(st=>`
+                <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border-radius:999px;background:var(--bg);border:1px solid var(--bdr);font-size:11px">
+                  <span>${escH(st.name)}</span>
+                  <strong style="color:${b.c}">${st.grade}</strong>
+                </span>
+              `).join('')}
+            </div>`
+          : `<div style="font-size:11px;color:var(--tx3)">No students in this range</div>`
+        }
       </div>
-    </div>`:''}
+    `).join('')}
+  </div>
+</div>
+
+${miss>0?`
+<div class="card" style="margin-top:14px">
+  <div class="ch"><div class="ct">Students with Missing Grades</div><div class="cs">${miss} student(s)</div></div>
+  <div style="display:flex;flex-wrap:wrap;gap:6px">
+    ${missingStudents.map(s=>`
+      <button class="btn bo bsm" onclick="goToMissingFromAnalytics('${esc(s.name)}', ${q})">
+        ${escH(s.name)}
+      </button>
+    `).join('')}
+  </div>
+</div>`:''}
   `;
 }
 
