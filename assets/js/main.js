@@ -1372,9 +1372,12 @@ function renderLOAContent(){
 // GRADE SUMMARY PAGE
 // ══════════════════════════════════════════════
 function showGSTab(tab){
+  const tabMap={table:'gstabTable',loa:'gstabLOA',student:'gstabStudent'};
+  const btnMap={table:'gsTbl',loa:'gsLOA',student:'gsStud'};
   ['table','loa','student'].forEach(t=>{
-    document.getElementById('gstab'+t.charAt(0).toUpperCase()+t.slice(1)).style.display=t===tab?'block':'none';
-    const btn=document.getElementById(t==='table'?'gsTbl':t==='loa'?'gsLOA':'gsStud');
+    const el=document.getElementById(tabMap[t]);
+    if(el)el.style.display=(t===tab)?'block':'none';
+    const btn=document.getElementById(btnMap[t]);
     if(btn)btn.classList.toggle('active',t===tab);
   });
   if(tab==='loa')renderGSLOA();
