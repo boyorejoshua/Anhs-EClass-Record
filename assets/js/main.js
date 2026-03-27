@@ -216,14 +216,23 @@ function showRB(tab){
   renderRB(tab);save();
 }
 function renderRB(tab){
-  if(!hasClass()){const el=document.getElementById('rb-'+tab);if(el)el.innerHTML='<div class="ws"><h2>Select a class first</h2><p>Use the class selector at the top.</p></div>';return;}
+  if(tab==='instructions'){
+    renderInstructions();
+    return;
+  }
+
+  if(!hasClass()){
+    const el=document.getElementById('rb-'+tab);
+    if(el)el.innerHTML='<div class="ws"><h2>Select a class first</h2><p>Use the class selector at the top.</p></div>';
+    return;
+  }
+
   if(tab==='setup')renderSetup();
   else if(tab==='gradeentry')renderGradeEntry();
   else if(tab==='bulkentry')renderBulkEntry();
   else if(tab==='summary')renderRBSummary();
   else if(tab==='analytics')renderAnalytics();
   else if(tab==='loa')renderLOA();
-  else if(tab==='instructions')renderInstructions();
 }
 
 // ── SETUP
