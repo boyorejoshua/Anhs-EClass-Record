@@ -87,21 +87,28 @@
   </div>
 
   <!-- ── CLASS SELECTOR BAR ── -->
-  <div class="csbar">
-    <span class="cslbl">Active Class:</span>
-    <select class="cssel" id="csGrade">
-      <option value="">Grade Level</option>
-      <option>Grade 7</option>
-      <option>Grade 8</option>
-      <option>Grade 9</option>
-      <option>Grade 10</option>
-      <option>Grade 11</option>
-      <option>Grade 12</option>
-    </select>
-    <input class="cssel" id="csSection" placeholder="Section (e.g. PEARL)" style="width:160px">
-    <button class="csbtn" onclick="applyClass()">Load Class</button>
-    <div class="csinfo" id="csInfo">Select grade and section to begin</div>
-  </div>
+ <div class="csbar">
+  <span class="cslbl">Active Class:</span>
+  <select class="cssel" id="csGrade">
+    <option value="">Grade Level</option>
+    <option>Grade 7</option>
+    <option>Grade 8</option>
+    <option>Grade 9</option>
+    <option>Grade 10</option>
+    <option>Grade 11</option>
+    <option>Grade 12</option>
+  </select>
+  <input class="cssel" id="csSection" placeholder="Section (e.g. PEARL)" style="width:160px">
+  <button class="csbtn" onclick="applyClass()">Load Class</button>
+
+  <select class="cssel" id="savedClassSelect" style="width:220px" onchange="pickSavedClass()">
+    <option value="">Saved classes</option>
+  </select>
+
+  <button class="btn bo bsm" type="button" onclick="clearSavedClasses()">Clear Saved</button>
+
+  <div class="csinfo" id="csInfo">Select grade and section to begin</div>
+</div>
 
   <!-- ═══════════════════════════════════════════════════════
        PAGE CONTAINERS
