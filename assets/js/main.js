@@ -1640,9 +1640,9 @@ function renderGSLOA(){
     <div style="overflow-x:auto"><table class="loa-full-table">
       <thead>
         <tr><th class="sec-col" rowspan="2">Section</th><th rowspan="2">Learners</th>
-          ${bDefs.map(b=>`<th colspan="2" style="background:${b.bg};color:${b.clr};font-size:9px">${b.lb}<br><span style="font-weight:400">${b.rng}</span></th>`).join('')}
+          ${bDefs.map(b=>`<th colspan="2" class="gs-dist-head" style="background:${b.bg};color:${b.clr}">${b.lb}<br><span class="gs-dist-sub" style="font-weight:400">${b.rng}</span></th>`).join('')}
         </tr>
-        <tr>${bDefs.map(()=>'<th style="font-size:9px">No.</th><th style="font-size:9px">%</th>').join('')}</tr>
+        <tr>${bDefs.map(()=>'<th class="gs-dist-head">No.</th><th class="gs-dist-head">%</th>').join('')}</tr>
       </thead>
       <tbody>
         <tr><td class="sec-col">${escH(section)}</td><td>${N}</td>${bDefs.map(b=>`<td>${fb[b.k]||0}</td><td>${pct(fb[b.k]||0,N)}%</td>`).join('')}</tr>
@@ -1651,22 +1651,36 @@ function renderGSLOA(){
     </table></div>
   </div>
   <div class="g2">
-    ${qSum.map(qs=>`
-    <div class="card card-sm">
-      <div class="ch"><div class="ct">Quarter ${qs.q}</div><div class="cs">${qs.total} graded · ${N-qs.total} missing</div></div>
-      <div style="display:flex;gap:10px;margin-bottom:12px">
-        <div class="att-stat"><div class="att-stat-n" style="color:var(--blue)">${qs.avg||'—'}</div><div class="att-stat-l">Avg</div></div>
-        <div class="att-stat"><div class="att-stat-n" style="color:var(--green)">${qs.pass}</div><div class="att-stat-l">Pass</div></div>
-        <div class="att-stat"><div class="att-stat-n" style="color:var(--red)">${qs.fail}</div><div class="att-stat-l">Below 75</div></div>
+  ${qSum.map(qs=>`
+  <div class="card card-sm gs-qcard">
+    <div class="ch">
+      <div class="ct">Quarter ${qs.q}</div>
+      <div class="cs gs-qmeta">${qs.total} graded · ${N-qs.total} missing</div>
+    </div>
+
+    <div class="gs-qstats">
+      <div class="att-stat gs-qstat">
+        <div class="att-stat-n" style="color:var(--blue)">${qs.avg||'—'}</div>
+        <div class="att-stat-l">Avg</div>
       </div>
-      ${bDefs.map(b=>`<div style="display:flex;align-items:center;gap:7px;padding:3px 0;border-bottom:1px solid var(--bdr)">
-        <div style="width:9px;height:9px;border-radius:2px;background:${b.bg};border:1px solid ${b.clr};flex-shrink:0"></div>
-        <div style="font-size:9px;flex:1;color:var(--tx2)">${b.lb} <span style="color:var(--tx4)">${b.rng}</span></div>
-        <div style="font-family:'DM Mono',monospace;font-size:10px;font-weight:600;width:24px;text-align:right">${qs.b[b.k]||0}</div>
-        <div style="font-size:9px;color:var(--tx3);width:32px;text-align:right">${pct(qs.b[b.k]||0,N)}%</div>
-      </div>`).join('')}
+      <div class="att-stat gs-qstat">
+        <div class="att-stat-n" style="color:var(--green)">${qs.pass}</div>
+        <div class="att-stat-l">Pass</div>
+      </div>
+      <div class="att-stat gs-qstat">
+        <div class="att-stat-n" style="color:var(--red)">${qs.fail}</div>
+        <div class="att-stat-l">Below 75</div>
+      </div>
+    </div>
+
+    ${bDefs.map(b=>`<div class="gs-band-row">
+      <div class="gs-band-dot" style="background:${b.bg};border:1px solid ${b.clr};"></div>
+      <div class="gs-band-label">${b.lb} ${b.rng}</div>
+      <div class="gs-band-count">${qs.bands[b.k]||0}</div>
+      <div class="gs-band-pct">${pct(qs.bands[b.k]||0,N)}%</div>
     </div>`).join('')}
-  </div>`;
+  </div>`).join('')}
+</div>
 }
 
 function renderGSStudent(){
