@@ -1535,21 +1535,42 @@ function renderGSLOA(){
 }
 function renderGSStudent(){
   const el=document.getElementById('gsStudContent');
-  if(!hasClass()){el.innerHTML='<div class="ws"><h2>Select a class first</h2></div>';return}
-  const cd=getCD();const stu=allStu();
+  if(!el)return;
+  if(!hasClass()){
+    el.innerHTML='<div class="ws"><h2>Select a class first</h2></div>';
+    return;
+  }
+  const cd=getCD();
   el.innerHTML=`
-  <div class="card" style="margin-bottom:12px">
-    <div class="ch"><div class="ct">Student Detail View</div><div class="cs">Select quarter and student to view all grade details</div></div>
-    <div class="fl">
-      <div><div class="lbl">Quarter</div><select class="inp" id="gssdQ" style="width:110px" onchange="renderGSStudDetail()"><option value="1">Quarter 1</option><option value="2">Quarter 2</option><option value="3">Quarter 3</option><option value="4">Quarter 4</option></select></div>
-      <div><div class="lbl">Student</div><select class="inp" id="gssdName" style="width:260px" onchange="renderGSStudDetail()"><option value="">-- Select a student --</option>${cd.students.male.map(n=>`<option value="${escH(n)}">[M] ${escH(n)}</option>`).join('')}${cd.students.female.map(n=>`<option value="${escH(n)}">[F] ${escH(n)}</option>`).join('')}</select></div>
+  <div class="card gs-stud-panel" style="margin-bottom:12px">
+    <div class="ch">
+      <div class="ct">Student Detail View</div>
+      <div class="cs">Select quarter and student to view all grade details</div>
+    </div>
+    <div class="gs-stud-toolbar">
+      <div>
+        <div class="lbl">Quarter</div>
+        <select class="inp" id="gssdQ" onchange="renderGSStudDetail()">
+          <option value="1">Quarter 1</option>
+          <option value="2">Quarter 2</option>
+          <option value="3">Quarter 3</option>
+          <option value="4">Quarter 4</option>
+        </select>
+      </div>
+      <div>
+        <div class="lbl">Student</div>
+        <select class="inp gs-stud-name" id="gssdName" onchange="renderGSStudDetail()">
+          <option value="">-- Select a student --</option>
+          ${cd.students.male.map(n=>`<option value="${escH(n)}">[M] ${escH(n)}</option>`).join('')}
+          ${cd.students.female.map(n=>`<option value="${escH(n)}">[F] ${escH(n)}</option>`).join('')}
+        </select>
+      </div>
       <button class="btn bp bsm" onclick="goToStudRow()">📍 Go to Row</button>
       <button class="btn br bsm" onclick="pdfStudDetail()">📄 PDF</button>
     </div>
   </div>
-  <div id="gssdArea"><div class="ws"><h2>Select a student above</h2></div></div>`;
-}
-function renderGSStudDetail(){
+  <div id="gssdArea"><div class="ws gs-stud-empty"><h2>Select a student above</h2></div></div>`;
+}function renderGSStudDetail(){
   const name=document.getElementById('gssdName')?.value;
   const q=parseInt(document.getElementById('gssdQ')?.value||'1');
   const area=document.getElementById('gssdArea');if(!area)return;
