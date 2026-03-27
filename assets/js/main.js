@@ -159,10 +159,69 @@ function applyClass(){
   const grade=document.getElementById('csGrade').value;
   const section=norm(document.getElementById('csSection').value);
   if(!grade||!section){toast('Select grade level and enter section');return}
+
   APP.ac={grade,section};
   document.getElementById('csInfo').textContent=`Active: ${grade} – ${section}`;
   document.getElementById('classBadge').textContent=`${grade} · ${section}`;
-  save();showPage(APP.page);toast(`✓ Loaded: ${grade} – ${section}`);
+
+  rememberClass(grade,section);
+  renderSavedClasses();
+
+  save();
+  showPage(APP.page);
+  toast(`✓ Loaded: ${grade} – ${section}`);
+}
+
+// helper for apply class
+function rememberClass(grade,section){
+  if(!APP.savedClasses)APP.savedClasses={subject:[],advisory:[]};
+
+  const role=APP.role||'subject';
+  const list=APP.savedClasses[role]||[];
+
+  const exists=list.find(x=>x.grade===grade&&x.section===section);
+  if(!exists){
+    list.unshift({grade,section});
+  }
+
+  APP.savedClasses[role]=list.slice(0,12);
+}
+
+function renderSavedClasses(){
+  const sel=document.getElementById('savedClassSelect');
+  if(!sel)return;
+
+  if(!APP.savedClasses)APP.savedClasses={subject:[],advisory:[]};
+  const role=APP.role||'subject';
+  const list=APP.savedClasses[role]||[];
+
+  sel.innerHTML=`<option value="">Saved classes</option>`+
+    list.map((x,i)=>`<option value="${i}">${x.grade} – ${x.section}</option>`).join('');
+}
+
+function pickSavedClass(){
+  const sel=document.getElementById('savedClassSelect');
+  if(!sel||sel.value==='')return;
+
+  if(!APP.savedClasses)APP.savedClasses={subject:[],advisory:[]};
+  const role=APP.role||'subject';
+  const list=APP.savedClasses[role]||[];
+  const picked=list[parseInt(sel.value,10)];
+
+  if(!picked)return;
+
+  document.getElementById('csGrade').value=picked.grade;
+  document.getElementById('csSection').value=picked.section;
+  applyClass();
+}
+
+function clearSavedClasses(){
+  if(!APP.savedClasses)APP.savedClasses={subject:[],advisory:[]};
+  const role=APP.role||'subject';
+  APP.savedClasses[role]=[];
+  renderSavedClasses();
+  save();
+  toast('Saved classes cleared');
 }
 
 // ══════════════════════════════════════════════
