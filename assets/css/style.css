@@ -205,6 +205,29 @@ body.dark-mode .rf{background:#1d1226}
 body.dark-mode .grph.m td{background:#111e38;color:var(--blue)}
 body.dark-mode .grph.f td{background:#2a0f1f;color:var(--pink)}
 body.dark-mode .hrow td{background:#1e1a0a}
+/* ===== Missing grade highlight ===== */
+.missing-grade {
+  background: #ffe5e5 !important;
+  color: #b91c1c !important;
+  box-shadow: inset 0 0 0 1px #f3b1b1;
+}
+
+body.dark-mode .missing-grade {
+  background: #3a1f24 !important;
+  color: #ffb4b4 !important;
+  box-shadow: inset 0 0 0 1px #8b3a46;
+}
+
+/* Optional: if the missing item is an input field */
+.missing-grade-input {
+  background: #ffe5e5 !important;
+  color: #b91c1c !important;
+}
+
+body.dark-mode .missing-grade-input {
+  background: #3a1f24 !important;
+  color: #ffb4b4 !important;
+}
 
 /* ── SUMMARY TABLE ── */
 .stbl{border-collapse:collapse;width:100%;font-size:.88rem}
