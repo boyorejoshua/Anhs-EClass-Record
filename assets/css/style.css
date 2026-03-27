@@ -99,6 +99,41 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
 .zoom-btn:hover{background:var(--bdr);color:var(--tx)}
 .zoom-label{font-size:.75rem;font-weight:600;color:var(--tx3);min-width:38px;text-align:center;font-family:'DM Mono',monospace}
 
+/* ===== Grade Summary Student Detail zoom-friendly ===== */
+.gs-stud-toolbar{display:flex;gap:12px;align-items:end;flex-wrap:wrap}
+.gs-stud-toolbar .inp{min-width:160px}
+.gs-stud-toolbar .gs-stud-name{min-width:320px}
+.gs-stud-panel{padding:16px}
+.gs-stud-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.gs-stud-head-title{font-size:clamp(1rem,.98rem + .2vw,1.2rem);font-weight:800;line-height:1.25}
+.gs-stud-head-sub{font-size:clamp(.82rem,.8rem + .1vw,.95rem);color:var(--tx3)}
+.gs-stud-badges{display:flex;gap:10px;flex-wrap:wrap}
+.gs-stud-badge{padding:10px 14px;border-radius:14px;font-family:'DM Mono',monospace;font-weight:700;font-size:clamp(.95rem,.92rem + .15vw,1.15rem)}
+.gs-stud-grid{display:grid;grid-template-columns:repeat(5,minmax(140px,1fr));gap:10px;margin:14px 0}
+.gs-stud-stat{border:1px solid var(--bdr);border-radius:12px;padding:10px 12px;text-align:center;background:var(--surf)}
+.gs-stud-stat-k{font-size:clamp(.75rem,.73rem + .08vw,.88rem);color:var(--tx3);font-weight:700;text-transform:uppercase}
+.gs-stud-stat-v{font-size:clamp(1rem,.96rem + .15vw,1.2rem);font-weight:800;font-family:'DM Mono',monospace}
+.gs-stud-sections{display:grid;grid-template-columns:minmax(360px,420px) 1fr;gap:14px;align-items:start}
+.gs-stud-card{border:1px solid var(--bdr);border-radius:14px;background:var(--surf);padding:12px}
+.gs-stud-card-title{font-size:clamp(.88rem,.86rem + .1vw,1rem);font-weight:800;margin-bottom:8px}
+.gs-mini-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(64px,1fr));gap:8px}
+.gs-mini-cell{border:1px solid var(--bdr);border-radius:10px;padding:8px 6px;text-align:center;background:var(--panel)}
+.gs-mini-k{font-size:clamp(.7rem,.68rem + .06vw,.8rem);color:var(--tx3)}
+.gs-mini-hps{font-size:clamp(.7rem,.68rem + .06vw,.8rem);color:var(--tx4)}
+.gs-mini-v{font-size:clamp(.92rem,.9rem + .1vw,1.05rem);font-weight:800;font-family:'DM Mono',monospace}
+.gs-stud-summary{display:grid;grid-template-columns:repeat(5,minmax(78px,1fr));gap:8px}
+.gs-stud-summary .gs-mini-cell{padding:10px 6px}
+.gs-stud-empty{min-height:180px}
+@media (max-width:1100px){
+  .gs-stud-grid{grid-template-columns:repeat(3,minmax(120px,1fr))}
+  .gs-stud-sections{grid-template-columns:1fr}
+}
+@media (max-width:700px){
+  .gs-stud-grid{grid-template-columns:repeat(2,minmax(120px,1fr))}
+  .gs-stud-summary{grid-template-columns:repeat(2,minmax(90px,1fr))}
+  .gs-stud-toolbar .gs-stud-name{min-width:220px}
+}
+
 /* ===== Grade Summary quarter cards zoom-friendly ===== */
 .gs-qcard{padding:1rem 1rem 1.05rem}
 .gs-qstats{display:flex;gap:1rem;margin-bottom:1rem;flex-wrap:wrap}
