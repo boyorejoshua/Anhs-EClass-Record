@@ -1660,6 +1660,10 @@ function renderGradeSummaryPage(){
 
   if(!hasClass()){
     el.innerHTML='<div class="ws"><h2>Select a class first</h2></div>';
+    const loa=document.getElementById('gsLOAContent');
+    const stud=document.getElementById('gsStudContent');
+    if(loa)loa.innerHTML='<div class="ws"><h2>Select a class first</h2></div>';
+    if(stud)stud.innerHTML='<div class="ws"><h2>Select a class first</h2></div>';
     return;
   }
 
@@ -1687,35 +1691,32 @@ function renderGradeSummaryPage(){
   });
 
   el.innerHTML=`
-    <div id="gstabTable">
-      <div style="font-size:10px;color:var(--tx3);margin-bottom:9px">${cd.school.subject||'—'} · ${APP.ac.grade} ${APP.ac.section} · ${cd.school.teacher||'—'} · SY ${cd.school.year||'—'}</div>
-      <div style="overflow-x:auto">
-        <table class="stbl">
-          <thead>
-            <tr>
-              <th style="width:26px">#</th>
-              <th style="text-align:left;min-width:170px">Learner's Name</th>
-              <th style="text-align:center;width:58px">Q1</th>
-              <th style="text-align:center;width:58px">Q2</th>
-              <th style="text-align:center;width:58px">Q3</th>
-              <th style="text-align:center;width:58px">Q4</th>
-              <th style="text-align:center;width:62px">Final</th>
-              <th style="text-align:center;width:78px">Remark</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    </div>
-
-    <div id="gstabLOA" style="display:none">
-      <div id="gsLOAContent"></div>
-    </div>
-
-    <div id="gstabStudent" style="display:none">
-      <div id="gsStudContent"></div>
+    <div style="font-size:10px;color:var(--tx3);margin-bottom:9px">${cd.school.subject||'—'} · ${APP.ac.grade} ${APP.ac.section} · ${cd.school.teacher||'—'} · SY ${cd.school.year||'—'}</div>
+    <div style="overflow-x:auto">
+      <table class="stbl">
+        <thead>
+          <tr>
+            <th style="width:26px">#</th>
+            <th style="text-align:left;min-width:170px">Learner's Name</th>
+            <th style="text-align:center;width:58px">Q1</th>
+            <th style="text-align:center;width:58px">Q2</th>
+            <th style="text-align:center;width:58px">Q3</th>
+            <th style="text-align:center;width:58px">Q4</th>
+            <th style="text-align:center;width:62px">Final</th>
+            <th style="text-align:center;width:78px">Remark</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
     </div>
   `;
+
+  const loa=document.getElementById('gsLOAContent');
+  const stud=document.getElementById('gsStudContent');
+  if(loa)loa.innerHTML='';
+  if(stud)stud.innerHTML='';
+
+  showGSTab('table');
 }
 
 // ══════════════════════════════════════════════
