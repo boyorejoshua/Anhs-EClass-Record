@@ -402,6 +402,11 @@ function scrollToStu(name,q){
   if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.style.outline='2px solid var(--blue)';setTimeout(()=>el.style.outline='',2000);}
 }
 
+//helper --- Highlight missing grades
+function isMissingGrade(val){
+  return val === null || val === '' || typeof val === 'undefined' || Number.isNaN(val);
+}
+
 // ── BULK ENTRY
 function renderBulkEntry(){
   const el=document.getElementById('rb-bulkentry');
