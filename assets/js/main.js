@@ -1653,18 +1653,85 @@ function pdfStudDetail(){
 
 function renderGradeSummaryPage(){
   const el=document.getElementById('gradeSummaryCard');
-  if(!hasClass()){el.innerHTML='<div class="ws"><h2>Select a class first</h2></div>';return}
-  const cd=getCD();const stu=allStu();
+  if(!el)return;
+
+  if(!hasClass()){
+    el.innerHTML='<div class="ws"><h2>Select a class first</h2></div>';
+    return;
+  }
+
+  const cd=getCD();
+  const stu=allStu();
+
   let rows='';let lastG=null;
   stu.forEach(s=>{
-    if(s.g!==lastG){rows+=`<tr><td colspan="9" style="background:${s.g==='male'?'#e8f4fd':'#fce8f3'};font-weight:600;font-size:10px;padding:4px 8px;color:${s.g==='male'?'var(--blue)':'var(--pink)'}">${s.g==='male'?'👦 MALE':'👧 FEMALE'}</td></tr>`;lastG=s.g;}
+    if(s.g!==lastG){
+      rows+=`<tr><td colspan="8" style="background:${s.g==='male'?'#e8f4fd':'#fce8f3'};font-weight:600;font-size:10px;padding:4px 8px;color:${s.g==='male'?'var(--blue)':'var(--pink)'}">${s.g==='male'?'👦 MALE':'👧 FEMALE'}</td></tr>`;
+      lastG=s.g;
+    }
     const num=(s.g==='male'?cd.students.male:cd.students.female).indexOf(s.name)+1;
     const q1=calcQ(s.name,1).quarterly,q2=calcQ(s.name,2).quarterly,q3=calcQ(s.name,3).quarterly,q4=calcQ(s.name,4).quarterly;
-    const vq=[q1,q2,q3,q4].filter(v=>v!==null);const final=vq.length?Math.round(vq.reduce((a,b)=>a+b,0)/vq.length):null;const rem=final!==null?(final>=75?'PASSED':'FAILED'):'';
-    rows+=`<tr><td style="text-align:center;padding:5px;font-size:10px;color:var(--tx3);border:1px solid var(--bdr)">${num}</td><td style="padding:5px 7px;font-size:11px;font-weight:500;border:1px solid var(--bdr)">${escH(s.name)}</td>${[q1,q2,q3,q4].map(v=>`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:11px;font-weight:600;border:1px solid var(--bdr)">${v||'—'}</td>`).join('')}<td style="text-align:center;font-family:'DM Mono',monospace;font-size:12px;font-weight:700;color:var(--blue);border:1px solid var(--bdr)">${final||'—'}</td><td style="text-align:center;border:1px solid var(--bdr)">${rem?`<span class="${rem==='PASSED'?'bpass':'bfail'}">${rem}</span>`:''}</td></tr>`;
+    const vq=[q1,q2,q3,q4].filter(v=>v!==null);
+    const final=vq.length?Math.round(vq.reduce((a,b)=>a+b,0)/vq.length):null;
+    const rem=final!==null?(final>=75?'PASSED':'FAILED'):'';
+    rows+=`<tr>
+      <td style="text-align:center;padding:5px;font-size:10px;color:var(--tx3);border:1px solid var(--bdr)">${num}</td>
+      <td style="padding:5px 7px;font-size:11px;font-weight:500;border:1px solid var(--bdr)">${escH(s.name)}</td>
+      ${[q1,q2,q3,q4].map(v=>`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:11px;font-weight:600;border:1px solid var(--bdr)">${v||'—'}</td>`).join('')}
+      <td style="text-align:center;font-family:'DM Mono',monospace;font-size:12px;font-weight:700;color:var(--blue);border:1px solid var(--bdr)">${final||'—'}</td>
+      <td style="text-align:center;border:1px solid var(--bdr)">${rem?`<span class="${rem==='PASSED'?'bpass':'bfail'}">${rem}</span>`:''}</td>
+    </tr>`;
   });
-  el.innerHTML=`<div style="font-size:10px;color:var(--tx3);margin-bottom:9px">${cd.school.subject||'—'} · ${APP.ac.grade} ${APP.ac.section} · ${cd.school.teacher||'—'} · SY ${cd.school.year||'—'}</div>
-    <div style="overflow-x:auto"><table class="stbl"><thead><tr><th style="width:26px">#</th><th style="text-align:left;min-width:170px">Learner's Name</th><th style="text-align:center;width:58px">Q1</th><th style="text-align:center;width:58px">Q2</th><th style="text-align:center;width:58px">Q3</th><th style="text-align:center;width:58px">Q4</th><th style="text-align:center;width:62px">Final</th><th style="text-align:center;width:78px">Remark</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+
+  el.innerHTML=`
+    <div class="ebar">
+      <span class="elbl">📤 Export:</span>
+      <button class="btn br bsm" onclick="pdfSummary()">📄 PDF</button>
+      <button class="btn bg bsm" onclick="excelGrades()">📊 Excel (DepEd Format)</button>
+      <button class="btn ba bsm" onclick="jsonExport()">📦 JSON for Advisory</button>
+      <div class="sp"></div>
+      <button class="btn bo bsm" onclick="window.print()">🖨 Print</button>
+    </div>
+
+    <div class="fl" style="margin-bottom:12px">
+      <div class="qtabs">
+        <button class="qtab active" id="gsTbl" onclick="showGSTab('table')">📋 Class Summary</button>
+        <button class="qtab" id="gsLOA" onclick="showGSTab('loa')">📊 LOA Overview</button>
+        <button class="qtab" id="gsStud" onclick="showGSTab('student')">🔍 Student Detail</button>
+      </div>
+    </div>
+
+    <div id="gstabTable">
+      <div style="font-size:10px;color:var(--tx3);margin-bottom:9px">${cd.school.subject||'—'} · ${APP.ac.grade} ${APP.ac.section} · ${cd.school.teacher||'—'} · SY ${cd.school.year||'—'}</div>
+      <div style="overflow-x:auto">
+        <table class="stbl">
+          <thead>
+            <tr>
+              <th style="width:26px">#</th>
+              <th style="text-align:left;min-width:170px">Learner's Name</th>
+              <th style="text-align:center;width:58px">Q1</th>
+              <th style="text-align:center;width:58px">Q2</th>
+              <th style="text-align:center;width:58px">Q3</th>
+              <th style="text-align:center;width:58px">Q4</th>
+              <th style="text-align:center;width:62px">Final</th>
+              <th style="text-align:center;width:78px">Remark</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="gstabLoa" style="display:none">
+      <div id="gsLOAContent"></div>
+    </div>
+
+    <div id="gstabStudent" style="display:none">
+      <div id="gsStudContent"></div>
+    </div>
+  `;
+
+  showGSTab('table');
 }
 
 // ══════════════════════════════════════════════
