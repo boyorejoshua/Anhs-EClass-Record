@@ -1301,11 +1301,11 @@ function renderLOAContent(){
           <thead>
             <tr>
               <th rowspan="2" class="sec-col">Section</th><th rowspan="2">Learners</th><th rowspan="2">HPS</th>
-              <th colspan="2" class="loa-np">Not Proficient (0–24%)</th>
-              <th colspan="2" class="loa-lp">Low Proficient (25–49%)</th>
-              <th colspan="2" class="loa-nep">Nearly Proficient (50–74%)</th>
-              <th colspan="2" class="loa-p">Proficient (75–89%)</th>
-              <th colspan="2" class="loa-hp">Highly Proficient (90–100%)</th>
+              <th colspan="2" class="loa-np">Unsatisfactory (0–24%)</th>
+              <th colspan="2" class="loa-lp">Needs Improvement (25–49%)</th>
+              <th colspan="2" class="loa-nep">Meets Expectations (50–74%)</th>
+              <th colspan="2" class="loa-p">Exceeds Expectations (75–89%)</th>
+              <th colspan="2" class="loa-hp">Exceptional (90–100%)</th>
             </tr>
             <tr>${['No.','%','No.','%','No.','%','No.','%','No.','%'].map(h=>`<th>${h}</th>`).join('')}</tr>
           </thead>
@@ -1378,11 +1378,11 @@ function renderLOAContent(){
         <table class="loa-full-table">
           <thead>
             <tr><th rowspan="2" class="sec-col">Section</th><th rowspan="2">Learners</th><th rowspan="2">HPS</th>
-              <th colspan="2" class="loa-np">Not Proficient (0–24%)</th>
-              <th colspan="2" class="loa-lp">Low Proficient (25–49%)</th>
-              <th colspan="2" class="loa-nep">Nearly Proficient (50–74%)</th>
-              <th colspan="2" class="loa-p">Proficient (75–89%)</th>
-              <th colspan="2" class="loa-hp">Highly Proficient (90–100%)</th>
+              <th colspan="2" class="loa-np">Unsatisfactory (0–24%)</th>
+              <th colspan="2" class="loa-lp">Needs Improvement (25–49%)</th>
+              <th colspan="2" class="loa-nep">Meets Expectations (50–74%)</th>
+              <th colspan="2" class="loa-p">Exceeds Expectations (75–89%)</th>
+              <th colspan="2" class="loa-hp">Exceptional (90–100%)</th>
             </tr>
             <tr>${['No.','%','No.','%','No.','%','No.','%','No.','%'].map(h=>`<th>${h}</th>`).join('')}</tr>
           </thead>
