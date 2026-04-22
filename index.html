@@ -45,22 +45,22 @@
         <div class="auth-title">Create your account</div>
         <div class="auth-sub">Register as an ANHS teacher</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
-          <div class="af"><label class="al">First Name</label><input class="ai" id="rFirst" placeholder="Maria"></div>
-          <div class="af"><label class="al">Last Name</label><input class="ai" id="rLast" placeholder="Santos"></div>
+          <div class="af"><label class="al">First Name</label><input class="ai" id="regFirst" placeholder="Maria"></div>
+          <div class="af"><label class="al">Last Name</label><input class="ai" id="regLast" placeholder="Santos"></div>
         </div>
-        <div class="af"><label class="al">Employee ID</label><input class="ai" id="rEmpId" placeholder="e.g. 20240001"></div>
-        <div class="af"><label class="al">Email</label><input class="ai" id="rEmail" type="email" placeholder="msantos@anhs.edu.ph"></div>
-        <div class="af"><label class="al">Default Subject</label><input class="ai" id="rSubject" placeholder="e.g. Mathematics"></div>
+        <div class="af"><label class="al">Employee ID</label><input class="ai" id="regEmpId" placeholder="e.g. 20240001"></div>
+        <div class="af"><label class="al">Email</label><input class="ai" type="email" placeholder="msantos@anhs.edu.ph"></div>
+        <div class="af"><label class="al">Default Subject</label><input class="ai" placeholder="e.g. Mathematics"></div>
         <div class="af"><label class="al">Role</label>
-          <select class="ai" id="rRole">
+          <select class="ai" id="regRole">
             <option value="subject">Subject Teacher</option>
             <option value="advisory">Advisory Teacher</option>
           </select>
         </div>
-        <div class="af"><label class="al">Password</label><input class="ai" id="rPass" type="password" placeholder="Create a password"></div>
-        <div class="af"><label class="al">Confirm Password</label><input class="ai" id="rPass2" type="password" placeholder="Repeat password"></div>
+        <div class="af"><label class="al">Password</label><input class="ai" id="regPass" type="password" placeholder="Create a password"></div>
+        <div class="af"><label class="al">Confirm Password</label><input class="ai" id="regPass2" type="password" placeholder="Repeat password"></div>
         <button class="auth-btn" onclick="doRegister()">Create Account →</button>
-        <div class="auth-err" id="rErr"></div>
+        <div class="auth-err" id="regErr"></div>
       </div>
     </div>
   </div>
