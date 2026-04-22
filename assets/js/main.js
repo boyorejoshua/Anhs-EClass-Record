@@ -48,9 +48,9 @@ function hasClass(){return APP.ac.grade&&APP.ac.section}
 function getUsers(){try{return JSON.parse(localStorage.getItem('anhs_users')||'[]')}catch(e){return[]}}
 function saveUsers(u){try{localStorage.setItem('anhs_users',JSON.stringify(u))}catch(e){}}
 function doLogin(){
-  const uid=document.getElementById('loginUser').value.trim();
-  const pass=document.getElementById('loginPass').value;
-  const err=document.getElementById('loginErr');
+  const uid=document.getElementById('liEmail').value.trim();
+  const pass=document.getElementById('liPass').value;
+  const err=document.getElementById('liErr');
   if(!uid||!pass){err.textContent='Please enter employee ID and password.';return;}
   const users=getUsers();const user=users.find(u=>u.empId===uid);
   if(!user||user.password!==btoa(pass)){err.textContent='Invalid employee ID or password.';return;}
@@ -92,8 +92,8 @@ function startApp(user){
     updateRoleUI();buildNav();loadZoom();loadDarkMode();restoreClass();showPage(APP.page||'home');
   }else{document.getElementById('roleScreen').style.display='flex';}
 }
-function showLogin(){document.getElementById('loginCard').style.display='';document.getElementById('registerCard').style.display='none';}
-function showRegister(){document.getElementById('loginCard').style.display='none';document.getElementById('registerCard').style.display='';}
+function showLogin(){document.getElementById('paneLogin').style.display='block';document.getElementById('paneReg').style.display='none';}
+function showRegister(){document.getElementById('paneLogin').style.display='none';document.getElementById('paneReg').style.display='block';}
 
 // ── PERSISTENCE ──
 function save(){try{const key=CURRENT_USER?`anhs_v4_${CURRENT_USER.empId}`:'anhs_v4_guest';localStorage.setItem(key,JSON.stringify(APP));}catch(e){}}
@@ -936,9 +936,9 @@ function hasClass(){return APP.ac.grade&&APP.ac.section}
 function getUsers(){try{return JSON.parse(localStorage.getItem('anhs_users')||'[]')}catch(e){return[]}}
 function saveUsers(u){try{localStorage.setItem('anhs_users',JSON.stringify(u))}catch(e){}}
 function doLogin(){
-  const uid=document.getElementById('loginUser').value.trim();
-  const pass=document.getElementById('loginPass').value;
-  const err=document.getElementById('loginErr');
+  const uid=document.getElementById('liEmail').value.trim();
+  const pass=document.getElementById('liPass').value;
+  const err=document.getElementById('liErr');
   if(!uid||!pass){err.textContent='Please enter employee ID and password.';return;}
   const users=getUsers();const user=users.find(u=>u.empId===uid);
   if(!user||user.password!==btoa(pass)){err.textContent='Invalid employee ID or password.';return;}
