@@ -1,68 +1,74 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-zoom="100">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-  <!-- ─────────────────────────────────────────
-       PAGE TITLE
-       Edit this to change the browser tab title
-  ───────────────────────────────────────────── -->
-  <title>Mendtrix E-Class Record System</title>
-
-  <!-- ─────────────────────────────────────────
-       FAVICON (optional)
-       Place a favicon.ico in the root folder
-       and uncomment the line below
-  ───────────────────────────────────────────── -->
-  <!-- <link rel="icon" type="image/x-icon" href="favicon.ico"> -->
-
-  <!-- ─────────────────────────────────────────
-       EXTERNAL LIBRARY — SheetJS (Excel export)
-       Do not remove or change this line.
-       Required for .xlsx file generation.
-  ───────────────────────────────────────────── -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-  <!-- ─────────────────────────────────────────
-       STYLES
-       All visual styling lives in assets/css/style.css
-       Edit that file to change colors, fonts, spacing, etc.
-  ───────────────────────────────────────────── -->
-  <link rel="stylesheet" href="assets/css/style.css">
-
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ANHS E-Class Record System — Three-Term SY 2026-2027</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════════════════
-     ROLE SELECTOR SCREEN
-     Shows on first open — teacher picks Subject or Advisory
-     To edit the role card text: search "rs-name" in this file
-════════════════════════════════════════════════════════ -->
-<div id="roleScreen">
-  <div class="rs-logo">ANHS <span>E-Class</span></div>
-  <div class="rs-tag">Official Digital Grading &amp; Attendance System</div>
-  <div class="rs-cards">
-    <div class="rs-card" onclick="selectRole('subject')">
-      <div class="rs-icon">📚</div>
-      <div class="rs-name">Subject Teacher</div>
-      <div class="rs-desc">Manage grades, attendance, LOA reports and analytics for your subject class</div>
+<!-- AUTH SCREEN -->
+<div id="authScreen">
+  <div class="auth-wrap">
+    <div class="auth-brand">
+      <div class="auth-logo">ANHS</div>
+      <div class="auth-school">Angono National High School</div>
+      <div class="auth-sys">E-Class Record System</div>
+      <div class="auth-badge">Three-Term Calendar · DepEd DO 009 s.2026 · SY 2026–2027</div>
     </div>
-    <div class="rs-card" onclick="selectRole('advisory')">
-      <div class="rs-icon">🏫</div>
-      <div class="rs-name">Advisory Teacher</div>
-      <div class="rs-desc">Consolidate grades across subjects and manage your advisory class</div>
+    <div class="auth-box">
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tabLogin" onclick="showAuth('login')">Sign In</button>
+        <button class="auth-tab" id="tabReg" onclick="showAuth('register')">Register</button>
+      </div>
+      <!-- LOGIN -->
+      <div id="paneLogin">
+        <div class="auth-title">Welcome back, Teacher</div>
+        <div class="auth-sub">Sign in to access your class records</div>
+        <div class="af"><label class="al">Employee ID or Email</label><input class="ai" id="liEmail" placeholder="e.g. jdelacruz or 20240001"></div>
+        <div class="af"><label class="al">Password</label><input class="ai" id="liPass" type="password" placeholder="Your password"></div>
+        <div class="af"><label class="al">I am a:</label>
+          <select class="ai" id="liRole">
+            <option value="subject">Subject Teacher</option>
+            <option value="advisory">Advisory Teacher</option>
+            <option value="registrar">Registrar / Admin</option>
+          </select>
+        </div>
+        <button class="auth-btn" onclick="doLogin()">Sign In →</button>
+        <div class="auth-err" id="liErr"></div>
+        <div class="auth-hint">First time? Click Register to create your account.</div>
+      </div>
+      <!-- REGISTER -->
+      <div id="paneReg" style="display:none">
+        <div class="auth-title">Create your account</div>
+        <div class="auth-sub">Register as an ANHS teacher</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
+          <div class="af"><label class="al">First Name</label><input class="ai" id="rFirst" placeholder="Maria"></div>
+          <div class="af"><label class="al">Last Name</label><input class="ai" id="rLast" placeholder="Santos"></div>
+        </div>
+        <div class="af"><label class="al">Employee ID</label><input class="ai" id="rEmpId" placeholder="e.g. 20240001"></div>
+        <div class="af"><label class="al">Email</label><input class="ai" id="rEmail" type="email" placeholder="msantos@anhs.edu.ph"></div>
+        <div class="af"><label class="al">Default Subject</label><input class="ai" id="rSubject" placeholder="e.g. Mathematics"></div>
+        <div class="af"><label class="al">Role</label>
+          <select class="ai" id="rRole">
+            <option value="subject">Subject Teacher</option>
+            <option value="advisory">Advisory Teacher</option>
+          </select>
+        </div>
+        <div class="af"><label class="al">Password</label><input class="ai" id="rPass" type="password" placeholder="Create a password"></div>
+        <div class="af"><label class="al">Confirm Password</label><input class="ai" id="rPass2" type="password" placeholder="Repeat password"></div>
+        <button class="auth-btn" onclick="doRegister()">Create Account →</button>
+        <div class="auth-err" id="rErr"></div>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════
-     MAIN APP SHELL
-     The topbar, class selector, and page containers live here
-════════════════════════════════════════════════════════ -->
+<!-- MAIN APP -->
 <div id="app">
-
-  <!-- ── TOP NAVIGATION BAR ── -->
+  <!-- TOPBAR -->
   <div class="topbar">
     <div class="brand">
       <div class="bmark">ANHS</div>
@@ -73,53 +79,62 @@
     <div class="mainnav" id="mainNav"></div>
     <div class="tr">
       <div class="cbadge" id="classBadge">No class selected</div>
-      <!-- Zoom Controls -->
       <div class="zoom-ctrl">
-        <button class="zoom-btn" onclick="zoomOut()" title="Zoom Out">−</button>
+        <button class="zoom-btn" onclick="zoomOut()">−</button>
         <span class="zoom-label" id="zoomLabel">100%</span>
-        <button class="zoom-btn" onclick="zoomIn()" title="Zoom In">+</button>
+        <button class="zoom-btn" onclick="zoomIn()">+</button>
       </div>
-      <!-- Dark Mode Toggle -->
-      <button class="dm-btn" id="dmBtn" onclick="toggleDarkMode()" title="Toggle Dark Mode">🌙</button>
-      <!-- Switch Role -->
-      <button class="swbtn" onclick="switchRole()">⇄ Switch Role</button>
+      <button class="dm-btn" id="dmBtn" onclick="toggleDarkMode()">🌙</button>
+      <button class="swbtn backonly" id="backBtn" onclick="goHomeMenu()">← Back</button>
+      <button class="swbtn" onclick="doLogout()">⏏ Sign Out</button>
     </div>
   </div>
 
-  <!-- ── CLASS SELECTOR BAR ── -->
- <div class="csbar">
-  <span class="cslbl">Active Class:</span>
-  <select class="cssel" id="csGrade">
-    <option value="">Grade Level</option>
-    <option>Grade 7</option>
-    <option>Grade 8</option>
-    <option>Grade 9</option>
-    <option>Grade 10</option>
-    <option>Grade 11</option>
-    <option>Grade 12</option>
-  </select>
-  <input class="cssel" id="csSection" placeholder="Section (e.g. PEARL)" style="width:160px">
-  <button class="csbtn" onclick="applyClass()">Load Class</button>
+  <!-- CLASS BAR -->
+  <div class="csbar">
+    <span class="cslbl">Active Class:</span>
+    <select class="cssel" id="csGrade">
+      <option value="">Grade</option>
+      <option>Grade 7</option><option>Grade 8</option>
+      <option>Grade 9</option><option>Grade 10</option>
+      <option>Grade 11</option><option>Grade 12</option>
+    </select>
+    <input class="cssel" id="csSection" placeholder="Section" style="width:130px">
+    <button class="csbtn" onclick="applyClass()">Load</button>
+    <select class="cssel" id="savedClassSelect" style="width:190px" onchange="pickSavedClass()">
+      <option value="">Saved classes…</option>
+    </select>
+    <div class="term-bar" id="termBar">
+      <span class="tbdot t1"></span><span>T1: Jun 8–Sep 15</span>
+      <span class="tbdot t2"></span><span>T2: Sep 16–Dec 18</span>
+      <span class="tbdot t3"></span><span>T3: Jan 4–Apr 8</span>
+    </div>
+    <div class="csinfo" id="csInfo">Select grade and section to begin</div>
+  </div>
 
-  <select class="cssel" id="savedClassSelect" style="width:220px" onchange="pickSavedClass()">
-    <option value="">Saved classes</option>
-  </select>
-
-  <button class="btn bo bsm" type="button" onclick="clearSavedClasses()">Clear Saved</button>
-
-  <div class="csinfo" id="csInfo">Select grade and section to begin</div>
-</div>
-
-  <!-- ═══════════════════════════════════════════════════════
-       PAGE CONTAINERS
-       Each page is a <div class="page" id="page-xxx">
-       Pages are shown/hidden by showPage() in main.js
-  ════════════════════════════════════════════════════════ -->
   <div id="pagesContainer">
 
-    <!-- ── RECORD BOOK PAGE ── -->
+    <!-- HOME -->
+    <div class="page" id="page-home"><div class="pi">
+      <div class="home-hero">
+        <div class="home-hero-left">
+          <div class="home-kicker">Three-Term School Calendar · SY 2026–2027</div>
+          <div class="home-title">Good day, <span id="teacherNameHome" style="color:var(--blue)"></span>!</div>
+          <div class="home-sub">Welcome to the ANHS E-Class Record System. Select a module below to begin your work. Data auto-saves in your browser — export regularly to keep a backup.</div>
+          <div class="home-term-cards">
+            <div class="htc t1c"><div class="htc-label">Term 1</div><div class="htc-dates">Jun 8 – Sep 15, 2026</div><div class="htc-days">69 class days</div></div>
+            <div class="htc t2c"><div class="htc-label">Term 2</div><div class="htc-dates">Sep 16 – Dec 18, 2026</div><div class="htc-days">65 class days</div></div>
+            <div class="htc t3c"><div class="htc-label">Term 3</div><div class="htc-dates">Jan 4 – Apr 8, 2027</div><div class="htc-days">67 class days</div></div>
+          </div>
+        </div>
+        <div class="home-hero-right">
+          <div class="home-menu-grid" id="homeMenuButtons"></div>
+        </div>
+      </div>
+    </div></div>
+
+    <!-- RECORD BOOK -->
     <div class="page" id="page-recordbook"><div class="pi">
-      <!-- Sub-navigation tabs inside Record Book -->
       <div class="subnav" id="rbNav">
         <button class="stab active" onclick="showRB('setup')">⚙ Setup</button>
         <button class="stab" onclick="showRB('gradeentry')">📝 Grade Entry</button>
@@ -127,9 +142,8 @@
         <button class="stab" onclick="showRB('summary')">📊 Summary</button>
         <button class="stab" onclick="showRB('analytics')">📈 Analytics</button>
         <button class="stab" onclick="showRB('loa')">📋 LOA Reports</button>
-        <button class="stab" onclick="showRB('instructions')">📖 Instructions</button>
+        <button class="stab" onclick="showRB('instructions')">📖 Guide</button>
       </div>
-      <!-- Sub-tab content containers (rendered by JS) -->
       <div id="rb-setup" class="rbtab"></div>
       <div id="rb-gradeentry" class="rbtab" style="display:none"></div>
       <div id="rb-bulkentry" class="rbtab" style="display:none"></div>
@@ -139,105 +153,92 @@
       <div id="rb-instructions" class="rbtab" style="display:none"></div>
     </div></div>
 
-    <!-- ── GRADE SUMMARY PAGE ── -->
+    <!-- GRADE SUMMARY -->
     <div class="page" id="page-gradesummary"><div class="pi">
-      <!-- Export buttons -->
       <div class="ebar">
         <span class="elbl">📤 Export:</span>
         <button class="btn br bsm" onclick="pdfSummary()">📄 PDF</button>
-        <button class="btn bg bsm" onclick="excelGrades()">📊 Excel (DepEd Format)</button>
+        <button class="btn bg bsm" onclick="excelGrades()">📊 Excel (3-Term DepEd)</button>
         <button class="btn ba bsm" onclick="jsonExport()">📦 JSON for Advisory</button>
+        <button class="btn bpu bsm" onclick="submitToRegistrar()">📨 Submit to Registrar</button>
         <div class="sp"></div>
         <button class="btn bo bsm" onclick="window.print()">🖨 Print</button>
       </div>
-      <!-- Summary sub-tabs -->
       <div class="fl" style="margin-bottom:12px">
         <div class="subnav" style="width:fit-content">
-          <button class="stab active" id="gsTbl" onclick="showGSTab('table')">📋 Class Summary</button>
+          <button class="stab active" id="gsTbl" onclick="showGSTab('table')">📋 Term Summary</button>
           <button class="stab" id="gsLOA" onclick="showGSTab('loa')">📊 LOA Overview</button>
           <button class="stab" id="gsStud" onclick="showGSTab('student')">🔍 Student Detail</button>
         </div>
       </div>
-      <div id="gstabTable">
-        <div class="card" id="gradeSummaryCard">
-          <div class="ws"><h2>Select a class first</h2></div>
-        </div>
-      </div>
-      <div id="gstabLOA" style="display:none">
-        <div id="gsLOAContent"><div class="ws"><h2>Select a class first</h2></div></div>
-      </div>
-      <div id="gstabStudent" style="display:none">
-        <div id="gsStudContent"><div class="ws"><h2>Select a class first</h2></div></div>
-      </div>
+      <div id="gstabTable"><div class="card" id="gradeSummaryCard"><div class="ws"><h2>Select a class first</h2></div></div></div>
+      <div id="gstabLOA" style="display:none"><div id="gsLOAContent"><div class="ws"><h2>Select a class first</h2></div></div></div>
+      <div id="gstabStudent" style="display:none"><div id="gsStudContent"><div class="ws"><h2>Select a class first</h2></div></div></div>
     </div></div>
 
-    <!-- ── ATTENDANCE SUMMARY PAGE ── -->
+    <!-- ATTENDANCE SUMMARY -->
     <div class="page" id="page-attsummary">
-      <div class="pi" id="attSumContent">
-        <div class="ws"><h2>Select a class first</h2></div>
-      </div>
+      <div class="pi" id="attSumContent"><div class="ws"><h2>Select a class first</h2></div></div>
     </div>
 
-    <!-- ── DAILY ATTENDANCE PAGE ── -->
+    <!-- DAILY ATTENDANCE -->
     <div class="page" id="page-dailyatt">
-      <div class="pi" id="dailyAttContent">
-        <div class="ws"><h2>Select a class first</h2></div>
-      </div>
+      <div class="pi" id="dailyAttContent"><div class="ws"><h2>Select a class first</h2></div></div>
     </div>
 
-    <!-- ── CONSOLIDATED GRADES PAGE (Advisory Teacher only) ── -->
+    <!-- SCHOOL FORMS SF1-SF10 -->
+    <div class="page" id="page-schoolforms"><div class="pi">
+      <div class="ebar">
+        <span class="elbl">📋 School Forms SF1–SF10</span>
+        <div class="sp"></div>
+        <span style="font-size:.78rem;color:var(--tx3)">Auto-generated from class data · DepEd K–12</span>
+      </div>
+      <div class="sf-grid" id="sfGrid"></div>
+      <div id="sfViewArea" style="margin-top:1.2rem"></div>
+    </div></div>
+
+    <!-- CONSOLIDATED GRADES (Advisory) -->
     <div class="page" id="page-consolidated">
       <div class="pi" id="consContent">
-        <div class="ws">
-          <h2>Consolidated Grades</h2>
-          <p>Import JSON files from subject teachers.</p>
-        </div>
+        <div class="ws"><h2>Consolidated Grades</h2><p>Import JSON files from subject teachers to generate consolidated term grades and final averages.</p></div>
       </div>
     </div>
 
-  </div><!-- /pagesContainer -->
-</div><!-- /app -->
+    <!-- REGISTRAR DASHBOARD -->
+    <div class="page" id="page-registrar"><div class="pi">
+      <div class="ebar"><span class="elbl">📂 Registrar Dashboard</span><div class="sp"></div>
+        <button class="btn bg bsm" onclick="exportRegistrarExcel()">📊 Export All Grades</button>
+      </div>
+      <div id="registrarContent"></div>
+    </div></div>
 
-<!-- ═══════════════════════════════════════════════════════
-     MODAL — used for detail views and popups
-════════════════════════════════════════════════════════ -->
+  </div>
+</div>
+
+<!-- MODAL -->
 <div class="mbg" id="mainModal">
   <div class="modal">
     <div class="mh">
-      <div>
-        <div class="ct" id="mTitle"></div>
-        <div class="cs" id="mSub"></div>
-      </div>
+      <div><div class="ct" id="mTitle"></div><div class="cs" id="mSub"></div></div>
       <button class="mx" onclick="closeModal()">✕</button>
     </div>
     <div id="mBody"></div>
   </div>
 </div>
 
-<!-- ── TOAST NOTIFICATION ── -->
 <div id="toast"></div>
-
-<!-- ═══════════════════════════════════════════════════════
-     MAIN APPLICATION SCRIPT
-     All logic lives in assets/js/main.js
-     Do NOT add business logic here — put it in main.js
-════════════════════════════════════════════════════════ -->
 <script src="assets/js/main.js"></script>
 
-  <!-- ═══════════════════════════════════
-       FOOTER
-  ════════════════════════════════════ -->
-  <footer class="app-footer" id="appFooter">
-    <div class="footer-left">
-      <div class="footer-dot"></div>
-      <div class="footer-brand">Mendtrix <span>IT Services</span></div>
-      <div class="footer-tagline">— Official Digital Grading &amp; Attendance System</div>
-    </div>
-    <div class="footer-right">
-      <span class="footer-version">v3.0</span>
-      <span class="footer-tagline">© 2025 Mendtrix IT Services. All rights reserved.</span>
-    </div>
-  </footer>
-
+<footer class="app-footer">
+  <div class="footer-left">
+    <div class="footer-dot"></div>
+    <div class="footer-brand">Mendtrix <span>IT Services</span></div>
+    <div class="footer-tagline">— ANHS Official Digital Grading &amp; Attendance System</div>
+  </div>
+  <div class="footer-right">
+    <span class="footer-version">Three-Term v1.0</span>
+    <span class="footer-tagline">DO 009 s.2026 · SY 2026–2027 · © 2026 Mendtrix IT Services</span>
+  </div>
+</footer>
 </body>
 </html>
