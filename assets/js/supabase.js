@@ -15,10 +15,10 @@
    ================================================================ */
 
 // ── CONFIG ──────────────────────────────────────────────────────
-const PHASE2_ENABLED = false;  // ← Set to TRUE when Supabase is ready
+const PHASE2_ENABLED = True;  // ← Set to TRUE when Supabase is ready
 
-const SUPABASE_URL  = 'https://YOUR_PROJECT.supabase.co';
-const SUPABASE_ANON = 'YOUR_ANON_KEY_HERE';
+const SUPABASE_URL  = 'https://aylaiatvrrownsqzlntc.supabase.co/rest/v1/';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF5bGFpYXR2cnJvd25zcXpsbnRjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4ODUwMTMsImV4cCI6MjA5MjQ2MTAxM30.9JIM9PZO8VU94sfzK_lUWikxoVSwi46rYKoYAgI8cy0';
 // ──────────────────────────────────────────────────────────────
 
 // Supabase CDN client (add to index.html head if using Phase 2):
