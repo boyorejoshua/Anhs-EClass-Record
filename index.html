@@ -9,38 +9,50 @@
 </head>
 <body>
 
-<!-- AUTH SCREEN -->
+<!-- ════════════════════════════════════════
+     AUTH SCREEN
+════════════════════════════════════════ -->
 <div id="authScreen">
   <div class="auth-wrap">
     <div class="auth-brand">
       <div class="auth-logo">ANHS</div>
       <div class="auth-school">Angono National High School</div>
       <div class="auth-sys">E-Class Record System</div>
-      <div class="auth-badge">Three-Term Calendar · DepEd DO 009 s.2026 · SY 2026–2027</div>
+      <div class="auth-badge">Three-Term · DO 009 s.2026 · SY 2026–2027</div>
     </div>
     <div class="auth-box">
+      <!-- TAB SWITCHER -->
       <div class="auth-tabs">
-        <button class="auth-tab active" id="tabLogin" onclick="showLogin()">Sign In</button>
-        <button class="auth-tab" id="tabReg" onclick="showRegister()">Register</button>
+        <button class="auth-tab active" id="tabLogin" onclick="showAuth('login')">Sign In</button>
+        <button class="auth-tab" id="tabReg" onclick="showAuth('register')">Register</button>
       </div>
-      <!-- LOGIN -->
+
+      <!-- LOGIN PANE -->
       <div id="paneLogin">
         <div class="auth-title">Welcome back, Teacher</div>
         <div class="auth-sub">Sign in to access your class records</div>
-        <div class="af"><label class="al">Employee ID or Email</label><input class="ai" id="liEmail" placeholder="e.g. jdelacruz or 20240001"></div>
-        <div class="af"><label class="al">Password</label><input class="ai" id="liPass" type="password" placeholder="Your password"></div>
-        <div class="af"><label class="al">I am a:</label>
-          <select class="ai" id="liRole">
-            <option value="subject">Subject Teacher</option>
-            <option value="advisory">Advisory Teacher</option>
-            <option value="registrar">Registrar / Admin</option>
-          </select>
+        <div class="af">
+          <label class="al">Employee ID</label>
+          <input class="ai" id="loginUser" placeholder="e.g. EMP-001 or DEMO-SUBJECT" autocomplete="username">
+        </div>
+        <div class="af">
+          <label class="al">Password</label>
+          <input class="ai" id="loginPass" type="password" placeholder="Your password" autocomplete="current-password">
         </div>
         <button class="auth-btn" onclick="doLogin()">Sign In →</button>
-        <div class="auth-err" id="liErr"></div>
-        <div class="auth-hint">First time? Click Register to create your account.</div>
+        <div class="auth-err" id="loginErr"></div>
+        <div class="auth-demo">
+          <div class="auth-demo-title">🧪 Demo Accounts</div>
+          <div class="auth-demo-grid">
+            <button class="demo-pill" onclick="quickLogin('DEMO-SUBJECT','demo1234')">📚 Subject Teacher</button>
+            <button class="demo-pill" onclick="quickLogin('DEMO-ADVISORY','demo1234')">🏫 Advisory Teacher</button>
+            <button class="demo-pill" onclick="quickLogin('DEMO-REGISTRAR','demo1234')">📋 Registrar</button>
+            <button class="demo-pill guest" onclick="guestLogin()">👤 Guest (no save)</button>
+          </div>
+        </div>
       </div>
-      <!-- REGISTER -->
+
+      <!-- REGISTER PANE -->
       <div id="paneReg" style="display:none">
         <div class="auth-title">Create your account</div>
         <div class="auth-sub">Register as an ANHS teacher</div>
@@ -48,17 +60,22 @@
           <div class="af"><label class="al">First Name</label><input class="ai" id="regFirst" placeholder="Maria"></div>
           <div class="af"><label class="al">Last Name</label><input class="ai" id="regLast" placeholder="Santos"></div>
         </div>
-        <div class="af"><label class="al">Employee ID</label><input class="ai" id="regEmpId" placeholder="e.g. 20240001"></div>
-        <div class="af"><label class="al">Email</label><input class="ai" type="email" placeholder="msantos@anhs.edu.ph"></div>
-        <div class="af"><label class="al">Default Subject</label><input class="ai" placeholder="e.g. Mathematics"></div>
-        <div class="af"><label class="al">Role</label>
+        <div class="af"><label class="al">Employee ID</label><input class="ai" id="regEmpId" placeholder="e.g. EMP-001"></div>
+        <div class="af"><label class="al">School Name</label><input class="ai" id="regSchool" placeholder="Angono National High School" value="Angono National High School"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
+          <div class="af"><label class="al">School ID</label><input class="ai" id="regSchoolId" placeholder="301417" value="301417"></div>
+          <div class="af"><label class="al">Region</label><input class="ai" id="regRegion" placeholder="IV-A CALABARZON" value="IV-A CALABARZON"></div>
+        </div>
+        <div class="af"><label class="al">Division</label><input class="ai" id="regDivision" placeholder="Rizal" value="Rizal"></div>
+        <div class="af">
+          <label class="al">Role</label>
           <select class="ai" id="regRole">
             <option value="subject">Subject Teacher</option>
             <option value="advisory">Advisory Teacher</option>
           </select>
         </div>
-        <div class="af"><label class="al">Password</label><input class="ai" id="regPass" type="password" placeholder="Create a password"></div>
-        <div class="af"><label class="al">Confirm Password</label><input class="ai" id="regPass2" type="password" placeholder="Repeat password"></div>
+        <div class="af"><label class="al">Password</label><input class="ai" id="regPass" type="password" placeholder="At least 6 characters" autocomplete="new-password"></div>
+        <div class="af"><label class="al">Confirm Password</label><input class="ai" id="regPass2" type="password" placeholder="Repeat your password" autocomplete="new-password"></div>
         <button class="auth-btn" onclick="doRegister()">Create Account →</button>
         <div class="auth-err" id="regErr"></div>
       </div>
@@ -66,27 +83,32 @@
   </div>
 </div>
 
-<!-- MAIN APP -->
+<!-- ════════════════════════════════════════
+     MAIN APP
+════════════════════════════════════════ -->
 <div id="app">
+
   <!-- TOPBAR -->
   <div class="topbar">
     <div class="brand">
       <div class="bmark">ANHS</div>
-      <div class="bname">Angono National High School</div>
+      <div class="bname">E-Class Record</div>
       <div class="brole" id="roleLabel">Subject Teacher</div>
+      <div class="term-badge" id="termBadgeTop">3-Term · DO 009</div>
     </div>
     <div class="tdiv"></div>
     <div class="mainnav" id="mainNav"></div>
     <div class="tr">
-      <div class="cbadge" id="classBadge">No class selected</div>
+      <div class="user-pill" id="userPill">Guest</div>
+      <div class="cbadge" id="classBadge">No class</div>
       <div class="zoom-ctrl">
         <button class="zoom-btn" onclick="zoomOut()">−</button>
         <span class="zoom-label" id="zoomLabel">100%</span>
         <button class="zoom-btn" onclick="zoomIn()">+</button>
       </div>
       <button class="dm-btn" id="dmBtn" onclick="toggleDarkMode()">🌙</button>
-      <button class="swbtn backonly" id="backBtn" onclick="goHomeMenu()">← Back</button>
-      <button class="swbtn" onclick="doLogout()">⏏ Sign Out</button>
+      <button class="swbtn" onclick="switchRole()">⇄ Role</button>
+      <button class="swbtn logout-btn" onclick="doLogout()">↩ Sign Out</button>
     </div>
   </div>
 
@@ -94,44 +116,44 @@
   <div class="csbar">
     <span class="cslbl">Active Class:</span>
     <select class="cssel" id="csGrade">
-      <option value="">Grade</option>
+      <option value="">Grade Level</option>
       <option>Grade 7</option><option>Grade 8</option>
       <option>Grade 9</option><option>Grade 10</option>
       <option>Grade 11</option><option>Grade 12</option>
     </select>
-    <input class="cssel" id="csSection" placeholder="Section" style="width:130px">
-    <button class="csbtn" onclick="applyClass()">Load</button>
-    <select class="cssel" id="savedClassSelect" style="width:190px" onchange="pickSavedClass()">
+    <input class="cssel" id="csSection" placeholder="Section" style="width:120px">
+    <input class="cssel" id="csSY" placeholder="School Year" style="width:128px" value="2026-2027">
+    <button class="csbtn" onclick="applyClass()">Load Class</button>
+    <select class="cssel" id="savedClassSelect" style="width:185px" onchange="pickSavedClass()">
       <option value="">Saved classes…</option>
     </select>
-    <div class="term-bar" id="termBar">
-      <span class="tbdot t1"></span><span>T1: Jun 8–Sep 15</span>
-      <span class="tbdot t2"></span><span>T2: Sep 16–Dec 18</span>
-      <span class="tbdot t3"></span><span>T3: Jan 4–Apr 8</span>
+    <div class="csinfo" id="csInfo">Select grade, section, and school year</div>
+  </div>
+
+  <!-- TERM BAR -->
+  <div class="tbar" id="termBar">
+    <span class="tbar-label">Term:</span>
+    <div class="tbar-tabs">
+      <button class="ttab active" id="ttab1" onclick="setActiveTerm(1)">
+        <span class="ttab-name">Term 1</span>
+        <span class="ttab-range">Jun 8 – Sep 15, 2026</span>
+      </button>
+      <button class="ttab" id="ttab2" onclick="setActiveTerm(2)">
+        <span class="ttab-name">Term 2</span>
+        <span class="ttab-range">Sep 16 – Dec 18, 2026</span>
+      </button>
+      <button class="ttab" id="ttab3" onclick="setActiveTerm(3)">
+        <span class="ttab-name">Term 3</span>
+        <span class="ttab-range">Jan 4 – Apr 8, 2027</span>
+      </button>
     </div>
-    <div class="csinfo" id="csInfo">Select grade and section to begin</div>
+    <div class="tbar-right" id="tbarSY">SY 2026-2027 · 201 class days</div>
   </div>
 
   <div id="pagesContainer">
 
     <!-- HOME -->
-    <div class="page" id="page-home"><div class="pi">
-      <div class="home-hero">
-        <div class="home-hero-left">
-          <div class="home-kicker">Three-Term School Calendar · SY 2026–2027</div>
-          <div class="home-title">Good day, <span id="teacherNameHome" style="color:var(--blue)"></span>!</div>
-          <div class="home-sub">Welcome to the ANHS E-Class Record System. Select a module below to begin your work. Data auto-saves in your browser — export regularly to keep a backup.</div>
-          <div class="home-term-cards">
-            <div class="htc t1c"><div class="htc-label">Term 1</div><div class="htc-dates">Jun 8 – Sep 15, 2026</div><div class="htc-days">69 class days</div></div>
-            <div class="htc t2c"><div class="htc-label">Term 2</div><div class="htc-dates">Sep 16 – Dec 18, 2026</div><div class="htc-days">65 class days</div></div>
-            <div class="htc t3c"><div class="htc-label">Term 3</div><div class="htc-dates">Jan 4 – Apr 8, 2027</div><div class="htc-days">67 class days</div></div>
-          </div>
-        </div>
-        <div class="home-hero-right">
-          <div class="home-menu-grid" id="homeMenuButtons"></div>
-        </div>
-      </div>
-    </div></div>
+    <div class="page" id="page-home"><div class="pi"><div id="homeContent"></div></div></div>
 
     <!-- RECORD BOOK -->
     <div class="page" id="page-recordbook"><div class="pi">
@@ -158,9 +180,9 @@
       <div class="ebar">
         <span class="elbl">📤 Export:</span>
         <button class="btn br bsm" onclick="pdfSummary()">📄 PDF</button>
-        <button class="btn bg bsm" onclick="excelGrades()">📊 Excel (3-Term DepEd)</button>
+        <button class="btn bg bsm" onclick="excelGrades()">📊 Excel (DepEd 3-Term)</button>
         <button class="btn ba bsm" onclick="jsonExport()">📦 JSON for Advisory</button>
-        <button class="btn bpu bsm" onclick="submitToRegistrar()">📨 Submit to Registrar</button>
+        <button class="btn bpu bsm" onclick="showPage('registrar')">📬 Submit to Registrar</button>
         <div class="sp"></div>
         <button class="btn bo bsm" onclick="window.print()">🖨 Print</button>
       </div>
@@ -186,34 +208,31 @@
       <div class="pi" id="dailyAttContent"><div class="ws"><h2>Select a class first</h2></div></div>
     </div>
 
-    <!-- SCHOOL FORMS SF1-SF10 -->
-    <div class="page" id="page-schoolforms"><div class="pi">
-      <div class="ebar">
-        <span class="elbl">📋 School Forms SF1–SF10</span>
-        <div class="sp"></div>
-        <span style="font-size:.78rem;color:var(--tx3)">Auto-generated from class data · DepEd K–12</span>
+    <!-- SF FORMS -->
+    <div class="page" id="page-sfforms"><div class="pi">
+      <div class="subnav" id="sfNav" style="flex-wrap:wrap">
+        <button class="stab active" onclick="showSF('sf1')">📋 SF1 · Register</button>
+        <button class="stab" onclick="showSF('sf2')">📅 SF2 · Attendance</button>
+        <button class="stab" onclick="showSF('sf4')">📊 SF4 · Monthly</button>
+        <button class="stab" onclick="showSF('sf5')">🎓 SF5 · Promotion</button>
+        <button class="stab" onclick="showSF('sf9')">📄 SF9 · Report Card</button>
+        <button class="stab" onclick="showSF('sf10')">🗂 SF10 · Perm. Record</button>
       </div>
-      <div class="sf-grid" id="sfGrid"></div>
-      <div id="sfViewArea" style="margin-top:1.2rem"></div>
+      <div id="sf-content"><div class="ws"><h2>Select a class then choose a form</h2><p>School Forms are auto-generated from your class data.</p></div></div>
     </div></div>
 
-    <!-- CONSOLIDATED GRADES (Advisory) -->
+    <!-- CONSOLIDATED (Advisory) -->
     <div class="page" id="page-consolidated">
-      <div class="pi" id="consContent">
-        <div class="ws"><h2>Consolidated Grades</h2><p>Import JSON files from subject teachers to generate consolidated term grades and final averages.</p></div>
-      </div>
+      <div class="pi" id="consContent"><div class="ws"><h2>Consolidated Grades</h2><p>Import JSON files from subject teachers to generate consolidated term grades.</p></div></div>
     </div>
 
-    <!-- REGISTRAR DASHBOARD -->
-    <div class="page" id="page-registrar"><div class="pi">
-      <div class="ebar"><span class="elbl">📂 Registrar Dashboard</span><div class="sp"></div>
-        <button class="btn bg bsm" onclick="exportRegistrarExcel()">📊 Export All Grades</button>
-      </div>
-      <div id="registrarContent"></div>
-    </div></div>
+    <!-- REGISTRAR SUBMISSION -->
+    <div class="page" id="page-registrar">
+      <div class="pi" id="registrarContent"><div class="ws"><h2>📬 Registrar Submission Center</h2></div></div>
+    </div>
 
-  </div>
-</div>
+  </div><!-- /pagesContainer -->
+</div><!-- /app -->
 
 <!-- MODAL -->
 <div class="mbg" id="mainModal">
@@ -227,7 +246,6 @@
 </div>
 
 <div id="toast"></div>
-<script src="assets/js/main.js"></script>
 
 <footer class="app-footer">
   <div class="footer-left">
@@ -240,5 +258,7 @@
     <span class="footer-tagline">DO 009 s.2026 · SY 2026–2027 · © 2026 Mendtrix IT Services</span>
   </div>
 </footer>
+
+<script src="assets/js/main.js"></script>
 </body>
 </html>

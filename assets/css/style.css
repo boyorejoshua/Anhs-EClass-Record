@@ -384,5 +384,29 @@ body.dark-mode .loa-hp{background:#0d2535;color:#7dd3fc}
 .footer-version{font-size:.7rem;color:var(--tx4);font-family:'DM Mono',monospace;background:var(--surf2);border:1px solid var(--bdr);padding:.13rem .45rem;border-radius:99px}
 
 /* PRINT */
+
+/* ── AUTH DEMO ACCOUNTS ── */
+.auth-demo{margin-top:1rem;padding:.75rem;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:var(--rs)}
+.auth-demo-title{font-size:.7rem;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.5rem}
+.auth-demo-grid{display:grid;grid-template-columns:1fr 1fr;gap:.35rem}
+.demo-pill{padding:.4rem .6rem;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.07);color:rgba(255,255,255,.8);border-radius:var(--rs);cursor:pointer;font-size:.75rem;font-weight:500;font-family:inherit;transition:all .15s;text-align:left}
+.demo-pill:hover{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.3);color:#fff}
+.demo-pill.guest{border-style:dashed;color:rgba(255,255,255,.5)}
+/* Auth form fields */
+.af{margin-bottom:.75rem}
+.al{display:block;font-size:.72rem;font-weight:600;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.4px;margin-bottom:.3rem}
+.ai{width:100%;padding:.6rem .8rem;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:var(--rs);color:#fff;font-family:inherit;font-size:.9rem;outline:none;transition:border .15s}
+.ai:focus{border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.12)}
+.ai option{background:#1a1d27;color:#e8ecf4}
+.auth-err{font-size:.78rem;color:#f87171;margin-top:.5rem;min-height:.9rem}
+.auth-title{font-size:1.1rem;font-weight:700;color:#fff;margin-bottom:.2rem}
+.auth-sub{font-size:.8rem;color:rgba(255,255,255,.5);margin-bottom:1rem}
+/* Auth brand */
+.auth-brand{flex:1;color:#fff;padding-right:1rem}
+.auth-logo{font-size:3.5rem;font-weight:800;letter-spacing:-3px;margin-bottom:.3rem;background:linear-gradient(135deg,#60a5fa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.auth-school{font-size:1.1rem;font-weight:700;margin-bottom:.2rem}
+.auth-sys{font-size:.9rem;color:rgba(255,255,255,.7);margin-bottom:.5rem}
+.auth-badge{display:inline-flex;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:99px;padding:.25rem .8rem;font-size:.72rem;font-weight:600;color:rgba(255,255,255,.8)}
+
 @media print{.topbar,.csbar,.ebar,.btn,.ttabs,.subnav,.app-footer,.zoom-ctrl,.dm-btn,.swbtn,#authScreen{display:none!important}.page{display:block!important;padding:0}body{background:#fff!important;font-size:11px!important}}
 hr.div{border:none;border-top:1px solid var(--bdr);margin:.8rem 0}

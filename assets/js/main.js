@@ -2,7 +2,6 @@
    ANHS E-CLASS RECORD SYSTEM — THREE-TERM (DO 009, s. 2026)
    main.js v4.0
 ================================================================ */
-console.log("MAIN JS LOADED");
 
 const TRANS=[[0,3.99,60],[4,7.99,61],[8,11.99,62],[12,15.99,63],[16,19.99,64],[20,23.99,65],[24,27.99,66],[28,31.99,67],[32,35.99,68],[36,39.99,69],[40,43.99,70],[44,47.99,71],[48,51.99,72],[52,55.99,73],[56,59.99,74],[60,61.59,75],[61.6,63.19,76],[63.2,64.79,77],[64.8,66.39,78],[66.4,67.99,79],[68,69.59,80],[69.6,71.19,81],[71.2,72.79,82],[72.8,74.39,83],[74.4,75.99,84],[76,77.59,85],[77.6,79.19,86],[79.2,80.79,87],[80.8,82.39,88],[82.4,83.99,89],[84,85.59,90],[85.6,87.19,91],[87.2,88.79,92],[88.8,90.39,93],[90.4,91.99,94],[92,93.59,95],[93.6,95.19,96],[95.2,96.79,97],[96.8,98.39,98],[98.4,99.99,99],[100,100,100]];
 function transmute(v){if(v===null||isNaN(v))return null;if(v>=100)return 100;for(const[lo,hi,g]of TRANS)if(v>=lo&&v<=hi)return g;return v<0?60:100;}
@@ -49,9 +48,9 @@ function hasClass(){return APP.ac.grade&&APP.ac.section}
 function getUsers(){try{return JSON.parse(localStorage.getItem('anhs_users')||'[]')}catch(e){return[]}}
 function saveUsers(u){try{localStorage.setItem('anhs_users',JSON.stringify(u))}catch(e){}}
 function doLogin(){
-  const uid=document.getElementById('liEmail').value.trim();
-  const pass=document.getElementById('liPass').value;
-  const err=document.getElementById('liErr');
+  const uid=document.getElementById('loginUser').value.trim();
+  const pass=document.getElementById('loginPass').value;
+  const err=document.getElementById('loginErr');
   if(!uid||!pass){err.textContent='Please enter employee ID and password.';return;}
   const users=getUsers();const user=users.find(u=>u.empId===uid);
   if(!user||user.password!==btoa(pass)){err.textContent='Invalid employee ID or password.';return;}
@@ -93,8 +92,62 @@ function startApp(user){
     updateRoleUI();buildNav();loadZoom();loadDarkMode();restoreClass();showPage(APP.page||'home');
   }else{document.getElementById('roleScreen').style.display='flex';}
 }
-function showLogin(){document.getElementById('paneLogin').style.display='block';document.getElementById('paneReg').style.display='none';}
-function showRegister(){document.getElementById('paneLogin').style.display='none';document.getElementById('paneReg').style.display='block';}
+// ── AUTH TAB SWITCHER ──
+function showAuth(tab){
+  const isLogin = tab === 'login';
+  document.getElementById('paneLogin').style.display = isLogin ? '' : 'none';
+  document.getElementById('paneReg').style.display  = isLogin ? 'none' : '';
+  document.getElementById('tabLogin').classList.toggle('active', isLogin);
+  document.getElementById('tabReg').classList.toggle('active', !isLogin);
+}
+// Keep old names as aliases so any stray calls still work
+function showLogin(){showAuth('login');}
+function showRegister(){showAuth('register');}
+
+// ── QUICK LOGIN (demo buttons) ──
+function quickLogin(empId, pass){
+  const ui = document.getElementById('loginUser');
+  const pi = document.getElementById('loginPass');
+  if(ui) ui.value = empId;
+  if(pi) pi.value = pass;
+  doLogin();
+}
+
+// ── SEED DEMO ACCOUNTS (runs once on first load) ──
+function seedDemoAccounts(){
+  const users = getUsers();
+  const demos = [
+    {
+      empId:'DEMO-SUBJECT', firstName:'Maria', lastName:'Santos',
+      school:'Angono National High School', schoolId:'301417',
+      region:'IV-A CALABARZON', division:'Rizal',
+      role:'subject', password:btoa('demo1234'),
+      isDemo:true, createdAt:'2026-01-01T00:00:00.000Z'
+    },
+    {
+      empId:'DEMO-ADVISORY', firstName:'Juan', lastName:'Dela Cruz',
+      school:'Angono National High School', schoolId:'301417',
+      region:'IV-A CALABARZON', division:'Rizal',
+      role:'advisory', password:btoa('demo1234'),
+      isDemo:true, createdAt:'2026-01-01T00:00:00.000Z'
+    },
+    {
+      empId:'DEMO-REGISTRAR', firstName:'Ana', lastName:'Reyes',
+      school:'Angono National High School', schoolId:'301417',
+      region:'IV-A CALABARZON', division:'Rizal',
+      role:'advisory', password:btoa('demo1234'),
+      isDemo:true, createdAt:'2026-01-01T00:00:00.000Z'
+    },
+  ];
+  let changed = false;
+  demos.forEach(d => {
+    if(!users.find(u => u.empId === d.empId)){
+      users.push(d);
+      changed = true;
+    }
+  });
+  if(changed) saveUsers(users);
+}
 
 // ── PERSISTENCE ──
 function save(){try{const key=CURRENT_USER?`anhs_v4_${CURRENT_USER.empId}`:'anhs_v4_guest';localStorage.setItem(key,JSON.stringify(APP));}catch(e){}}
@@ -937,9 +990,9 @@ function hasClass(){return APP.ac.grade&&APP.ac.section}
 function getUsers(){try{return JSON.parse(localStorage.getItem('anhs_users')||'[]')}catch(e){return[]}}
 function saveUsers(u){try{localStorage.setItem('anhs_users',JSON.stringify(u))}catch(e){}}
 function doLogin(){
-  const uid=document.getElementById('liEmail').value.trim();
-  const pass=document.getElementById('liPass').value;
-  const err=document.getElementById('liErr');
+  const uid=document.getElementById('loginUser').value.trim();
+  const pass=document.getElementById('loginPass').value;
+  const err=document.getElementById('loginErr');
   if(!uid||!pass){err.textContent='Please enter employee ID and password.';return;}
   const users=getUsers();const user=users.find(u=>u.empId===uid);
   if(!user||user.password!==btoa(pass)){err.textContent='Invalid employee ID or password.';return;}
@@ -981,8 +1034,62 @@ function startApp(user){
     updateRoleUI();buildNav();loadZoom();loadDarkMode();restoreClass();showPage(APP.page||'home');
   }else{document.getElementById('roleScreen').style.display='flex';}
 }
-function showLogin(){document.getElementById('loginCard').style.display='';document.getElementById('registerCard').style.display='none';}
-function showRegister(){document.getElementById('loginCard').style.display='none';document.getElementById('registerCard').style.display='';}
+// ── AUTH TAB SWITCHER ──
+function showAuth(tab){
+  const isLogin = tab === 'login';
+  document.getElementById('paneLogin').style.display = isLogin ? '' : 'none';
+  document.getElementById('paneReg').style.display  = isLogin ? 'none' : '';
+  document.getElementById('tabLogin').classList.toggle('active', isLogin);
+  document.getElementById('tabReg').classList.toggle('active', !isLogin);
+}
+// Keep old names as aliases so any stray calls still work
+function showLogin(){showAuth('login');}
+function showRegister(){showAuth('register');}
+
+// ── QUICK LOGIN (demo buttons) ──
+function quickLogin(empId, pass){
+  const ui = document.getElementById('loginUser');
+  const pi = document.getElementById('loginPass');
+  if(ui) ui.value = empId;
+  if(pi) pi.value = pass;
+  doLogin();
+}
+
+// ── SEED DEMO ACCOUNTS (runs once on first load) ──
+function seedDemoAccounts(){
+  const users = getUsers();
+  const demos = [
+    {
+      empId:'DEMO-SUBJECT', firstName:'Maria', lastName:'Santos',
+      school:'Angono National High School', schoolId:'301417',
+      region:'IV-A CALABARZON', division:'Rizal',
+      role:'subject', password:btoa('demo1234'),
+      isDemo:true, createdAt:'2026-01-01T00:00:00.000Z'
+    },
+    {
+      empId:'DEMO-ADVISORY', firstName:'Juan', lastName:'Dela Cruz',
+      school:'Angono National High School', schoolId:'301417',
+      region:'IV-A CALABARZON', division:'Rizal',
+      role:'advisory', password:btoa('demo1234'),
+      isDemo:true, createdAt:'2026-01-01T00:00:00.000Z'
+    },
+    {
+      empId:'DEMO-REGISTRAR', firstName:'Ana', lastName:'Reyes',
+      school:'Angono National High School', schoolId:'301417',
+      region:'IV-A CALABARZON', division:'Rizal',
+      role:'advisory', password:btoa('demo1234'),
+      isDemo:true, createdAt:'2026-01-01T00:00:00.000Z'
+    },
+  ];
+  let changed = false;
+  demos.forEach(d => {
+    if(!users.find(u => u.empId === d.empId)){
+      users.push(d);
+      changed = true;
+    }
+  });
+  if(changed) saveUsers(users);
+}
 
 // ── PERSISTENCE ──
 function save(){try{const key=CURRENT_USER?`anhs_v4_${CURRENT_USER.empId}`:'anhs_v4_guest';localStorage.setItem(key,JSON.stringify(APP));}catch(e){}}
@@ -2476,6 +2583,9 @@ function submitToRegistrar(){showPage('registrar');}
 // 27. INIT
 // ══════════════════════════════════════════════
 function init(){
+  // Seed demo accounts on first load
+  seedDemoAccounts();
+
   // Check for saved user session
   try{
     const saved=localStorage.getItem('anhs_current_user');
