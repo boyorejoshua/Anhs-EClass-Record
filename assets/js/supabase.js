@@ -15,9 +15,9 @@
    ================================================================ */
 
 // ── CONFIG ──────────────────────────────────────────────────────
-const PHASE2_ENABLED = True;  // ← Set to TRUE when Supabase is ready
+const PHASE2_ENABLED = true;  // ← Set to TRUE when Supabase is ready
 
-const SUPABASE_URL  = 'https://aylaiatvrrownsqzlntc.supabase.co/rest/v1/';
+const SUPABASE_URL  = 'https://aylaiatvrrownsqzlntc.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF5bGFpYXR2cnJvd25zcXpsbnRjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4ODUwMTMsImV4cCI6MjA5MjQ2MTAxM30.9JIM9PZO8VU94sfzK_lUWikxoVSwi46rYKoYAgI8cy0';
 // ──────────────────────────────────────────────────────────────
 
