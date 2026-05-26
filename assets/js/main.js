@@ -214,12 +214,35 @@ function loadDarkMode(){try{const s=localStorage.getItem('anhs_dark');if(s==='1'
 // ── ROLE & NAV ──
 function selectRole(role){APP.role=role;save();const rs=document.getElementById('roleScreen');if(rs)rs.style.display='none';document.getElementById('app').classList.add('visible');updateRoleUI();buildNav();showPage('home');}
 function switchRole(){const rs=document.getElementById('roleScreen');if(rs)rs.style.display='flex';document.getElementById('app').classList.remove('visible');APP.role=null;save();}
-function updateRoleUI(){const rl=document.getElementById('roleLabel');if(rl)rl.textContent=APP.role==='advisory'?'Advisory Teacher':'Subject Teacher';}
+function updateRoleUI(){
+  const rl=document.getElementById('roleLabel');
+  if(!rl)return;
+  if(APP.role==='advisory')rl.textContent='Advisory Teacher';
+  else if(APP.role==='registrar')rl.textContent='Registrar';
+  else rl.textContent='Subject Teacher';
+}
 function buildNav(){
   const nav=document.getElementById('mainNav');if(!nav)return;
-  const subItems=[{id:'home',icon:'🏠',label:'Home'},{id:'recordbook',icon:'📝',label:'Record Book'},{id:'gradesummary',icon:'📊',label:'Grade Summary'},{id:'dailyatt',icon:'📅',label:'Daily Att.'},{id:'attsummary',icon:'📋',label:'Att. Summary'},{id:'sfforms',icon:'🗂',label:'SF Forms'}];
-  const advItems=[{id:'home',icon:'🏠',label:'Home'},{id:'recordbook',icon:'📝',label:'Record Book'},{id:'gradesummary',icon:'📊',label:'Grade Summary'},{id:'consolidated',icon:'🔀',label:'Consolidated'},{id:'dailyatt',icon:'📅',label:'Daily Att.'},{id:'attsummary',icon:'📋',label:'Att. Summary'},{id:'sfforms',icon:'🗂',label:'SF Forms'},{id:'registrar',icon:'📬',label:'Registrar'}];
-  const items=APP.role==='advisory'?advItems:subItems;
+  const subItems=[
+    {id:'home',icon:'🏠',label:'Home'},
+    {id:'recordbook',icon:'📝',label:'Record Book'},
+    {id:'gradesummary',icon:'📊',label:'Grade Summary'},
+    {id:'dailyatt',icon:'📅',label:'Daily Att.'},
+    {id:'attsummary',icon:'📋',label:'Att. Summary'},
+    {id:'sfforms',icon:'🗂',label:'SF Forms'},
+  ];
+  const advItems=[
+    ...subItems,
+    {id:'consolidated',icon:'🔀',label:'Consolidated'},
+    {id:'registrar',icon:'📬',label:'Registrar'},
+  ];
+  const regItems=[
+    {id:'home',icon:'🏠',label:'Home'},
+    {id:'registrar',icon:'📬',label:'Submission Center'},
+  ];
+  let items=subItems;
+  if(APP.role==='advisory')items=advItems;
+  else if(APP.role==='registrar')items=regItems;
   nav.innerHTML=items.map(it=>`<button class="mnbtn ${APP.page===it.id?'active':''}" onclick="showPage('${it.id}')">${it.icon} ${it.label}</button>`).join('');
 }
 function showPage(name){
@@ -473,46 +496,92 @@ Date Prepared: ${today()}
 function renderHome(){
   const el=document.getElementById('homeContent');if(!el)return;
   const u=CURRENT_USER;
+
+  // Registrar gets a dedicated home view
+  if(APP.role==='registrar'){
+    el.innerHTML=`
+    <div class="home-hero">
+      <div>
+        <div class="home-kicker">📬 Registrar Portal</div>
+        <div class="home-title">Submission Center</div>
+        <div class="home-sub">Review and manage grade submissions from Advisory Teachers. View school-wide grade packages, approve or flag submissions, and maintain permanent records.</div>
+        <div class="home-term-cards">
+          <div class="htc t1c"><div class="htc-label">Term 1</div><div class="htc-val">${TERM_DATES[1].start.split(',')[0]} – ${TERM_DATES[1].end.split(',')[0]}</div></div>
+          <div class="htc t2c"><div class="htc-label">Term 2</div><div class="htc-val">${TERM_DATES[2].start.split(',')[0]} – ${TERM_DATES[2].end.split(',')[0]}</div></div>
+          <div class="htc t3c"><div class="htc-label">Term 3</div><div class="htc-val">${TERM_DATES[3].start.split(',')[0]} – ${TERM_DATES[3].end.split(',')[0]}</div></div>
+        </div>
+        <button class="btn bg" onclick="showPage('registrar')" style="width:100%">📬 Go to Submission Center →</button>
+      </div>
+      <div>
+        <div class="home-hero-meta" style="margin-bottom:1rem">
+          <div class="home-hero-tag">SY ${APP.ac.sy||'2026-2027'}</div>
+          <div class="home-hero-tag">Three-Term System</div>
+          <div class="home-hero-tag">Registrar</div>
+          ${u&&!u.isGuest?`<div class="home-hero-tag">ID: ${escH(u.empId)}</div>`:''}
+        </div>
+        <div class="card" style="font-size:.85rem;color:var(--tx2);line-height:1.8">
+          <div style="font-weight:700;color:var(--tx);margin-bottom:.4rem">📋 Registrar Workflow</div>
+          <div>1. Advisory Teachers submit grade packages via their portal</div>
+          <div>2. Registrar reviews submissions in the Submission Center</div>
+          <div>3. Download and verify SF Forms (SF1, SF5, SF9, SF10)</div>
+          <div>4. Approve, flag, or request re-submission</div>
+          <div>5. File approved records in the school's permanent ledger</div>
+        </div>
+      </div>
+    </div>`;
+    return;
+  }
+
+  // Subject / Advisory Teacher home
   const subjectCards=[
     {id:'recordbook',icon:'📝',title:'Record Book',desc:'Enter grades per term, set HPS, manage student list, view analytics and LOA reports',badge:'Grade Entry',bc:'var(--blue2)',btc:'var(--blue)'},
-    {id:'gradesummary',icon:'📊',title:'Grade Summary',desc:'View term grades and final grades for all students. Export to Excel, PDF, or JSON for Advisory Teacher',badge:'Export Ready',bc:'var(--green2)',btc:'var(--green)'},
+    {id:'gradesummary',icon:'📊',title:'Grade Summary',desc:'View term grades and final grades for all students. Export to Excel, PDF, or JSON',badge:'Export Ready',bc:'var(--green2)',btc:'var(--green)'},
     {id:'dailyatt',icon:'📅',title:'Daily Attendance',desc:'Record student attendance per day. Mark Present, Absent, or Late',badge:'Daily Task',bc:'var(--amber2)',btc:'var(--amber)'},
     {id:'attsummary',icon:'📋',title:'Attendance Summary',desc:'Monthly attendance overview. Generate SF2 and SF4 from recorded data',badge:'Reports',bc:'var(--purple2)',btc:'var(--purple)'},
-    {id:'sfforms',icon:'🗂',title:'School Forms (SF1–SF10)',desc:'Generate all DepEd school forms auto-filled from your class data. Print or export to Excel',badge:'SF1–SF10',bc:'var(--teal2)',btc:'var(--teal)'},
+    {id:'sfforms',icon:'🗂',title:'School Forms (SF1–SF10)',desc:'Generate all DepEd school forms auto-filled from your class data',badge:'SF1–SF10',bc:'var(--teal2)',btc:'var(--teal)'},
   ];
   const advisoryCards=[
     ...subjectCards,
-    {id:'consolidated',icon:'🔀',title:'Consolidated Grades',desc:'Import JSON from subject teachers. Compute General Average and generate Promotion Status per student',badge:'Advisory',bc:'var(--pink2)',btc:'var(--pink)'},
+    {id:'consolidated',icon:'🔀',title:'Consolidated Grades',desc:'Import JSON from subject teachers. Compute General Average and Promotion Status',badge:'Advisory',bc:'var(--pink2)',btc:'var(--pink)'},
     {id:'registrar',icon:'📬',title:'Registrar Submission',desc:'Package all completed records and forms for submission to the school Registrar',badge:'Submit',bc:'var(--red2)',btc:'var(--red)'},
   ];
   const cards=APP.role==='advisory'?advisoryCards:subjectCards;
   const sy=APP.ac.sy||'2026-2027';
+  const roleLabel=APP.role==='advisory'?'Advisory Teacher':'Subject Teacher';
   el.innerHTML=`
   <div class="home-hero">
-    <div class="home-hero-title">Welcome, ${u?`${u.firstName} ${u.lastName}`:'Teacher'}! 👋</div>
-    <div class="home-hero-sub">ANHS E-Class Record System · Three-Term Calendar (DO 009, s. 2026)<br>
-    ${hasClass()?`Active class: <strong>${APP.ac.grade} – ${APP.ac.section}</strong> · SY ${sy}`:'Select a class from the bar above to begin.'}
+    <div>
+      <div class="home-kicker">ANHS E-Class Record System</div>
+      <div class="home-title">Welcome, ${u?u.firstName:'Teacher'}! 👋</div>
+      <div class="home-sub">Three-Term Calendar · DO 009, s. 2026<br>
+      ${hasClass()?`Active class: <strong>${APP.ac.grade} – ${APP.ac.section}</strong> · SY ${sy}`:'Select a class from the bar above to begin entering grades.'}
+      </div>
+      <div class="home-term-cards">
+        <div class="htc t1c"><div class="htc-label">Term 1</div><div class="htc-val">${TERM_DATES[1].start.split(',')[0]} – ${TERM_DATES[1].end.split(',')[0]}</div></div>
+        <div class="htc t2c"><div class="htc-label">Term 2</div><div class="htc-val">${TERM_DATES[2].start.split(',')[0]} – ${TERM_DATES[2].end.split(',')[0]}</div></div>
+        <div class="htc t3c"><div class="htc-label">Term 3</div><div class="htc-val">${TERM_DATES[3].start.split(',')[0]} – ${TERM_DATES[3].end.split(',')[0]}</div></div>
+      </div>
     </div>
-    <div class="home-hero-meta">
-      <div class="home-hero-tag">SY ${sy}</div>
-      <div class="home-hero-tag">Three-Term System</div>
-      <div class="home-hero-tag">${APP.role==='advisory'?'Advisory Teacher':'Subject Teacher'}</div>
-      ${u&&!u.isGuest?`<div class="home-hero-tag">ID: ${escH(u.empId)}</div>`:'<div class="home-hero-tag" style="background:rgba(255,165,0,.2);border-color:rgba(255,165,0,.4)">Guest Mode</div>'}
+    <div>
+      <div class="home-hero-meta" style="margin-bottom:1rem">
+        <div class="home-hero-tag">SY ${sy}</div>
+        <div class="home-hero-tag">Three-Term System</div>
+        <div class="home-hero-tag">${roleLabel}</div>
+        ${u&&!u.isGuest?`<div class="home-hero-tag">ID: ${escH(u.empId)}</div>`:'<div class="home-hero-tag" style="background:rgba(255,165,0,.15);border-color:rgba(255,165,0,.4)">Guest Mode</div>'}
+      </div>
+      ${hasClass()?`
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem">
+        ${[1,2,3].map(t=>{
+          const stu=allStu();const graded=stu.filter(s=>calcT(s.name,t).termGrade!==null).length;
+          return`<div style="background:var(--t${t}bg);border:1px solid var(--t${t});border-radius:var(--rs);padding:.6rem .75rem;cursor:pointer;text-align:center" onclick="setActiveTerm(${t});showPage('recordbook')">
+            <div style="font-size:.65rem;font-weight:700;color:var(--t${t});margin-bottom:.15rem">TERM ${t}</div>
+            <div style="font-size:1.1rem;font-weight:700;color:var(--tx)">${graded}</div>
+            <div style="font-size:.62rem;color:var(--tx3)">of ${stu.length} graded</div>
+          </div>`;
+        }).join('')}
+      </div>`:'<div class="ws" style="min-height:80px"><h2 style="font-size:.95rem">No class loaded yet</h2><p>Use the Active Class bar above</p></div>'}
     </div>
   </div>
-
-  ${hasClass()?`
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.65rem;margin-bottom:.9rem">
-    ${[1,2,3].map(t=>{
-      const stu=allStu();const graded=stu.filter(s=>calcT(s.name,t).termGrade!==null).length;
-      return`<div style="background:var(--term${t}-2);border:1px solid var(--term${t});border-radius:var(--r);padding:.75rem 1rem;cursor:pointer" onclick="setActiveTerm(${t})">
-        <div style="font-size:.72rem;font-weight:700;color:var(--term${t});margin-bottom:.25rem">TERM ${t}</div>
-        <div style="font-size:.9rem;font-weight:600;color:var(--tx)">${TERM_DATES[t].start.split(',')[0]} – ${TERM_DATES[t].end.split(',')[0]}</div>
-        <div style="font-size:.72rem;color:var(--tx3);margin-top:.2rem">${graded}/${stu.length} students graded</div>
-      </div>`;
-    }).join('')}
-  </div>`:''}
-
   <div class="home-grid">
     ${cards.map(c=>`<div class="home-card" onclick="showPage('${c.id}')">
       <div class="home-card-icon">${c.icon}</div>
