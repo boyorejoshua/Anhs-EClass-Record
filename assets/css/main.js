@@ -1,0 +1,1055 @@
+const TRANS=[[0,3.99,60],[4,7.99,61],[8,11.99,62],[12,15.99,63],[16,19.99,64],[20,23.99,65],[24,27.99,66],[28,31.99,67],[32,35.99,68],[36,39.99,69],[40,43.99,70],[44,47.99,71],[48,51.99,72],[52,55.99,73],[56,59.99,74],[60,61.59,75],[61.6,63.19,76],[63.2,64.79,77],[64.8,66.39,78],[66.4,67.99,79],[68,69.59,80],[69.6,71.19,81],[71.2,72.79,82],[72.8,74.39,83],[74.4,75.99,84],[76,77.59,85],[77.6,79.19,86],[79.2,80.79,87],[80.8,82.39,88],[82.4,83.99,89],[84,85.59,90],[85.6,87.19,91],[87.2,88.79,92],[88.8,90.39,93],[90.4,91.99,94],[92,93.59,95],[93.6,95.19,96],[95.2,96.79,97],[96.8,98.39,98],[98.4,99.99,99],[100,100,100]];
+function transmute(v){if(v===null||isNaN(v))return null;if(v>=100)return 100;for(const[lo,hi,g]of TRANS)if(v>=lo&&v<=hi)return g;return v<0?60:100;}
+function r2(n){return Math.round(n*100)/100}
+function esc(s){return String(s).replace(/'/g,"\\'")}
+function escH(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function norm(n){return String(n).trim().replace(/\s+/g,' ').toUpperCase()}
+function today(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+
+const TERM_DATES={
+  1:{name:'Term 1',start:'June 8, 2026',end:'September 15, 2026',days:69},
+  2:{name:'Term 2',start:'September 16, 2026',end:'December 18, 2026',days:65},
+  3:{name:'Term 3',start:'January 4, 2027',end:'April 8, 2027',days:67}
+};
+
+// ── APP STATE ──
+let CURRENT_USER=null;
+let APP={role:null,ac:{grade:'',section:'',sy:'2026-2027'},cd:{},imported:[],page:'home',rbtab:'setup',gt:1,aq:0,attDate:today(),hlStudent:null,activeSF:'sf1'};
+
+function ck(){const u=CURRENT_USER?CURRENT_USER.empId:'guest';return`${u}_${APP.ac.grade}_${APP.ac.section}_${APP.ac.sy}`.replace(/\s+/g,'_');}
+function getCD(){
+  const k=ck();
+  if(!APP.cd[k]){APP.cd[k]={
+    school:{name:CURRENT_USER?.school||'',id:CURRENT_USER?.schoolId||'',region:CURRENT_USER?.region||'',division:CURRENT_USER?.division||'',section:APP.ac.section,teacher:CURRENT_USER?`${CURRENT_USER.lastName}, ${CURRENT_USER.firstName}`:'',subject:'',year:APP.ac.sy,grade:APP.ac.grade,sy:APP.ac.sy},
+    students:{male:[],female:[]},
+    hps:{1:{ww:Array(10).fill(null),pt:Array(10).fill(null),te:null},2:{ww:Array(10).fill(null),pt:Array(10).fill(null),te:null},3:{ww:Array(10).fill(null),pt:Array(10).fill(null),te:null}},
+    grades:{1:{},2:{},3:{}},att:{},diag:{items:0,hso:0,lso:0}
+  };}
+  const cd=APP.cd[k];
+  for(let t=1;t<=3;t++){
+    if(!cd.hps[t])cd.hps[t]={ww:Array(10).fill(null),pt:Array(10).fill(null),te:null};
+    while(cd.hps[t].ww.length<10)cd.hps[t].ww.push(null);
+    while(cd.hps[t].pt.length<10)cd.hps[t].pt.push(null);
+    if(!cd.grades[t])cd.grades[t]={};
+  }
+  if(!cd.att)cd.att={};
+  if(!cd.diag)cd.diag={items:0,hso:0,lso:0};
+  return cd;
+}
+function allStu(){const cd=getCD();return[...cd.students.male.map(n=>({name:n,g:'male'})),...cd.students.female.map(n=>({name:n,g:'female'}))];}
+function hasClass(){return APP.ac.grade&&APP.ac.section}
+
+// ── AUTH ──
+function getUsers(){try{return JSON.parse(localStorage.getItem('anhs_users')||'[]')}catch(e){return[]}}
+function saveUsers(u){try{localStorage.setItem('anhs_users',JSON.stringify(u))}catch(e){}}
+function doLogin(){
+  const uid=document.getElementById('loginUser').value.trim();
+  const pass=document.getElementById('loginPass').value;
+  const err=document.getElementById('loginErr');
+  if(!uid||!pass){err.textContent='Please enter employee ID and password.';return;}
+  const users=getUsers();const user=users.find(u=>u.empId===uid);
+  if(!user||user.password!==btoa(pass)){err.textContent='Invalid employee ID or password.';return;}
+  CURRENT_USER=user;try{localStorage.setItem('anhs_current_user',JSON.stringify(user))}catch(e){}
+  err.textContent='';startApp(user);
+}
+function doRegister(){
+  const first=document.getElementById('regFirst').value.trim();
+  const last=document.getElementById('regLast').value.trim();
+  const empId=document.getElementById('regEmpId').value.trim();
+  const school=document.getElementById('regSchool').value.trim();
+  const schoolId=document.getElementById('regSchoolId').value.trim();
+  const region=document.getElementById('regRegion').value.trim();
+  const division=document.getElementById('regDivision').value.trim();
+  const role=document.getElementById('regRole').value;
+  const pass=document.getElementById('regPass').value;
+  const pass2=document.getElementById('regPass2').value;
+  const err=document.getElementById('regErr');
+  if(!first||!last||!empId||!pass){err.textContent='Please fill in all required fields.';return;}
+  if(pass!==pass2){err.textContent='Passwords do not match.';return;}
+  if(pass.length<6){err.textContent='Password must be at least 6 characters.';return;}
+  const users=getUsers();
+  if(users.find(u=>u.empId===empId)){err.textContent='Employee ID already registered.';return;}
+  const newUser={empId,firstName:first,lastName:last,school:school||'Angono National High School',schoolId:schoolId||'301417',region:region||'IV-A CALABARZON',division:division||'Rizal',role,password:btoa(pass),createdAt:new Date().toISOString()};
+  users.push(newUser);saveUsers(users);
+  err.style.color='var(--green)';err.textContent='Account created! You can now sign in.';
+  setTimeout(()=>{err.textContent='';err.style.color='';showLogin();},1500);
+}
+function guestLogin(){CURRENT_USER={empId:'guest',firstName:'Guest',lastName:'Teacher',school:'Angono National High School',schoolId:'301417',region:'IV-A CALABARZON',division:'Rizal',role:'subject',isGuest:true};startApp(CURRENT_USER);}
+function doLogout(){if(!confirm('Sign out? Make sure you saved your data first.'))return;CURRENT_USER=null;try{localStorage.removeItem('anhs_current_user')}catch(e){}document.getElementById('app').classList.remove('visible');const rs=document.getElementById('roleScreen');if(rs)rs.style.display='none';document.getElementById('authScreen').style.display='flex';APP.role=null;}
+function startApp(user){
+  document.getElementById('authScreen').style.display='none';
+  load();
+  const pill=document.getElementById('userPill');if(pill)pill.textContent=user.isGuest?'Guest':`${user.lastName}, ${user.firstName.charAt(0)}.`;
+  if(user.role&&!APP.role)APP.role=user.role;
+  if(APP.role){
+    const rs=document.getElementById('roleScreen');if(rs)rs.style.display='none';
+    document.getElementById('app').classList.add('visible');
+    updateRoleUI();buildNav();loadZoom();loadDarkMode();restoreClass();showPage(APP.page||'home');
+  }else{const rs=document.getElementById('roleScreen');if(rs)rs.style.display='flex';}
+}
+// ── AUTH TAB SWITCHER ──
+function showAuth(tab){
+  const isLogin = tab === 'login';
+  document.getElementById('paneLogin').style.display = isLogin ? '' : 'none';
+  document.getElementById('paneReg').style.display  = isLogin ? 'none' : '';
+  document.getElementById('tabLogin').classList.toggle('active', isLogin);
+  document.getElementById('tabReg').classList.toggle('active', !isLogin);
+}
+// Keep old names as aliases so any stray calls still work
+function showLogin(){showAuth('login');}
+function showRegister(){showAuth('register');}
+
+// ── QUICK LOGIN (demo buttons) ──
+function quickLogin(empId, pass){
+  const ui = document.getElementById('loginUser');
+  const pi = document.getElementById('loginPass');
+  if(ui) ui.value = empId;
+  if(pi) pi.value = pass;
+  doLogin();
+}
+
+// ── SEED DEMO ACCOUNTS (runs once on first load) ──
+function seedDemoAccounts(){
+  const users = getUsers();
+  const demos = [
+    {
+      empId:'DEMO-SUBJECT', firstName:'Maria', lastName:'Santos',
+      school:'Angono National High School', schoolId:'301417',
+      region:'IV-A CALABARZON', division:'Rizal',
+      role:'subject', password:btoa('demo1234'),
+      isDemo:true, createdAt:'2026-01-01T00:00:00.000Z'
+    },
+    {
+      empId:'DEMO-ADVISORY', firstName:'Juan', lastName:'Dela Cruz',
+      school:'Angono National High School', schoolId:'301417',
+      region:'IV-A CALABARZON', division:'Rizal',
+      role:'advisory', password:btoa('demo1234'),
+      isDemo:true, createdAt:'2026-01-01T00:00:00.000Z'
+    },
+    {
+      empId:'DEMO-REGISTRAR', firstName:'Ana', lastName:'Reyes',
+      school:'Angono National High School', schoolId:'301417',
+      region:'IV-A CALABARZON', division:'Rizal',
+      role:'advisory', password:btoa('demo1234'),
+      isDemo:true, createdAt:'2026-01-01T00:00:00.000Z'
+    },
+  ];
+  let changed = false;
+  demos.forEach(d => {
+    if(!users.find(u => u.empId === d.empId)){
+      users.push(d);
+      changed = true;
+    }
+  });
+  if(changed) saveUsers(users);
+}
+
+// ── PERSISTENCE ──
+function save(){try{const key=CURRENT_USER?`anhs_v4_${CURRENT_USER.empId}`:'anhs_v4_guest';localStorage.setItem(key,JSON.stringify(APP));}catch(e){}}
+function load(){
+  try{
+    const key=CURRENT_USER?`anhs_v4_${CURRENT_USER.empId}`:'anhs_v4_guest';
+    const d=localStorage.getItem(key);if(!d)return;
+    const p=JSON.parse(d);APP={...APP,...p};
+    Object.keys(APP.cd||{}).forEach(k=>{
+      const cd=APP.cd[k];
+      for(let t=1;t<=3;t++){
+        if(!cd.hps[t])cd.hps[t]={ww:Array(10).fill(null),pt:Array(10).fill(null),te:null};
+        while(cd.hps[t].ww.length<10)cd.hps[t].ww.push(null);
+        while(cd.hps[t].pt.length<10)cd.hps[t].pt.push(null);
+        if(!cd.grades[t])cd.grades[t]={};
+      }
+      if(!cd.att)cd.att={};if(!cd.students)cd.students={male:[],female:[]};if(!cd.diag)cd.diag={items:0,hso:0,lso:0};
+    });
+    if(!APP.imported)APP.imported=[];
+  }catch(e){}
+}
+function saveFile(){
+  const cd=hasClass()?getCD():null;
+  const blob=new Blob([JSON.stringify({app:APP,user:CURRENT_USER?.empId,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  const nm=cd?`ANHS_${(cd.school.subject||'Class').replace(/\s+/g,'_').substring(0,12)}_${APP.ac.grade.replace(/\s/g,'')}_${APP.ac.section}_${APP.ac.sy}.json`:`ANHS_Backup_${today()}.json`;
+  a.download=nm;a.click();URL.revokeObjectURL(a.href);toast('✓ File exported');
+}
+function loadFile(inp){
+  const f=inp.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const data=JSON.parse(e.target.result);
+      if(data.app){
+        APP={...APP,...data.app};
+        Object.keys(APP.cd||{}).forEach(k=>{
+          const cd=APP.cd[k];
+          for(let t=1;t<=3;t++){if(!cd.hps[t])cd.hps[t]={ww:Array(10).fill(null),pt:Array(10).fill(null),te:null};while(cd.hps[t].ww.length<10)cd.hps[t].ww.push(null);while(cd.hps[t].pt.length<10)cd.hps[t].pt.push(null);if(!cd.grades[t])cd.grades[t]={};}
+          if(!cd.att)cd.att={};if(!cd.students)cd.students={male:[],female:[]};
+        });
+        if(!APP.imported)APP.imported=[];
+        save();restoreClass();buildNav();showPage(APP.page||'home');toast('✓ File loaded');
+      }else{toast('✗ Invalid file format');}
+    }catch(err){toast('✗ Could not read file');}
+    inp.value='';
+  };
+  r.readAsText(f);
+}
+function restoreClass(){
+  if(APP.ac.grade){
+    const gs=document.getElementById('csGrade');if(gs)gs.value=APP.ac.grade;
+    const ss=document.getElementById('csSection');if(ss)ss.value=APP.ac.section;
+    const sy=document.getElementById('csSY');if(sy)sy.value=APP.ac.sy||'2026-2027';
+    updateClassBadge();updateTermBar();rebuildSavedClassDropdown();
+  }
+}
+
+// ── ZOOM & DARK MODE ──
+const ZOOM_LEVELS=[90,100,110,120,130,140,150];let currentZoom=100;
+function applyZoom(l){currentZoom=l;document.documentElement.setAttribute('data-zoom',l);const lb=document.getElementById('zoomLabel');if(lb)lb.textContent=l+'%';try{localStorage.setItem('anhs_zoom',l)}catch(e){}}
+function zoomIn(){const i=ZOOM_LEVELS.indexOf(currentZoom);if(i<ZOOM_LEVELS.length-1)applyZoom(ZOOM_LEVELS[i+1]);else toast('Maximum zoom')}
+function zoomOut(){const i=ZOOM_LEVELS.indexOf(currentZoom);if(i>0)applyZoom(ZOOM_LEVELS[i-1]);else toast('Minimum zoom')}
+function loadZoom(){try{const s=localStorage.getItem('anhs_zoom');if(s)applyZoom(parseInt(s))}catch(e){}}
+let darkMode=false;
+function toggleDarkMode(){darkMode=!darkMode;document.body.classList.toggle('dark-mode',darkMode);const b=document.getElementById('dmBtn');if(b)b.textContent=darkMode?'☀️':'🌙';try{localStorage.setItem('anhs_dark',darkMode?'1':'0')}catch(e){}toast(darkMode?'🌙 Dark mode on':'☀️ Light mode on')}
+function loadDarkMode(){try{const s=localStorage.getItem('anhs_dark');if(s==='1'){darkMode=true;document.body.classList.add('dark-mode');const b=document.getElementById('dmBtn');if(b)b.textContent='☀️';}}catch(e){}}
+
+// ── ROLE & NAV ──
+function selectRole(role){APP.role=role;save();const rs=document.getElementById('roleScreen');if(rs)rs.style.display='none';document.getElementById('app').classList.add('visible');updateRoleUI();buildNav();showPage('home');}
+function switchRole(){const rs=document.getElementById('roleScreen');if(rs)rs.style.display='flex';document.getElementById('app').classList.remove('visible');APP.role=null;save();}
+function updateRoleUI(){
+  const rl=document.getElementById('roleLabel');
+  if(!rl)return;
+  if(APP.role==='advisory')rl.textContent='Advisory Teacher';
+  else if(APP.role==='registrar')rl.textContent='Registrar';
+  else rl.textContent='Subject Teacher';
+}
+function buildNav(){
+  const nav=document.getElementById('mainNav');if(!nav)return;
+  const subItems=[
+    {id:'home',icon:'🏠',label:'Home'},
+    {id:'recordbook',icon:'📝',label:'Record Book'},
+    {id:'gradesummary',icon:'📊',label:'Grade Summary'},
+    {id:'dailyatt',icon:'📅',label:'Daily Att.'},
+    {id:'attsummary',icon:'📋',label:'Att. Summary'},
+    {id:'sfforms',icon:'🗂',label:'SF Forms'},
+  ];
+  const advItems=[
+    ...subItems,
+    {id:'consolidated',icon:'🔀',label:'Consolidated'},
+    {id:'registrar',icon:'📬',label:'Registrar'},
+  ];
+  const regItems=[
+    {id:'home',icon:'🏠',label:'Home'},
+    {id:'registrar',icon:'📬',label:'Submission Center'},
+  ];
+  let items=subItems;
+  if(APP.role==='advisory')items=advItems;
+  else if(APP.role==='registrar')items=regItems;
+  nav.innerHTML=items.map(it=>`<button class="mnbtn ${APP.page===it.id?'active':''}" onclick="showPage('${it.id}')">${it.icon} ${it.label}</button>`).join('');
+}
+function showPage(name){
+  APP.page=name;save();
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const pg=document.getElementById('page-'+name);if(pg)pg.classList.add('active');
+  buildNav();
+  if(name==='home')renderHome();
+  else if(name==='recordbook')showRB(APP.rbtab||'setup');
+  else if(name==='gradesummary'){renderGradeSummaryPage();renderGSLOA();}
+  else if(name==='dailyatt')renderDailyAtt();
+  else if(name==='attsummary')renderAttSum();
+  else if(name==='consolidated')renderCons();
+  else if(name==='sfforms')renderSF(APP.activeSF||'sf1');
+  else if(name==='registrar')renderRegistrar();
+}
+
+// ── CLASS SELECTOR & TERM BAR ──
+function applyClass(){
+  const g=document.getElementById('csGrade').value;
+  const s=document.getElementById('csSection').value.trim().toUpperCase();
+  const sy=document.getElementById('csSY').value.trim();
+  if(!g||!s){toast('Please select grade and enter section');return;}
+  APP.ac={grade:g,section:s,sy:sy||'2026-2027'};save();updateClassBadge();updateTermBar();rebuildSavedClassDropdown();showPage(APP.page||'home');toast(`✓ Class loaded: ${g} – ${s}`);
+}
+function updateClassBadge(){const b=document.getElementById('classBadge');if(b)b.textContent=APP.ac.grade?`${APP.ac.grade} · ${APP.ac.section}`:'No class';const info=document.getElementById('csInfo');if(info&&hasClass())info.textContent=`Active: ${APP.ac.grade} – ${APP.ac.section} · SY ${APP.ac.sy}`;}
+function updateTermBar(){const bar=document.getElementById('tbarSY');if(bar)bar.textContent=`SY ${APP.ac.sy||'2026-2027'} · 201 class days`;}
+function setActiveTerm(t){APP.gt=t;save();document.querySelectorAll('.ttab').forEach((btn,i)=>btn.classList.toggle('active',i+1===t));if(APP.page==='recordbook'&&(APP.rbtab==='gradeentry'||APP.rbtab==='loa'))showRB(APP.rbtab);}
+function rebuildSavedClassDropdown(){
+  const sel=document.getElementById('savedClassSelect');if(!sel)return;
+  try{const key=CURRENT_USER?`anhs_v4_${CURRENT_USER.empId}`:'anhs_v4_guest';const d=localStorage.getItem(key);if(!d){sel.innerHTML='<option value="">Saved classes…</option>';return;}const data=JSON.parse(d);const classes=Object.keys(data.cd||{});sel.innerHTML='<option value="">Saved classes…</option>'+classes.map(k=>{const cd=data.cd[k];return`<option value="${k}">${cd.school.grade||''} – ${cd.school.section||''} (${cd.school.sy||''})</option>`;}).join('');}catch(e){}
+}
+function pickSavedClass(){
+  const sel=document.getElementById('savedClassSelect');const k=sel?.value;if(!k)return;
+  const cd=APP.cd[k];if(!cd)return;
+  APP.ac.grade=cd.school.grade||'';APP.ac.section=cd.school.section||'';APP.ac.sy=cd.school.sy||cd.school.year||'2026-2027';
+  const gs=document.getElementById('csGrade');if(gs)gs.value=APP.ac.grade;
+  const ss=document.getElementById('csSection');if(ss)ss.value=APP.ac.section;
+  const sy=document.getElementById('csSY');if(sy)sy.value=APP.ac.sy;
+  save();updateClassBadge();updateTermBar();showPage(APP.page);toast(`✓ Switched to ${APP.ac.grade} – ${APP.ac.section}`);
+}
+
+// ── GRADE CALCULATION — THREE-TERM ──
+const W={ww:0.30,pt:0.50,te:0.20};
+function calcT(name,t){
+  const cd=getCD();const h=cd.hps[t];const g=(cd.grades[t]&&cd.grades[t][name])||{};
+  const ww=g.ww||Array(10).fill(null);const pt=g.pt||Array(10).fill(null);const te=g.te!==undefined?g.te:null;
+  const wwHT=h.ww.reduce((a,v)=>a+(v||0),0);const ptHT=h.pt.reduce((a,v)=>a+(v||0),0);
+  let wwT=null,wwPS=null,wwWS=null,ptT=null,ptPS=null,ptWS=null,tePS=null,teWS=null;
+  let wwS=0,wwA=false;ww.forEach((v,i)=>{if(v!==null&&!isNaN(v)&&h.ww[i]){wwS+=parseFloat(v);wwA=true;}});
+  if(wwA&&wwHT){wwT=r2(wwS);wwPS=r2((wwT/wwHT)*100);wwWS=r2(wwPS*W.ww);}
+  let ptS=0,ptA=false;pt.forEach((v,i)=>{if(v!==null&&!isNaN(v)&&h.pt[i]){ptS+=parseFloat(v);ptA=true;}});
+  if(ptA&&ptHT){ptT=r2(ptS);ptPS=r2((ptT/ptHT)*100);ptWS=r2(ptPS*W.pt);}
+  if(te!==null&&!isNaN(te)&&h.te){tePS=r2((parseFloat(te)/h.te)*100);teWS=r2(tePS*W.te);}
+  let initial=null,termGrade=null;
+  if(wwWS!==null||ptWS!==null||teWS!==null){initial=r2((wwWS||0)+(ptWS||0)+(teWS||0));termGrade=transmute(initial);}
+  return{wwT,wwPS,wwWS,ptT,ptPS,ptWS,tePS,teWS,initial,termGrade,quarterly:termGrade};
+}
+function calcFinal(name){const terms=[1,2,3].map(t=>calcT(name,t).termGrade).filter(v=>v!==null);return terms.length?Math.round(terms.reduce((a,b)=>a+b,0)/terms.length):null;}
+
+// ── SETUP ──
+function showRB(tab){
+  APP.rbtab=tab;save();
+  document.querySelectorAll('.rbtab').forEach(d=>d.style.display='none');
+  document.querySelectorAll('#rbNav .stab').forEach(b=>b.classList.remove('active'));
+  const el=document.getElementById('rb-'+tab);if(el)el.style.display='block';
+  const idx=['setup','gradeentry','bulkentry','summary','analytics','loa','instructions'].indexOf(tab);
+  document.querySelectorAll('#rbNav .stab')[idx]?.classList.add('active');
+  if(tab==='setup')renderSetup();
+  else if(tab==='gradeentry')renderGradeEntry();
+  else if(tab==='bulkentry')renderBulkEntry();
+  else if(tab==='summary')renderRBSummary();
+  else if(tab==='analytics')renderAnalytics();
+  else if(tab==='loa')renderLOA();
+  else if(tab==='instructions')renderInstructions();
+}
+
+function renderSetup(){
+  const el=document.getElementById('rb-setup');
+  if(!hasClass()){el.innerHTML='<div class="ws"><h2>Select a class first</h2><p>Use the class selector bar above.</p></div>';return;}
+  const cd=getCD();const s=cd.school;
+  el.innerHTML=`
+  <div class="ebar">
+    <span class="elbl">💾 Save:</span>
+    <button class="btn bg bsm" onclick="saveSetup()">✓ Save Setup</button>
+    <button class="btn ba bsm" onclick="saveFile()">📥 Export .json</button>
+    <label class="btn bo bsm" style="cursor:pointer">📂 Load File<input type="file" accept=".json" style="display:none" onchange="loadFile(this)"></label>
+  </div>
+  <div class="g2" style="margin-bottom:.9rem">
+    <div class="card">
+      <div class="ch"><div class="ct">🏫 School Information</div></div>
+      <div class="g2" style="margin-bottom:.7rem">
+        <div><div class="lbl">School Name</div><input class="inp" id="ss_name" value="${escH(s.name)}" placeholder="Angono National High School"></div>
+        <div><div class="lbl">School ID</div><input class="inp" id="ss_id" value="${escH(s.id)}" placeholder="301417"></div>
+      </div>
+      <div class="g2" style="margin-bottom:.7rem">
+        <div><div class="lbl">Region</div><input class="inp" id="ss_region" value="${escH(s.region)}" placeholder="IV-A CALABARZON"></div>
+        <div><div class="lbl">Division</div><input class="inp" id="ss_division" value="${escH(s.division)}" placeholder="Rizal"></div>
+      </div>
+      <div class="g2" style="margin-bottom:.7rem">
+        <div><div class="lbl">Grade & Section</div><input class="inp" id="ss_grade" value="${escH(s.grade)}" readonly style="background:var(--surf2)"></div>
+        <div><div class="lbl">School Year</div><input class="inp" id="ss_sy" value="${escH(s.year||s.sy||APP.ac.sy)}" placeholder="2026-2027"></div>
+      </div>
+      <div class="g2">
+        <div><div class="lbl">Teacher Name</div><input class="inp" id="ss_teacher" value="${escH(s.teacher)}" placeholder="DELA CRUZ, JUAN A."></div>
+        <div><div class="lbl">Subject</div><input class="inp" id="ss_subject" value="${escH(s.subject)}" placeholder="Mathematics 10"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ch"><div class="ct">📅 Three-Term Calendar Reference</div><div class="cs">DO 009, s. 2026 — SY 2026-2027</div></div>
+      ${[1,2,3].map(t=>`<div style="display:flex;align-items:center;gap:.7rem;padding:.6rem 0;border-bottom:1px solid var(--bdr)">
+        <div class="tag tt${t}" style="min-width:60px;justify-content:center">Term ${t}</div>
+        <div><div style="font-size:.82rem;font-weight:600">${TERM_DATES[t].start} – ${TERM_DATES[t].end}</div><div style="font-size:.7rem;color:var(--tx3)">${TERM_DATES[t].days} class days</div></div>
+      </div>`).join('')}
+      <div style="padding:.6rem 0;font-size:.75rem;color:var(--tx2);line-height:1.7"><strong>Grading:</strong> WW 30% + PT 50% + Term Exam 20% = Term Grade<br><strong>Final Grade</strong> = Average of Term 1 + Term 2 + Term 3</div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:.9rem">
+    <div class="ch"><div class="ct">📐 HPS (Highest Possible Score) — Per Term</div><div class="cs">Enter max score per item. Leave blank if not used for that term.</div></div>
+    ${[1,2,3].map(t=>`
+    <div style="margin-bottom:1rem;padding:.9rem;background:var(--term${t}-2);border-radius:var(--rs);border:1px solid var(--term${t})">
+      <div style="font-size:.85rem;font-weight:700;color:var(--term${t});margin-bottom:.65rem">Term ${t} — ${TERM_DATES[t].name}</div>
+      <div class="lbl">Written Works (WW1–WW10)</div>
+      <div class="hps10" style="margin-bottom:.6rem">${cd.hps[t].ww.map((v,i)=>`<div><div class="hpl">WW${i+1}</div><input class="hpi" type="number" min="0" id="hps_t${t}_ww_${i}" value="${v||''}" onchange="saveHPS()"></div>`).join('')}</div>
+      <div class="lbl">Performance Tasks (PT1–PT10)</div>
+      <div class="hps10" style="margin-bottom:.6rem">${cd.hps[t].pt.map((v,i)=>`<div><div class="hpl">PT${i+1}</div><input class="hpi" type="number" min="0" id="hps_t${t}_pt_${i}" value="${v||''}" onchange="saveHPS()"></div>`).join('')}</div>
+      <div class="g2">
+        <div><div class="lbl">Term Examination (TE) — Total max score</div><input class="inp" type="number" min="0" id="hps_t${t}_te" value="${cd.hps[t].te||''}" placeholder="e.g. 100" onchange="saveHPS()"></div>
+        <div><div class="lbl">WW Total HPS</div><div style="padding:.5rem .7rem;background:var(--surf2);border-radius:var(--rs);border:1px solid var(--bdr);font-family:'DM Mono',monospace;font-size:.85rem">${cd.hps[t].ww.reduce((a,v)=>a+(v||0),0)||'—'}</div></div>
+      </div>
+    </div>`).join('')}
+  </div>
+  <div class="g2">
+    <div class="card">
+      <div class="ch"><div class="ct">👦 Male Students</div><div class="cs">${cd.students.male.length}</div></div>
+      <ul class="sl">${cd.students.male.map((n,i)=>`<li class="si"><span class="sn">${i+1}</span><span class="st">${escH(n)}</span><button class="sd" onclick="removeStu('male',${i})">✕</button></li>`).join('')}</ul>
+      <div class="ar"><input class="inp" id="addMale" placeholder="DELA CRUZ, JUAN" style="flex:1" onkeydown="if(event.key==='Enter')addStu('male')"><button class="btn bp bsm" onclick="addStu('male')">+ Add</button></div>
+    </div>
+    <div class="card">
+      <div class="ch"><div class="ct">👧 Female Students</div><div class="cs">${cd.students.female.length}</div></div>
+      <ul class="sl">${cd.students.female.map((n,i)=>`<li class="si"><span class="sn">${i+1}</span><span class="st">${escH(n)}</span><button class="sd" onclick="removeStu('female',${i})">✕</button></li>`).join('')}</ul>
+      <div class="ar"><input class="inp" id="addFemale" placeholder="REYES, MARIA" style="flex:1" onkeydown="if(event.key==='Enter')addStu('female')"><button class="btn bp bsm" onclick="addStu('female')">+ Add</button></div>
+    </div>
+  </div>`;
+}
+
+function saveSetup(){const cd=getCD();const s=cd.school;s.name=document.getElementById('ss_name')?.value||s.name;s.id=document.getElementById('ss_id')?.value||s.id;s.region=document.getElementById('ss_region')?.value||s.region;s.division=document.getElementById('ss_division')?.value||s.division;s.teacher=document.getElementById('ss_teacher')?.value||s.teacher;s.subject=document.getElementById('ss_subject')?.value||s.subject;s.year=document.getElementById('ss_sy')?.value||s.year;s.sy=s.year;saveHPS();save();toast('✓ Setup saved');}
+function saveHPS(){const cd=getCD();for(let t=1;t<=3;t++){for(let i=0;i<10;i++){const ww=document.getElementById(`hps_t${t}_ww_${i}`);cd.hps[t].ww[i]=ww&&ww.value?parseFloat(ww.value)||null:null;const pt=document.getElementById(`hps_t${t}_pt_${i}`);cd.hps[t].pt[i]=pt&&pt.value?parseFloat(pt.value)||null:null;}const te=document.getElementById(`hps_t${t}_te`);cd.hps[t].te=te&&te.value?parseFloat(te.value)||null:null;}save();}
+function addStu(gender){const inp=document.getElementById(gender==='male'?'addMale':'addFemale');const name=inp.value.trim().toUpperCase();if(!name)return;const cd=getCD();if(cd.students[gender].includes(name)){toast('Student already in list');return;}cd.students[gender].push(name);save();inp.value='';renderSetup();}
+function removeStu(gender,idx){const cd=getCD();const name=cd.students[gender][idx];if(!confirm(`Remove ${name}?`))return;cd.students[gender].splice(idx,1);for(let t=1;t<=3;t++){delete cd.grades[t][name];}save();renderSetup();}
+
+// ── GRADE ENTRY ──
+
+function renderSF9(el,cd,stu){
+  const t=APP.gt;let cards='';
+  stu.forEach(s=>{const c=calcT(s.name,t);const final=calcFinal(s.name);
+    cards+=`<div style="border:1px solid var(--bdr);border-radius:var(--r);padding:.9rem;margin-bottom:.6rem;background:var(--surf)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.55rem">
+        <div><div style="font-size:.88rem;font-weight:700">${escH(s.name)}</div><div style="font-size:.68rem;color:var(--tx3)">${s.g==='male'?'Male':'Female'} · ${escH(APP.ac.grade)} ${escH(APP.ac.section)}</div></div>
+        <div style="text-align:right"><div class="tag tt${t}">Term ${t} Report</div><div style="font-size:.65rem;color:var(--tx3);margin-top:.15rem">SY ${APP.ac.sy}</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:.45rem;margin-bottom:.55rem">
+        ${[['Written Works',c.wwPS!==null?c.wwPS+'%':'—','WW 30%'],['Performance Tasks',c.ptPS!==null?c.ptPS+'%':'—','PT 50%'],['Term Exam',c.tePS!==null?c.tePS+'%':'—','TE 20%'],['Term Grade',c.termGrade||'—','Transmuted']].map(([l,v,sub])=>`<div style="background:var(--surf2);border:1px solid var(--bdr);border-radius:var(--rs);padding:.45rem;text-align:center"><div style="font-size:.58rem;color:var(--tx3)">${sub}</div><div style="font-size:.95rem;font-weight:700;font-family:'DM Mono',monospace">${v}</div><div style="font-size:.62rem;color:var(--tx2)">${l}</div></div>`).join('')}
+      </div>
+      <div style="font-size:.68rem;color:var(--tx2)">Final Grade: <strong style="color:${final?(final>=75?'var(--green)':'var(--red)'):'var(--tx3)'}">${final||'—'}</strong>${final?` · ${final>=75?'PASSED':'FAILED'}`:''}</div>
+      <div style="margin-top:.3rem;font-size:.68rem;color:var(--tx3)">Teacher: ${escH(cd.school.teacher||'—')} · Subject: ${escH(cd.school.subject||'—')}</div>
+    </div>`;
+  });
+  el.innerHTML=`<div class="sf-export-bar">
+    <div class="ttabs">${[1,2,3].map(ti=>`<button class="ttab2 ${ti===t?`active-t${ti}`:''}" onclick="setActiveTerm(${ti});showSF('sf9')">${TERM_DATES[ti].name}</button>`).join('')}</div>
+    <button class="btn br bsm" onclick="window.print()">📄 Print</button>
+  </div>
+  <div class="sf-form">
+    <div class="sf-header"><div class="sf-title">SF9 — Term Report Card · Term ${t}</div><div class="sf-subtitle">${TERM_DATES[t].start} – ${TERM_DATES[t].end} · DO 009, s. 2026</div></div>
+    ${sfMeta(cd)}
+    ${cards}
+  </div>`;
+}
+
+function renderRegistrar(){
+  const el=document.getElementById('registrarContent');if(!el)return;
+  const cd=hasClass()?getCD():null;
+  const stu=hasClass()?allStu():[];
+  el.innerHTML=`
+  <div class="home-hero">
+    <div class="home-hero-title">📬 Registrar Submission Center</div>
+    <div class="home-hero-sub">Package all completed records and school forms for submission to the Registrar. Download the complete package below.</div>
+    <div class="home-hero-meta">
+      <div class="home-hero-tag">DO 009, s. 2026</div>
+      <div class="home-hero-tag">Three-Term System</div>
+      ${cd?`<div class="home-hero-tag">${escH(APP.ac.grade)} – ${escH(APP.ac.section)}</div>`:''}
+    </div>
+  </div>
+
+  ${!hasClass()?'<div class="ws"><h2>Select a class first</h2><p>Load a class to prepare your submission package.</p></div>':''}
+
+  ${cd?`
+  <div class="g2" style="margin-bottom:.9rem">
+    <div class="card">
+      <div class="ch"><div class="ct">📋 Submission Checklist</div><div class="cs">Complete all items before submitting to Registrar</div></div>
+      ${[
+        ['SF1 — School Register', stu.length>0, `${stu.length} students registered`],
+        ['SF2 — Daily Attendance', Object.keys(cd.att).length>0, `${Object.keys(cd.att).length} days recorded`],
+        ['SF5 — Promotion Report', stu.some(s=>calcFinal(s.name)!==null), 'Final grades available'],
+        ['SF9 — Term Report Cards', stu.some(s=>calcT(s.name,APP.gt).termGrade!==null), `Term ${APP.gt} grades entered`],
+        ['SF10 — Permanent Record', stu.some(s=>calcFinal(s.name)!==null), 'All 3 terms have data'],
+        ['Excel E-Class Record', Object.values(cd.grades).some(tg=>Object.keys(tg).length>0), 'Grade data exists'],
+      ].map(([label,ok,detail])=>`
+      <div style="display:flex;align-items:center;gap:.6rem;padding:.45rem 0;border-bottom:1px solid var(--bdr)">
+        <div style="width:20px;height:20px;border-radius:50%;background:${ok?'var(--green2)':'var(--red2)'};color:${ok?'var(--green)':'var(--red)'};display:flex;align-items:center;justify-content:center;font-size:.75rem;flex-shrink:0">${ok?'✓':'✗'}</div>
+        <div style="flex:1"><div style="font-size:.82rem;font-weight:600;color:var(--tx)">${label}</div><div style="font-size:.7rem;color:var(--tx3)">${detail}</div></div>
+      </div>`).join('')}
+    </div>
+    <div class="card">
+      <div class="ch"><div class="ct">📥 Download Package</div><div class="cs">Individual exports ready for Registrar submission</div></div>
+      <div style="display:flex;flex-direction:column;gap:.5rem">
+        <button class="btn bg" onclick="excelGrades()">📊 Download E-Class Record Excel (All Terms)</button>
+        <button class="btn bp" onclick="jsonExport()">📦 Download Grade Summary JSON</button>
+        <button class="btn ba" onclick="showSF('sf1');showPage('sfforms')">📋 View & Print SF1 (School Register)</button>
+        <button class="btn bpu" onclick="showSF('sf5');showPage('sfforms')">🎓 View & Print SF5 (Promotion Report)</button>
+        <button class="btn btl" onclick="showSF('sf9');showPage('sfforms')">📄 View & Print SF9 (Report Cards)</button>
+        <button class="btn bo" onclick="showSF('sf10');showPage('sfforms')">🗂 View & Print SF10 (Permanent Record)</button>
+      </div>
+      <div class="inst-warn" style="margin-top:.75rem">
+        ⚠ <strong>For Phase 2:</strong> Direct digital submission to Registrar requires a backend server connection. Currently, download all forms above and submit physically or via your school's official channel.
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ch"><div class="ct">📧 Submission Summary</div><div class="cs">Auto-generated package summary for Registrar</div></div>
+    <div style="font-family:'DM Mono',monospace;font-size:.78rem;color:var(--tx2);background:var(--surf2);border:1px solid var(--bdr);border-radius:var(--rs);padding:1rem;line-height:1.9">
+REGISTRAR SUBMISSION PACKAGE<br>
+School: ${escH(cd.school.name||'—')}<br>
+School ID: ${escH(cd.school.id||'—')}<br>
+School Year: ${escH(APP.ac.sy)}<br>
+Term System: Three-Term (DO 009, s. 2026)<br>
+Grade & Section: ${escH(APP.ac.grade)} – ${escH(APP.ac.section)}<br>
+Subject Teacher: ${escH(cd.school.teacher||'—')}<br>
+Subject: ${escH(cd.school.subject||'—')}<br>
+Total Learners: ${stu.length} (M: ${(cd.students.male||[]).length} / F: ${(cd.students.female||[]).length})<br>
+Prepared by: ${CURRENT_USER?`${CURRENT_USER.lastName}, ${CURRENT_USER.firstName}`:'Guest'}<br>
+Date Prepared: ${today()}
+    </div>
+  </div>`:''}`;
+}
+
+// ══════════════════════════════════════════════
+// 21. HOME MENU
+// ══════════════════════════════════════════════
+function renderHome(){
+  const el=document.getElementById('homeContent');if(!el)return;
+  const u=CURRENT_USER;
+
+  // Registrar gets a dedicated home view
+  if(APP.role==='registrar'){
+    el.innerHTML=`
+    <div class="home-hero">
+      <div>
+        <div class="home-kicker">📬 Registrar Portal</div>
+        <div class="home-title">Submission Center</div>
+        <div class="home-sub">Review and manage grade submissions from Advisory Teachers. View school-wide grade packages, approve or flag submissions, and maintain permanent records.</div>
+        <div class="home-term-cards">
+          <div class="htc t1c"><div class="htc-label">Term 1</div><div class="htc-val">${TERM_DATES[1].start.split(',')[0]} – ${TERM_DATES[1].end.split(',')[0]}</div></div>
+          <div class="htc t2c"><div class="htc-label">Term 2</div><div class="htc-val">${TERM_DATES[2].start.split(',')[0]} – ${TERM_DATES[2].end.split(',')[0]}</div></div>
+          <div class="htc t3c"><div class="htc-label">Term 3</div><div class="htc-val">${TERM_DATES[3].start.split(',')[0]} – ${TERM_DATES[3].end.split(',')[0]}</div></div>
+        </div>
+        <button class="btn bg" onclick="showPage('registrar')" style="width:100%">📬 Go to Submission Center →</button>
+      </div>
+      <div>
+        <div class="home-hero-meta" style="margin-bottom:1rem">
+          <div class="home-hero-tag">SY ${APP.ac.sy||'2026-2027'}</div>
+          <div class="home-hero-tag">Three-Term System</div>
+          <div class="home-hero-tag">Registrar</div>
+          ${u&&!u.isGuest?`<div class="home-hero-tag">ID: ${escH(u.empId)}</div>`:''}
+        </div>
+        <div class="card" style="font-size:.85rem;color:var(--tx2);line-height:1.8">
+          <div style="font-weight:700;color:var(--tx);margin-bottom:.4rem">📋 Registrar Workflow</div>
+          <div>1. Advisory Teachers submit grade packages via their portal</div>
+          <div>2. Registrar reviews submissions in the Submission Center</div>
+          <div>3. Download and verify SF Forms (SF1, SF5, SF9, SF10)</div>
+          <div>4. Approve, flag, or request re-submission</div>
+          <div>5. File approved records in the school's permanent ledger</div>
+        </div>
+      </div>
+    </div>`;
+    return;
+  }
+
+  // Subject / Advisory Teacher home
+  const subjectCards=[
+    {id:'recordbook',icon:'📝',title:'Record Book',desc:'Enter grades per term, set HPS, manage student list, view analytics and LOA reports',badge:'Grade Entry',bc:'var(--blue2)',btc:'var(--blue)'},
+    {id:'gradesummary',icon:'📊',title:'Grade Summary',desc:'View term grades and final grades for all students. Export to Excel, PDF, or JSON',badge:'Export Ready',bc:'var(--green2)',btc:'var(--green)'},
+    {id:'dailyatt',icon:'📅',title:'Daily Attendance',desc:'Record student attendance per day. Mark Present, Absent, or Late',badge:'Daily Task',bc:'var(--amber2)',btc:'var(--amber)'},
+    {id:'attsummary',icon:'📋',title:'Attendance Summary',desc:'Monthly attendance overview. Generate SF2 and SF4 from recorded data',badge:'Reports',bc:'var(--purple2)',btc:'var(--purple)'},
+    {id:'sfforms',icon:'🗂',title:'School Forms (SF1–SF10)',desc:'Generate all DepEd school forms auto-filled from your class data',badge:'SF1–SF10',bc:'var(--teal2)',btc:'var(--teal)'},
+  ];
+  const advisoryCards=[
+    ...subjectCards,
+    {id:'consolidated',icon:'🔀',title:'Consolidated Grades',desc:'Import JSON from subject teachers. Compute General Average and Promotion Status',badge:'Advisory',bc:'var(--pink2)',btc:'var(--pink)'},
+    {id:'registrar',icon:'📬',title:'Registrar Submission',desc:'Package all completed records and forms for submission to the school Registrar',badge:'Submit',bc:'var(--red2)',btc:'var(--red)'},
+  ];
+  const cards=APP.role==='advisory'?advisoryCards:subjectCards;
+  const sy=APP.ac.sy||'2026-2027';
+  const roleLabel=APP.role==='advisory'?'Advisory Teacher':'Subject Teacher';
+  el.innerHTML=`
+  <div class="home-hero">
+    <div>
+      <div class="home-kicker">ANHS E-Class Record System</div>
+      <div class="home-title">Welcome, ${u?u.firstName:'Teacher'}! 👋</div>
+      <div class="home-sub">Three-Term Calendar · DO 009, s. 2026<br>
+      ${hasClass()?`Active class: <strong>${APP.ac.grade} – ${APP.ac.section}</strong> · SY ${sy}`:'Select a class from the bar above to begin entering grades.'}
+      </div>
+      <div class="home-term-cards">
+        <div class="htc t1c"><div class="htc-label">Term 1</div><div class="htc-val">${TERM_DATES[1].start.split(',')[0]} – ${TERM_DATES[1].end.split(',')[0]}</div></div>
+        <div class="htc t2c"><div class="htc-label">Term 2</div><div class="htc-val">${TERM_DATES[2].start.split(',')[0]} – ${TERM_DATES[2].end.split(',')[0]}</div></div>
+        <div class="htc t3c"><div class="htc-label">Term 3</div><div class="htc-val">${TERM_DATES[3].start.split(',')[0]} – ${TERM_DATES[3].end.split(',')[0]}</div></div>
+      </div>
+    </div>
+    <div>
+      <div class="home-hero-meta" style="margin-bottom:1rem">
+        <div class="home-hero-tag">SY ${sy}</div>
+        <div class="home-hero-tag">Three-Term System</div>
+        <div class="home-hero-tag">${roleLabel}</div>
+        ${u&&!u.isGuest?`<div class="home-hero-tag">ID: ${escH(u.empId)}</div>`:'<div class="home-hero-tag" style="background:rgba(255,165,0,.15);border-color:rgba(255,165,0,.4)">Guest Mode</div>'}
+      </div>
+      ${hasClass()?`
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem">
+        ${[1,2,3].map(t=>{
+          const stu=allStu();const graded=stu.filter(s=>calcT(s.name,t).termGrade!==null).length;
+          return`<div style="background:var(--t${t}bg);border:1px solid var(--t${t});border-radius:var(--rs);padding:.6rem .75rem;cursor:pointer;text-align:center" onclick="setActiveTerm(${t});showPage('recordbook')">
+            <div style="font-size:.65rem;font-weight:700;color:var(--t${t});margin-bottom:.15rem">TERM ${t}</div>
+            <div style="font-size:1.1rem;font-weight:700;color:var(--tx)">${graded}</div>
+            <div style="font-size:.62rem;color:var(--tx3)">of ${stu.length} graded</div>
+          </div>`;
+        }).join('')}
+      </div>`:'<div class="ws" style="min-height:80px"><h2 style="font-size:.95rem">No class loaded yet</h2><p>Use the Active Class bar above</p></div>'}
+    </div>
+  </div>
+  <div class="home-grid">
+    ${cards.map(c=>`<div class="home-card" onclick="showPage('${c.id}')">
+      <div class="home-card-icon">${c.icon}</div>
+      <div class="home-card-title">${c.title}</div>
+      <div class="home-card-desc">${c.desc}</div>
+      <div class="home-card-badge" style="background:${c.bc};color:${c.btc}">${c.badge}</div>
+    </div>`).join('')}
+  </div>`;
+}
+
+// ══════════════════════════════════════════════
+// 22. INSTRUCTIONS
+// ══════════════════════════════════════════════
+function renderInstructions(){
+  const el=document.getElementById('rb-instructions');if(!el)return;
+  el.innerHTML=`
+  <div class="inst-hero">
+    <div class="inst-hero-title">📖 How to Use the Three-Term E-Class Record System</div>
+    <div class="inst-hero-sub">This system follows DO 009, s. 2026 — Three-Term School Calendar.<br>
+    Instead of 4 Quarters, there are now 3 Terms: <strong>Term 1</strong> (Jun–Sep), <strong>Term 2</strong> (Sep–Dec), <strong>Term 3</strong> (Jan–Apr).<br>
+    The Final Grade is the average of all 3 Term Grades.</div>
+  </div>
+
+  <div class="card">
+    <div class="ch"><div class="ct">🚀 First Time Setup</div></div>
+    ${[
+      ['Sign In or Register','Create your teacher account with your Employee ID. Your data is saved privately per account.'],
+      ['Select Your Class','Use the Active Class bar at the top. Enter Grade Level, Section, and School Year, then click Load Class.'],
+      ['Fill in School Information','Go to Setup tab → fill in school name, your name, subject, and school year. This prints on all exported forms.'],
+      ['Set HPS for Each Term','In Setup, enter the Highest Possible Score (HPS) for each Written Work, Performance Task, and Term Examination for all 3 terms.'],
+      ['Add Your Students','In Setup, add male students in the left column and female students in the right. Press Enter after each name.'],
+      ['Save and Export','Click Save Setup, then Export .json File. Store this file safely — load it at the start of every session.'],
+    ].map(([t,d],i)=>`<div class="inst-step"><div class="inst-step-num">${i+1}</div><div><div class="inst-step-title">${t}</div><div class="inst-step-desc">${d}</div></div></div>`).join('')}
+  </div>
+
+  <div class="card">
+    <div class="ch"><div class="ct">📝 Entering Grades (Three-Term System)</div></div>
+    ${[
+      ['Select the Active Term','Use the Term bar near the top (Term 1, 2, or 3) to switch between terms. Each term has its own separate set of scores.'],
+      ['Go to Grade Entry tab','Click 📝 Grade Entry in the Record Book. The table shows WW1–WW10, PT1–PT10, and Term Examination columns.'],
+      ['Type scores directly','Click any score cell and type the student\'s score. All computed values update automatically — no Save button needed for individual cells.'],
+      ['Use Bulk Entry for speed','Click ⚡ Bulk Entry to enter one activity\'s scores for all students at once. Much faster than cell-by-cell entry.'],
+      ['Check your computed grades','The system auto-computes: PS (Percentage Score), WS (Weighted Score), Initial Grade, and Term Grade using DepEd transmutation.'],
+    ].map(([t,d],i)=>`<div class="inst-step"><div class="inst-step-num">${i+1}</div><div><div class="inst-step-title">${t}</div><div class="inst-step-desc">${d}</div></div></div>`).join('')}
+    <div class="inst-tip">💡 <strong>Grading Formula:</strong> WW (30%) + PT (50%) + Term Exam (20%) = Initial Grade → Transmuted = Term Grade. Final Grade = Average of Term 1 + Term 2 + Term 3.</div>
+  </div>
+
+  <div class="card">
+    <div class="ch"><div class="ct">💾 Saving Your Data</div></div>
+    ${[
+      ['Auto-save every keystroke','All scores save instantly to your browser. No manual save needed during grade entry.'],
+      ['Export JSON at end of session','Click 💾 Export .json File in Setup before closing. This is your master backup file.'],
+      ['Load file at start of session','Click 📂 Load File to restore your data from the JSON file on any computer.'],
+      ['Auto-backup every 15 minutes','The system automatically downloads an AutoSave file every 15 minutes as a safety net.'],
+    ].map(([t,d],i)=>`<div class="inst-step"><div class="inst-step-num">${i+1}</div><div><div class="inst-step-title">${t}</div><div class="inst-step-desc">${d}</div></div></div>`).join('')}
+    <div class="inst-warn">⚠ Never clear browser history without exporting your JSON file first. Your data lives in the browser unless exported.</div>
+  </div>
+
+  <div class="card">
+    <div class="ch"><div class="ct">🗂 School Forms (SF1–SF10)</div></div>
+    <div class="inst-step-desc" style="padding:.5rem 0;font-size:.85rem;color:var(--tx2);line-height:1.75">
+      All school forms are auto-generated from your class data. Go to <strong>SF Forms</strong> in the navigation.<br><br>
+      <strong>SF1</strong> — School Register (class list with student names)<br>
+      <strong>SF2</strong> — Daily Attendance Record (monthly view)<br>
+      <strong>SF4</strong> — Monthly Attendance Report (summary per month)<br>
+      <strong>SF5</strong> — Promotion and Proficiency Report (final grades + promotion status)<br>
+      <strong>SF9</strong> — Term Report Card (one card per student per term)<br>
+      <strong>SF10</strong> — Learner's Permanent Academic Record (complete school year record)<br><br>
+      Each form has a <strong>Export Excel</strong> and <strong>Print/PDF</strong> button. Export and submit to your Registrar through your school's official channel.
+    </div>
+  </div>
+
+  <div class="inst-section-title">❓ Frequently Asked Questions</div>
+  ${[
+    ['What changed from the 4-Quarter to 3-Term system?','Instead of Q1, Q2, Q3, Q4, there are now Term 1, Term 2, and Term 3. The grading formula (WW 30%, PT 50%, QA 20%) is the same, but Quarterly Assessment is now called Term Examination. The Final Grade is the average of 3 Term Grades instead of 4 Quarterly Grades.'],
+    ['My data disappeared when I opened the system. What happened?','This happens when you open the system on a different computer or browser, or if browser history was cleared. Always export your .json file at the end of every session and load it at the start of the next one.'],
+    ['Why is the Term Grade not showing?','The Term Grade only computes when the HPS (Highest Possible Score) is set for that term. Go to Setup → HPS section and enter the maximum scores for WW, PT, and Term Examination items.'],
+    ['How do I send grades to the Advisory Teacher?','Go to Grade Summary → click 📦 JSON for Advisory. Send that .json file to your Advisory Teacher. They import it in the Consolidated Grades module.'],
+    ['What is the difference between Subject Teacher and Advisory Teacher?','Subject Teacher enters grades for one specific subject. Advisory Teacher consolidates grades from all subject teachers and generates SF forms (SF5, SF9, SF10) plus the Registrar submission package.'],
+    ['How do I generate school forms for submission?','Go to SF Forms in the navigation. All forms auto-fill from your class data. Click Export Excel or Print/PDF for each form you need.'],
+  ].map(([q,a])=>`<div class="inst-faq"><div class="inst-faq-q" onclick="toggleFAQ(this)">${q} <span>▼</span></div><div class="inst-faq-a">${a}</div></div>`).join('')}
+  <div class="inst-tip" style="margin-top:1rem">📞 For technical support, contact Mendtrix IT Services.</div>`;
+}
+
+function toggleFAQ(el){const ans=el.nextElementSibling;const isOpen=ans.classList.contains('open');document.querySelectorAll('.inst-faq-a').forEach(a=>a.classList.remove('open'));document.querySelectorAll('.inst-faq-q span').forEach(s=>s.textContent='▼');if(!isOpen){ans.classList.add('open');el.querySelector('span').textContent='▲';}}
+
+// ══════════════════════════════════════════════
+// 23. EXCEL EXPORT — DepEd Three-Term E-Class Record
+// ══════════════════════════════════════════════
+function excelGrades(){
+  const cd=getCD();const wb=XLSX.utils.book_new();
+  // INPUT DATA sheet
+  const iRows=[
+    ['Official E-Class Record in K to 12 Curriculum — Three-Term System (DO 009, s. 2026)'],[''],
+    ['REGION',cd.school.region||'','DIVISION',cd.school.division||''],
+    ['SCHOOL NAME',cd.school.name||'','SCHOOL ID',cd.school.id||'','SCHOOL YEAR',cd.school.sy||APP.ac.sy],
+    [''],['LEARNERS'],[''],['MALE'],
+    ...cd.students.male.map((n,i)=>[i+1,n]),
+    [''],['FEMALE'],
+    ...cd.students.female.map((n,i)=>[i+1,n])
+  ];
+  const wsI=XLSX.utils.aoa_to_sheet(iRows);wsI['!cols']=[{wch:5},{wch:45}];
+  XLSX.utils.book_append_sheet(wb,wsI,'INPUT DATA');
+
+  // One sheet per term (T1, T2, T3)
+  const tNames=['FIRST TERM','SECOND TERM','THIRD TERM'];
+  for(let t=1;t<=3;t++){
+    const h=cd.hps[t];
+    const wwC=Math.max(h.ww.filter(v=>v).length,1);
+    const ptC=Math.max(h.pt.filter(v=>v).length,1);
+    const hasTE=!!h.te;
+    const wwHT=h.ww.reduce((a,v)=>a+(v||0),0);
+    const ptHT=h.pt.reduce((a,v)=>a+(v||0),0);
+    const rows=[];
+    rows.push(['Official E-Class Record in K to 12 Curriculum — Three-Term System (DO 009, s. 2026)']);
+    rows.push(['']);
+    rows.push(['REGION',cd.school.region||'','DIVISION',cd.school.division||'']);
+    rows.push(['SCHOOL NAME',cd.school.name||'','SCHOOL ID',cd.school.id||'','SCHOOL YEAR',cd.school.sy||APP.ac.sy]);
+    rows.push([tNames[t-1],'GRADE & SECTION:',`${APP.ac.grade}–${APP.ac.section}`,'TEACHER:',cd.school.teacher||'','SUBJECT:',cd.school.subject||'']);
+    rows.push([`Term Dates: ${TERM_DATES[t].start} – ${TERM_DATES[t].end} · ${TERM_DATES[t].days} class days`]);
+    rows.push(['']);
+    // Header row 1
+    const hdr1=['#','LEARNERS\' NAMES','WRITTEN WORKS (30%)'];
+    for(let i=1;i<wwC+3;i++)hdr1.push('');
+    hdr1.push('PERFORMANCE TASKS (50%)');
+    for(let i=1;i<ptC+3;i++)hdr1.push('');
+    if(hasTE){hdr1.push('TERM EXAMINATION (20%)','','');}
+    hdr1.push('Initial Grade','Term Grade');
+    rows.push(hdr1);
+    // Header row 2 — item numbers
+    const hdr2=['',''];
+    for(let i=0;i<wwC;i++)hdr2.push(i+1);
+    hdr2.push('Total','PS','WS');
+    for(let i=0;i<ptC;i++)hdr2.push(i+1);
+    hdr2.push('Total','PS','WS');
+    if(hasTE)hdr2.push('Score','PS','WS');
+    hdr2.push('','');
+    rows.push(hdr2);
+    // HPS row
+    const hpsR=['','HIGHEST POSSIBLE SCORE'];
+    for(let i=0;i<wwC;i++)hpsR.push(h.ww[i]||'');
+    hpsR.push(wwHT,100,'30%');
+    for(let i=0;i<ptC;i++)hpsR.push(h.pt[i]||'');
+    hpsR.push(ptHT,100,'50%');
+    if(hasTE)hpsR.push(h.te,100,'20%');
+    hpsR.push('','');
+    rows.push(hpsR);
+    // Student rows
+    [{n:'MALE',arr:cd.students.male},{n:'FEMALE',arr:cd.students.female}].forEach(({n,arr})=>{
+      rows.push(['',n]);
+      arr.forEach((sn,idx)=>{
+        const g=(cd.grades[t]&&cd.grades[t][sn])||{};
+        const ww=g.ww||Array(10).fill(null);const pt=g.pt||Array(10).fill(null);
+        const te=g.te!==undefined&&g.te!==null?g.te:'';
+        const c=calcT(sn,t);
+        const row=[idx+1,sn];
+        for(let j=0;j<wwC;j++)row.push(ww[j]!==null&&ww[j]!==undefined?ww[j]:'');
+        row.push(c.wwT!==null?c.wwT:'',c.wwPS!==null?c.wwPS:'',c.wwWS!==null?c.wwWS:'');
+        for(let j=0;j<ptC;j++)row.push(pt[j]!==null&&pt[j]!==undefined?pt[j]:'');
+        row.push(c.ptT!==null?c.ptT:'',c.ptPS!==null?c.ptPS:'',c.ptWS!==null?c.ptWS:'');
+        if(hasTE)row.push(te!==''?te:'',c.tePS!==null?c.tePS:'',c.teWS!==null?c.teWS:'');
+        row.push(c.initial!==null?c.initial:'',c.termGrade||'');
+        rows.push(row);
+      });
+    });
+    const wsT=XLSX.utils.aoa_to_sheet(rows);
+    wsT['!cols']=[{wch:4},{wch:42},...Array(wwC+ptC+12).fill({wch:7})];
+    XLSX.utils.book_append_sheet(wb,wsT,`Term_${t}`);
+  }
+  // FINAL GRADES summary sheet
+  const sumR=[
+    ['Summary of Term and Final Grades — Three-Term System (DO 009, s. 2026)'],[''],
+    ['REGION',cd.school.region||'','DIVISION',cd.school.division||''],
+    ['SCHOOL NAME',cd.school.name||'','GRADE & SECTION:',`${APP.ac.grade}–${APP.ac.section}`,'SY:',cd.school.sy||APP.ac.sy],
+    ['TEACHER:',cd.school.teacher||'','SUBJECT:',cd.school.subject||''],[''],
+    ['#','LEARNER\'S NAME','TERM 1','TERM 2','TERM 3','FINAL GRADE','REMARK']
+  ];
+  [{n:'MALE',arr:cd.students.male},{n:'FEMALE',arr:cd.students.female}].forEach(({n,arr})=>{
+    sumR.push(['',n]);
+    arr.forEach((sn,i)=>{
+      const t1=calcT(sn,1).termGrade,t2=calcT(sn,2).termGrade,t3=calcT(sn,3).termGrade;
+      const vt=[t1,t2,t3].filter(v=>v!==null);
+      const final=vt.length?Math.round(vt.reduce((a,b)=>a+b,0)/vt.length):null;
+      sumR.push([i+1,sn,t1||'',t2||'',t3||'',final||'',final?(final>=75?'PASSED':'FAILED'):'']);
+    });
+  });
+  const wsSum=XLSX.utils.aoa_to_sheet(sumR);
+  wsSum['!cols']=[{wch:4},{wch:42},{wch:9},{wch:9},{wch:9},{wch:11},{wch:10}];
+  XLSX.utils.book_append_sheet(wb,wsSum,'FINAL GRADES');
+
+  // LOA Summary sheet
+  const loaRows=[['LOA SUMMARY — '+escH(cd.school.subject||'Subject')+' · '+APP.ac.grade+' '+APP.ac.section+' · SY '+APP.ac.sy]];
+  loaRows.push(['']);
+  const stu=allStu();
+  for(let t=1;t<=3;t++){
+    const h=cd.hps[t];const N=stu.length;
+    loaRows.push([`TERM ${t} — ${TERM_DATES[t].name} (${TERM_DATES[t].start} – ${TERM_DATES[t].end})`]);
+    loaRows.push(['']);
+    function bands(scores,type){const r=type==='prof'?{np:0,lp:0,np2:0,p:0,hp:0}:{dnm:0,fs:0,s:0,vs:0,o1:0,o2:0,o3:0};scores.forEach(v=>{if(v===null)return;if(type==='prof'){if(v>=90)r.hp++;else if(v>=75)r.p++;else if(v>=50)r.np2++;else if(v>=25)r.lp++;else r.np++;}else{if(v>=98)r.o3++;else if(v>=95)r.o2++;else if(v>=90)r.o1++;else if(v>=85)r.vs++;else if(v>=80)r.s++;else if(v>=75)r.fs++;else r.dnm++;}});return r;}
+    function pct(n,t){return t?r2((n/t)*100):0}
+    const wwPS=stu.map(s=>calcT(s.name,t).wwPS);
+    const ptPS=stu.map(s=>calcT(s.name,t).ptPS);
+    const tePS=stu.map(s=>calcT(s.name,t).tePS);
+    const tGr=stu.map(s=>calcT(s.name,t).termGrade);
+    const wwB=bands(wwPS,'prof');const ptB=bands(ptPS,'desc');const teB=bands(tePS,'prof');const tgB=bands(tGr,'desc');
+    loaRows.push(['WRITTEN WORKS PROFICIENCY']);
+    loaRows.push(['Section','Learners','Not Proficient (0-24%)','','Low Proficient (25-49%)','','Nearly Proficient (50-74%)','','Proficient (75-89%)','','Highly Proficient (90-100%)','']);
+    loaRows.push(['','','No.','%','No.','%','No.','%','No.','%','No.','%']);
+    loaRows.push([`${APP.ac.grade}–${APP.ac.section}`,N,wwB.np,pct(wwB.np,N)+'%',wwB.lp,pct(wwB.lp,N)+'%',wwB.np2,pct(wwB.np2,N)+'%',wwB.p,pct(wwB.p,N)+'%',wwB.hp,pct(wwB.hp,N)+'%']);
+    loaRows.push(['']);
+    loaRows.push(['PERFORMANCE TASKS DESCRIPTORS']);
+    loaRows.push(['Section','Learners','Did Not Meet (≤74%)','','Fairly Satisfactory (75-79%)','','Satisfactory (80-84%)','','Very Satisfactory (85-89%)','','Outstanding 90-94%','','Outstanding 95-97%','','Outstanding 98-100%','']);
+    loaRows.push(['','','No.','%','No.','%','No.','%','No.','%','No.','%','No.','%','No.','%']);
+    loaRows.push([`${APP.ac.grade}–${APP.ac.section}`,N,ptB.dnm,pct(ptB.dnm,N)+'%',ptB.fs,pct(ptB.fs,N)+'%',ptB.s,pct(ptB.s,N)+'%',ptB.vs,pct(ptB.vs,N)+'%',ptB.o1,pct(ptB.o1,N)+'%',ptB.o2,pct(ptB.o2,N)+'%',ptB.o3,pct(ptB.o3,N)+'%']);
+    loaRows.push(['']);
+    if(h.te){
+      loaRows.push(['TERM EXAMINATION PROFICIENCY']);
+      loaRows.push(['Section','Learners','Not Proficient (0-24%)','','Low Proficient (25-49%)','','Nearly Proficient (50-74%)','','Proficient (75-89%)','','Highly Proficient (90-100%)','']);
+      loaRows.push(['','','No.','%','No.','%','No.','%','No.','%','No.','%']);
+      loaRows.push([`${APP.ac.grade}–${APP.ac.section}`,N,teB.np,pct(teB.np,N)+'%',teB.lp,pct(teB.lp,N)+'%',teB.np2,pct(teB.np2,N)+'%',teB.p,pct(teB.p,N)+'%',teB.hp,pct(teB.hp,N)+'%']);
+      loaRows.push(['']);
+    }
+    loaRows.push(['TERM GRADE DESCRIPTORS']);
+    loaRows.push(['Section','Learners','Did Not Meet (≤74%)','','Fairly Satisfactory (75-79%)','','Satisfactory (80-84%)','','Very Satisfactory (85-89%)','','Outstanding 90-94%','','Outstanding 95-97%','','Outstanding 98-100%','']);
+    loaRows.push(['','','No.','%','No.','%','No.','%','No.','%','No.','%','No.','%','No.','%']);
+    loaRows.push([`${APP.ac.grade}–${APP.ac.section}`,N,tgB.dnm,pct(tgB.dnm,N)+'%',tgB.fs,pct(tgB.fs,N)+'%',tgB.s,pct(tgB.s,N)+'%',tgB.vs,pct(tgB.vs,N)+'%',tgB.o1,pct(tgB.o1,N)+'%',tgB.o2,pct(tgB.o2,N)+'%',tgB.o3,pct(tgB.o3,N)+'%']);
+    loaRows.push(['','']);
+  }
+  const wsLOA=XLSX.utils.aoa_to_sheet(loaRows);
+  wsLOA['!cols']=Array(18).fill({wch:9});wsLOA['!cols'][0]={wch:22};
+  XLSX.utils.book_append_sheet(wb,wsLOA,'LOA SUMMARY');
+
+  const fn=`EClassRecord_ThreeTerm_${(cd.school.subject||'Subject').replace(/\s+/g,'_').substring(0,12)}_${APP.ac.grade.replace(/\s/g,'')}_${APP.ac.section}_${APP.ac.sy}.xlsx`;
+  XLSX.writeFile(wb,fn);
+  toast('✓ Excel exported — DepEd Three-Term E-Class Record format');
+}
+
+// ══════════════════════════════════════════════
+// 24. JSON EXPORT for Advisory Teacher
+// ══════════════════════════════════════════════
+function jsonExport(){
+  const cd=getCD();const stu=allStu();
+  const payload={
+    version:'2.0',exportType:'termSummaryJSON',
+    school:cd.school.name,teacher:cd.school.teacher,
+    subject:cd.school.subject,section:APP.ac.section,
+    grade:APP.ac.grade,sy:APP.ac.sy,
+    termSystem:'three-term',doRef:'DO 009, s. 2026',
+    exportDate:today(),
+    exportedBy:CURRENT_USER?`${CURRENT_USER.lastName}, ${CURRENT_USER.firstName}`:'Guest',
+    students:stu.map(s=>{
+      const t1=calcT(s.name,1).termGrade,t2=calcT(s.name,2).termGrade,t3=calcT(s.name,3).termGrade;
+      const vt=[t1,t2,t3].filter(v=>v!==null);
+      const final=vt.length?Math.round(vt.reduce((a,b)=>a+b,0)/vt.length):null;
+      return{name:s.name,gender:s.g,terms:{T1:t1,T2:t2,T3:t3},finalGrade:final,remark:final?(final>=75?'PASSED':'FAILED'):''};
+    })
+  };
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`TermGrades_${(cd.school.subject||'Subject').replace(/\s+/g,'_').substring(0,12)}_${APP.ac.section}_${APP.ac.sy}.json`;
+  a.click();URL.revokeObjectURL(a.href);
+  toast('✓ JSON exported — send to Advisory Teacher');
+}
+
+// ══════════════════════════════════════════════
+// 25. PDF / PRINT EXPORTS
+// ══════════════════════════════════════════════
+function hdr(title){
+  const cd=hasClass()?getCD():null;
+  return`<h1 style="font-size:13px;margin-bottom:4px">${title}</h1>
+  <div style="font-size:9px;color:#666;margin-bottom:10px">
+    ${cd?escH(cd.school.subject||''):''} · ${APP.ac.grade} ${APP.ac.section} · SY ${APP.ac.sy} · Three-Term System (DO 009, s. 2026)
+  </div>`;
+}
+
+function printWin(title,body){
+  const w=window.open('','_blank','width=1000,height=700');
+  w.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
+  <style>body{font-family:Arial,sans-serif;font-size:9px;color:#1a1d23;margin:0;padding:10px}
+  table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:2px 4px;font-size:8px}
+  thead th{background:#f0f2f5;font-weight:600}.bold{font-weight:700}
+  .pass{color:#0d9488;font-weight:700}.fail{color:#dc2626;font-weight:700}
+  .sh-ww{background:#dbeafe;color:#1e40af}.sh-pt{background:#fef9ec;color:#d97706}
+  .sh-te{background:#dcfce7;color:#166534}.hrow{background:#fffbeb}
+  .t1{background:#e6faf8;color:#0d9488}.t2{background:#f3f0ff;color:#7c3aed}.t3{background:#fffbeb;color:#d97706}
+  @page{size:A4 landscape;margin:7mm}</style>
+  </head><body>${body}<script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>`);
+  w.document.close();
+}
+
+function pdfSummary(){
+  if(!hasClass()){toast('Select a class first');return;}
+  const cd=getCD();const stu=allStu();
+  let rows='';let lastG=null;
+  stu.forEach(s=>{
+    if(s.g!==lastG){rows+=`<tr><td colspan="8" style="background:${s.g==='male'?'#dbeafe':'#fce7f3'};font-weight:700;font-size:8px">${s.g==='male'?'MALE':'FEMALE'}</td></tr>`;lastG=s.g;}
+    const num=(s.g==='male'?cd.students.male:cd.students.female).indexOf(s.name)+1;
+    const t1=calcT(s.name,1).termGrade,t2=calcT(s.name,2).termGrade,t3=calcT(s.name,3).termGrade;
+    const vt=[t1,t2,t3].filter(v=>v!==null);const final=vt.length?Math.round(vt.reduce((a,b)=>a+b,0)/vt.length):null;
+    rows+=`<tr><td style="text-align:center">${num}</td><td style="min-width:140px">${escH(s.name)}</td>
+    <td class="${t1?(t1>=75?'pass':'fail'):''}" style="text-align:center">${t1||'—'}</td>
+    <td class="${t2?(t2>=75?'pass':'fail'):''}" style="text-align:center">${t2||'—'}</td>
+    <td class="${t3?(t3>=75?'pass':'fail'):''}" style="text-align:center">${t3||'—'}</td>
+    <td class="${final?(final>=75?'pass':'fail'):''}" style="text-align:center;font-weight:700">${final||'—'}</td>
+    <td style="text-align:center">${final?(final>=75?'PASSED':'FAILED'):''}</td></tr>`;
+  });
+  printWin('Grade Summary',`${hdr('Term Grade Summary')}<table><thead>
+    <tr><th>#</th><th style="text-align:left">Learner's Name</th><th class="t1">Term 1</th><th class="t2">Term 2</th><th class="t3">Term 3</th><th>Final</th><th>Remark</th></tr>
+  </thead><tbody>${rows}</tbody></table>`);
+}
+
+function pdfLOA(){toast('Rendering LOA PDF...');window.print();}
+function pdfDailyAtt(ds){
+  if(!hasClass())return;
+  const cd=getCD();const stu=allStu();const att=cd.att[ds]||{};
+  let rows='';let lastG=null;
+  stu.forEach((s,i)=>{
+    if(s.g!==lastG){rows+=`<tr><td colspan="5" style="background:${s.g==='male'?'#dbeafe':'#fce7f3'};font-weight:700;font-size:8px">${s.g==='male'?'MALE':'FEMALE'}</td></tr>`;lastG=s.g;}
+    const num=(s.g==='male'?cd.students.male:cd.students.female).indexOf(s.name)+1;
+    const st=att[s.name]||'';
+    rows+=`<tr><td style="text-align:center">${num}</td><td style="min-width:140px">${escH(s.name)}</td>
+    <td style="text-align:center;color:${st==='P'?'#0d9488':''};font-weight:${st==='P'?700:400}">${st==='P'?'✓':''}</td>
+    <td style="text-align:center;color:${st==='A'?'#dc2626':''};font-weight:${st==='A'?700:400}">${st==='A'?'✗':''}</td>
+    <td style="text-align:center;color:${st==='L'?'#d97706':''};font-weight:${st==='L'?700:400}">${st==='L'?'L':''}</td></tr>`;
+  });
+  printWin('Attendance '+ds,`${hdr('Daily Attendance — '+ds)}<table style="max-width:380px"><thead><tr><th>#</th><th style="text-align:left;min-width:140px">Name</th><th>Present</th><th>Absent</th><th>Late</th></tr></thead><tbody>${rows}</tbody></table>`);
+}
+function pdfAttSum(){
+  if(!hasClass())return;
+  const cd=getCD();const stu=allStu();const dates=Object.keys(cd.att).sort().slice(-20);
+  let rows='';let lastG=null;
+  stu.forEach(s=>{
+    if(s.g!==lastG){rows+=`<tr><td colspan="${dates.length+4}" style="background:${s.g==='male'?'#dbeafe':'#fce7f3'};font-weight:700;font-size:8px">${s.g==='male'?'MALE':'FEMALE'}</td></tr>`;lastG=s.g;}
+    const num=(s.g==='male'?cd.students.male:cd.students.female).indexOf(s.name)+1;
+    let P=0,A=0;
+    const cells=dates.map(d=>{const t=(cd.att[d]||{})[s.name]||'';if(t==='P')P++;else if(t==='A')A++;return`<td style="text-align:center;color:${t==='P'?'#0d9488':t==='A'?'#dc2626':t==='L'?'#d97706':'#ccc'}">${t||'—'}</td>`;}).join('');
+    rows+=`<tr><td>${num}</td><td style="min-width:130px">${escH(s.name)}</td>${cells}<td style="color:#0d9488;font-weight:700">${P}</td><td style="color:#dc2626;font-weight:700">${A}</td></tr>`;
+  });
+  printWin('Attendance Summary',`${hdr('Attendance Summary')}<table><thead><tr><th>#</th><th style="text-align:left;min-width:130px">Name</th>${dates.map(d=>`<th style="font-size:7px">${d.slice(5)}</th>`).join('')}<th style="color:#0d9488">P</th><th style="color:#dc2626">A</th></tr></thead><tbody>${rows}</tbody></table>`);
+}
+function pdfCons(){
+  if(!APP.imported.length){toast('Import files first');return;}
+  const subjects=APP.imported.map(s=>s.subject||'?');
+  const allNames=new Set();APP.imported.forEach(s=>(s.students||[]).forEach(st=>allNames.add(norm(st.name))));
+  const nameArr=[...allNames].sort();const lkp={};APP.imported.forEach(s=>{lkp[s.subject]={};(s.students||[]).forEach(st=>lkp[s.subject][norm(st.name)]=st);});
+  let rows='';
+  nameArr.forEach((name,idx)=>{
+    const finals=subjects.map(subj=>lkp[subj][name]?.finalGrade);const valid=finals.filter(v=>v!==null&&v!==undefined);const ga=valid.length?Math.round(valid.reduce((a,b)=>a+b,0)/valid.length):null;
+    const allP=subjects.every(subj=>{const st=lkp[subj][name];return!st||!st.finalGrade||(st.finalGrade>=75)});const prom=ga!==null?(ga>=75&&allP?'PROMOTED':'RETAINED'):'';
+    rows+=`<tr><td style="text-align:center">${idx+1}</td><td style="min-width:130px">${escH(name)}</td>${finals.map(v=>`<td class="bold ${v?(v>=75?'pass':'fail'):''}" style="text-align:center">${v||'—'}</td>`).join('')}<td class="bold" style="color:#1a56db;text-align:center">${ga||'—'}</td><td style="text-align:center;font-weight:700;color:${prom==='PROMOTED'?'#0d9488':'#dc2626'}">${prom}</td></tr>`;
+  });
+  printWin('Consolidated',`${hdr('Consolidated Grades')}<table><thead><tr><th>#</th><th style="text-align:left">Name</th>${subjects.map(s=>`<th>${escH(s)}</th>`).join('')}<th>Gen. Avg</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`);
+}
+function pdfSF1(){window.print();}
+
+// ══════════════════════════════════════════════
+// EXCEL EXPORTS FOR SF FORMS
+// ══════════════════════════════════════════════
+function excelSF1(){
+  const cd=getCD();const stu=allStu();const wb=XLSX.utils.book_new();
+  const rows=[['School Form 1 (SF1) — School Register'],['Three-Term System · DO 009, s. 2026'],[''],
+    ['School:',cd.school.name||'','School ID:',cd.school.id||''],
+    ['Grade & Section:',`${APP.ac.grade} – ${APP.ac.section}`,'School Year:',APP.ac.sy],
+    ['Teacher:',cd.school.teacher||'','Subject:',cd.school.subject||''],[''],
+    ['#','Learner\'s Name','Sex','LRN','Date of Birth','Age','Barangay','Remarks']];
+  stu.forEach((s,i)=>rows.push([i+1,s.name,s.g==='male'?'M':'F','','','','','']));
+  rows.push([''],['Total:',stu.length,'Male:',cd.students.male.length,'Female:',cd.students.female.length]);
+  const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:4},{wch:40},{wch:6},{wch:14},{wch:14},{wch:5},{wch:18},{wch:18}];
+  XLSX.utils.book_append_sheet(wb,ws,'SF1-Register');
+  XLSX.writeFile(wb,`SF1_${APP.ac.grade.replace(/\s/g,'')}_${APP.ac.section}_${APP.ac.sy}.xlsx`);toast('✓ SF1 Excel exported');
+}
+
+function excelSF2(mon){
+  const cd=getCD();const stu=allStu();const dates=Object.keys(cd.att).sort().filter(d=>d.startsWith(mon));const wb=XLSX.utils.book_new();
+  const hdr2=[['School Form 2 (SF2) — Daily Attendance Record'],['Month:',mon],['School:',cd.school.name||''],['Grade & Section:',`${APP.ac.grade} – ${APP.ac.section}`],[''],['#','Name',...dates,'P','A','L']];
+  stu.forEach((s,i)=>{let P=0,A=0,L=0;const cells=dates.map(d=>{const st=(cd.att[d]||{})[s.name]||'';if(st==='P')P++;else if(st==='A')A++;else if(st==='L')L++;return st;});hdr2.push([i+1,s.name,...cells,P,A,L]);});
+  const ws=XLSX.utils.aoa_to_sheet(hdr2);XLSX.utils.book_append_sheet(wb,ws,'SF2');XLSX.writeFile(wb,`SF2_${mon}_${APP.ac.section}.xlsx`);toast('✓ SF2 Excel exported');
+}
+
+function excelSF4(){
+  const cd=getCD();const stu=allStu();const dates=Object.keys(cd.att).sort();const months=[...new Set(dates.map(d=>d.substring(0,7)))];const wb=XLSX.utils.book_new();
+  const rows=[['School Form 4 (SF4) — Monthly Attendance Report'],['School:',cd.school.name||''],['Grade & Section:',`${APP.ac.grade} – ${APP.ac.section}`],[''],['Month','Enrollment','School Days','Total Present','Total Absent','Total Late','Remarks']];
+  months.forEach(mon=>{const monDates=dates.filter(d=>d.startsWith(mon));let P=0,A=0,L=0;stu.forEach(s=>{monDates.forEach(d=>{const st=(cd.att[d]||{})[s.name]||'';if(st==='P')P++;else if(st==='A')A++;else if(st==='L')L++;});});rows.push([mon,stu.length,monDates.length,P,A,L,'']);});
+  const ws=XLSX.utils.aoa_to_sheet(rows);XLSX.utils.book_append_sheet(wb,ws,'SF4');XLSX.writeFile(wb,`SF4_${APP.ac.section}_${APP.ac.sy}.xlsx`);toast('✓ SF4 Excel exported');
+}
+
+function excelSF5(){
+  const cd=getCD();const stu=allStu();const wb=XLSX.utils.book_new();
+  const rows=[['School Form 5 (SF5) — Report on Promotion and Level of Proficiency'],['Three-Term System · DO 009, s. 2026'],['School:',cd.school.name||''],['Grade & Section:',`${APP.ac.grade} – ${APP.ac.section}`,'SY:',APP.ac.sy],['Teacher:',cd.school.teacher||'','Subject:',cd.school.subject||''],[''],['#','Learner\'s Name','Term 1','Term 2','Term 3','Final Grade','Status','Remarks']];
+  stu.forEach((s,i)=>{const t1=calcT(s.name,1).termGrade,t2=calcT(s.name,2).termGrade,t3=calcT(s.name,3).termGrade;const vt=[t1,t2,t3].filter(v=>v!==null);const final=vt.length?Math.round(vt.reduce((a,b)=>a+b,0)/vt.length):null;rows.push([i+1,s.name,t1||'',t2||'',t3||'',final||'',final?(final>=75?'PROMOTED':'RETAINED'):'','']);});
+  const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:4},{wch:40},{wch:9},{wch:9},{wch:9},{wch:11},{wch:10},{wch:18}];XLSX.utils.book_append_sheet(wb,ws,'SF5');XLSX.writeFile(wb,`SF5_${APP.ac.grade.replace(/\s/g,'')}_${APP.ac.section}_${APP.ac.sy}.xlsx`);toast('✓ SF5 Excel exported');
+}
+
+function excelSF10(){
+  const cd=getCD();const stu=allStu();const wb=XLSX.utils.book_new();
+  const rows=[['School Form 10 (SF10) — Learner\'s Permanent Academic Record'],['Three-Term System · DO 009, s. 2026'],['School:',cd.school.name||'','School ID:',cd.school.id||''],['Grade & Section:',`${APP.ac.grade} – ${APP.ac.section}`,'SY:',APP.ac.sy],[''],['#','Learner\'s Name','Sex','LRN','Date of Birth','Term 1','Term 2','Term 3','Final Grade','Status','Remarks']];
+  stu.forEach((s,i)=>{const t1=calcT(s.name,1).termGrade,t2=calcT(s.name,2).termGrade,t3=calcT(s.name,3).termGrade;const vt=[t1,t2,t3].filter(v=>v!==null);const final=vt.length?Math.round(vt.reduce((a,b)=>a+b,0)/vt.length):null;rows.push([i+1,s.name,s.g==='male'?'M':'F','','',t1||'',t2||'',t3||'',final||'',final?(final>=75?'PROMOTED':'RETAINED'):'','']);});
+  const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:4},{wch:40},{wch:5},{wch:14},{wch:14},{wch:9},{wch:9},{wch:9},{wch:11},{wch:10},{wch:18}];XLSX.utils.book_append_sheet(wb,ws,'SF10');XLSX.writeFile(wb,`SF10_${APP.ac.grade.replace(/\s/g,'')}_${APP.ac.section}_${APP.ac.sy}.xlsx`);toast('✓ SF10 Excel exported');
+}
+
+function excelAtt(){
+  const cd=getCD();const stu=allStu();const dates=Object.keys(cd.att).sort();const wb=XLSX.utils.book_new();
+  const rows=[['Attendance Record'],['Grade & Section:',`${APP.ac.grade} – ${APP.ac.section}`],[''],['#','Student',...dates,'Total P','Total A','Total L']];
+  stu.forEach((s,i)=>{let P=0,A=0,L=0;const cells=dates.map(d=>{const t=(cd.att[d]||{})[s.name]||'';if(t==='P')P++;else if(t==='A')A++;else if(t==='L')L++;return t||'';});rows.push([i+1,s.name,...cells,P,A,L]);});
+  const ws=XLSX.utils.aoa_to_sheet(rows);XLSX.utils.book_append_sheet(wb,ws,'Attendance');XLSX.writeFile(wb,`Attendance_${APP.ac.grade.replace(/\s/g,'')}_${APP.ac.section}.xlsx`);toast('✓ Attendance Excel exported');
+}
+
+function excelCons(){
+  if(!APP.imported.length){toast('Import files first');return;}
+  const subjects=APP.imported.map(s=>s.subject||'?');const allNames=new Set();APP.imported.forEach(s=>(s.students||[]).forEach(st=>allNames.add(norm(st.name))));const nameArr=[...allNames].sort();const lkp={};APP.imported.forEach(s=>{lkp[s.subject]={};(s.students||[]).forEach(st=>lkp[s.subject][norm(st.name)]=st);});
+  const wb=XLSX.utils.book_new();
+  const hdrow=['#','Name',...subjects.flatMap(s=>[s+' T1',s+' T2',s+' T3',s+' Final']),'General Average','Status'];
+  const rows=nameArr.map((name,idx)=>{const allTerms=subjects.map(subj=>{const st=lkp[subj][name];return st?[st.terms?.T1||'',st.terms?.T2||'',st.terms?.T3||'',st.finalGrade||'']:['','','',''];});const finals=subjects.map(subj=>lkp[subj][name]?.finalGrade).filter(v=>v);const ga=finals.length?Math.round(finals.reduce((a,b)=>a+b,0)/finals.length):'';const allP=subjects.every(subj=>{const st=lkp[subj][name];return!st||!st.finalGrade||(st.finalGrade>=75);});return[idx+1,name,...allTerms.flat(),ga,ga!==''?(ga>=75&&allP?'PROMOTED':'RETAINED'):''];});
+  const ws=XLSX.utils.aoa_to_sheet([hdrow,...rows]);XLSX.utils.book_append_sheet(wb,ws,'Consolidated');
+  APP.imported.forEach(s=>{const sRows=(s.students||[]).map((st,i)=>[i+1,st.name,st.terms?.T1||'',st.terms?.T2||'',st.terms?.T3||'',st.finalGrade||'',st.remark||'']);XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['#','Name','T1','T2','T3','Final','Remark'],...sRows]),(s.subject||'Subject').substring(0,28));});
+  XLSX.writeFile(wb,`Consolidated_${APP.ac.grade.replace(/\s/g,'')}_${APP.ac.section}_${APP.ac.sy}.xlsx`);toast('✓ Consolidated Excel exported');
+}
+
+// ══════════════════════════════════════════════
+// 26. UTILITY FUNCTIONS
+// ══════════════════════════════════════════════
+let _toastTimer=null;
+function toast(msg){const t=document.getElementById('toast');if(!t)return;t.textContent=msg;t.style.display='block';if(_toastTimer)clearTimeout(_toastTimer);_toastTimer=setTimeout(()=>{t.style.display='none';},3500);}
+function openModal(title,sub,body){const m=document.getElementById('mainModal');if(!m)return;document.getElementById('mTitle').textContent=title;document.getElementById('mSub').textContent=sub||'';document.getElementById('mBody').innerHTML=body;m.classList.add('open');}
+function closeModal(){const m=document.getElementById('mainModal');if(m)m.classList.remove('open');}
+function submitToRegistrar(){showPage('registrar');}
+
+// ══════════════════════════════════════════════
+// 27. INIT
+// ══════════════════════════════════════════════
+function init(){
+  // Seed demo accounts on first load
+  seedDemoAccounts();
+
+  // Check for saved user session
+  try{
+    const saved=localStorage.getItem('anhs_current_user');
+    if(saved){
+      const u=JSON.parse(saved);
+      CURRENT_USER=u;
+      startApp(u);
+      return;
+    }
+  }catch(e){}
+
+  // Show auth screen
+  document.getElementById('authScreen').style.display='flex';
+  document.getElementById('app').removeAttribute('style'); // let CSS class control visibility
+
+  // beforeunload warning
+  window.addEventListener('beforeunload',function(e){
+    if(APP.role&&APP.ac.grade){e.preventDefault();e.returnValue='Did you export your file? Your data may not be saved on other devices.';}
+  });
+
+  // Auto-save every 15 minutes
+  setInterval(function(){
+    if(!APP.role||!APP.ac.grade||!APP.ac.section)return;
+    try{
+      const cd=getCD();
+      if(!cd.students.male.length&&!cd.students.female.length)return;
+      const blob=new Blob([JSON.stringify({app:APP,user:CURRENT_USER?.empId,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'});
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+      const subj=(cd.school.subject||'Class').replace(/\s+/g,'_').substring(0,12);
+      a.download=`AutoSave_${subj}_${APP.ac.grade.replace(/\s/g,'')}_${APP.ac.section}.json`;
+      a.click();URL.revokeObjectURL(a.href);
+      toast('⏱ Auto-saved — check your Downloads folder');
+    }catch(err){}
+  },15*60*1000);
+}
+
+init();
