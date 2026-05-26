@@ -130,7 +130,7 @@ function seedDemoAccounts(){
       empId:'DEMO-REGISTRAR', firstName:'Ana', lastName:'Reyes',
       school:'Angono National High School', schoolId:'301417',
       region:'IV-A CALABARZON', division:'Rizal',
-      role:'advisory', password:btoa('demo1234'),
+      role:'registrar', password:btoa('demo1234'),
       isDemo:true, createdAt:'2026-01-01T00:00:00.000Z'
     },
   ];
@@ -395,32 +395,534 @@ function addStu(gender){const inp=document.getElementById(gender==='male'?'addMa
 function removeStu(gender,idx){const cd=getCD();const name=cd.students[gender][idx];if(!confirm(`Remove ${name}?`))return;cd.students[gender].splice(idx,1);for(let t=1;t<=3;t++){delete cd.grades[t][name];}save();renderSetup();}
 
 // ── GRADE ENTRY ──
-
-function renderSF9(el,cd,stu){
-  const t=APP.gt;let cards='';
-  stu.forEach(s=>{const c=calcT(s.name,t);const final=calcFinal(s.name);
-    cards+=`<div style="border:1px solid var(--bdr);border-radius:var(--r);padding:.9rem;margin-bottom:.6rem;background:var(--surf)">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.55rem">
-        <div><div style="font-size:.88rem;font-weight:700">${escH(s.name)}</div><div style="font-size:.68rem;color:var(--tx3)">${s.g==='male'?'Male':'Female'} · ${escH(APP.ac.grade)} ${escH(APP.ac.section)}</div></div>
-        <div style="text-align:right"><div class="tag tt${t}">Term ${t} Report</div><div style="font-size:.65rem;color:var(--tx3);margin-top:.15rem">SY ${APP.ac.sy}</div></div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:.45rem;margin-bottom:.55rem">
-        ${[['Written Works',c.wwPS!==null?c.wwPS+'%':'—','WW 30%'],['Performance Tasks',c.ptPS!==null?c.ptPS+'%':'—','PT 50%'],['Term Exam',c.tePS!==null?c.tePS+'%':'—','TE 20%'],['Term Grade',c.termGrade||'—','Transmuted']].map(([l,v,sub])=>`<div style="background:var(--surf2);border:1px solid var(--bdr);border-radius:var(--rs);padding:.45rem;text-align:center"><div style="font-size:.58rem;color:var(--tx3)">${sub}</div><div style="font-size:.95rem;font-weight:700;font-family:'DM Mono',monospace">${v}</div><div style="font-size:.62rem;color:var(--tx2)">${l}</div></div>`).join('')}
-      </div>
-      <div style="font-size:.68rem;color:var(--tx2)">Final Grade: <strong style="color:${final?(final>=75?'var(--green)':'var(--red)'):'var(--tx3)'}">${final||'—'}</strong>${final?` · ${final>=75?'PASSED':'FAILED'}`:''}</div>
-      <div style="margin-top:.3rem;font-size:.68rem;color:var(--tx3)">Teacher: ${escH(cd.school.teacher||'—')} · Subject: ${escH(cd.school.subject||'—')}</div>
-    </div>`;
+function renderGradeEntry(){
+  const el=document.getElementById('rb-gradeentry');
+  if(!hasClass()){el.innerHTML='<div class="ws"><h2>Select a class first</h2></div>';return;}
+  const cd=getCD();const t=APP.gt;const h=cd.hps[t];const stu=allStu();
+  if(!stu.length){el.innerHTML='<div class="ws"><h2>No students yet</h2><p>Add students in the Setup tab first.</p></div>';return;}
+  const wwC=Math.max(h.ww.filter(v=>v).length,1);
+  const ptC=Math.max(h.pt.filter(v=>v).length,1);
+  const hasTE=!!h.te;
+  const termTabs=`<div class="ttabs">${[1,2,3].map(ti=>`<button class="ttab2 ${ti===t?`active-t${ti}`:''}" onclick="setActiveTerm(${ti})">${TERM_DATES[ti].name}<span>${TERM_DATES[ti].start.split(',')[0]}</span></button>`).join('')}</div>`;
+  let hdr1=`<tr>
+    <th class="numc" rowspan="2">#</th>
+    <th class="nc" style="text-align:left" rowspan="2">Learner's Name</th>
+    <th class="sww sh-t${t}" colspan="${wwC+3}">Written Works (30%) — Term ${t}</th>
+    <th class="spt sh-t${t}" colspan="${ptC+3}">Performance Tasks (50%) — Term ${t}</th>
+    ${hasTE?`<th class="ste sh-t${t}" colspan="3">Term Examination (20%)</th>`:''}
+    <th class="sg" rowspan="2">Initial</th>
+    <th class="sg" rowspan="2">Term ${t}</th>
+  </tr><tr>
+    ${Array.from({length:wwC},(_,i)=>`<th>WW${i+1}</th>`).join('')}<th>Total</th><th>PS</th><th>WS</th>
+    ${Array.from({length:ptC},(_,i)=>`<th>PT${i+1}</th>`).join('')}<th>Total</th><th>PS</th><th>WS</th>
+    ${hasTE?'<th>Score</th><th>PS</th><th>WS</th>':''}
+  </tr>`;
+  const wwHT=h.ww.reduce((a,v)=>a+(v||0),0);const ptHT=h.pt.reduce((a,v)=>a+(v||0),0);
+  let hpsRow=`<tr class="hrow"><td></td><td class="lc">Highest Possible Score</td>
+    ${h.ww.slice(0,wwC).map(v=>`<td>${v||''}</td>`).join('')}<td>${wwHT}</td><td>100</td><td>30%</td>
+    ${h.pt.slice(0,ptC).map(v=>`<td>${v||''}</td>`).join('')}<td>${ptHT}</td><td>100</td><td>50%</td>
+    ${hasTE?`<td>${h.te}</td><td>100</td><td>20%</td>`:''}
+    <td></td><td></td></tr>`;
+  let rows='';let lastG=null;
+  stu.forEach((s,idx)=>{
+    if(s.g!==lastG){rows+=`<tr class="grph ${s.g==='male'?'m':'f'}"><td></td><td colspan="20">${s.g==='male'?'👦 MALE':'👧 FEMALE'}</td></tr>`;lastG=s.g;}
+    const num=(s.g==='male'?cd.students.male:cd.students.female).indexOf(s.name)+1;
+    const g=(cd.grades[t]&&cd.grades[t][s.name])||{};
+    const ww=g.ww||Array(10).fill(null);const pt=g.pt||Array(10).fill(null);const te=g.te!==undefined?g.te:'';
+    const c=calcT(s.name,t);
+    const hl=APP.hlStudent===s.name?'background:var(--amber2)':'';
+    rows+=`<tr class="${s.g==='male'?'rm':'rf'}" style="${hl}" id="row_${idx}">
+      <td class="numc">${num}</td>
+      <td class="nc">${escH(s.name)}</td>
+      ${Array.from({length:wwC},(_,i)=>`<td class="gc"><input type="number" min="0" max="${h.ww[i]||999}" value="${ww[i]!==null&&ww[i]!==undefined?ww[i]:''}" onchange="setGrade('${esc(s.name)}',${t},'ww',${i},this.value)" onclick="this.select()"></td>`).join('')}
+      <td class="cc bold">${c.wwT!==null?c.wwT:''}</td><td class="cc">${c.wwPS!==null?c.wwPS:''}</td><td class="cc">${c.wwWS!==null?c.wwWS:''}</td>
+      ${Array.from({length:ptC},(_,i)=>`<td class="gc"><input type="number" min="0" max="${h.pt[i]||999}" value="${pt[i]!==null&&pt[i]!==undefined?pt[i]:''}" onchange="setGrade('${esc(s.name)}',${t},'pt',${i},this.value)" onclick="this.select()"></td>`).join('')}
+      <td class="cc bold">${c.ptT!==null?c.ptT:''}</td><td class="cc">${c.ptPS!==null?c.ptPS:''}</td><td class="cc">${c.ptWS!==null?c.ptWS:''}</td>
+      ${hasTE?`<td class="gc"><input type="number" min="0" max="${h.te||999}" value="${te}" onchange="setGrade('${esc(s.name)}',${t},'te',0,this.value)" onclick="this.select()"></td><td class="cc">${c.tePS!==null?c.tePS:''}</td><td class="cc">${c.teWS!==null?c.teWS:''}</td>`:''}
+      <td class="cc">${c.initial!==null?c.initial:''}</td>
+      <td class="cc ${c.termGrade?(c.termGrade>=75?'pass':'fail'):''}" style="font-size:.88rem;font-weight:700">${c.termGrade||''}</td>
+    </tr>`;
   });
-  el.innerHTML=`<div class="sf-export-bar">
-    <div class="ttabs">${[1,2,3].map(ti=>`<button class="ttab2 ${ti===t?`active-t${ti}`:''}" onclick="setActiveTerm(${ti});showSF('sf9')">${TERM_DATES[ti].name}</button>`).join('')}</div>
-    <button class="btn br bsm" onclick="window.print()">📄 Print</button>
+  el.innerHTML=`${termTabs}
+  <div style="padding:.5rem .85rem;background:var(--term${t}-2);border:1px solid var(--term${t});border-radius:var(--rs);margin-bottom:.7rem;font-size:.78rem;font-weight:600;color:var(--term${t})">
+    📝 Term ${t} — ${escH(cd.school.subject||'Subject')} · ${APP.ac.grade} ${APP.ac.section} · ${TERM_DATES[t].start} – ${TERM_DATES[t].end}
   </div>
-  <div class="sf-form">
-    <div class="sf-header"><div class="sf-title">SF9 — Term Report Card · Term ${t}</div><div class="sf-subtitle">${TERM_DATES[t].start} – ${TERM_DATES[t].end} · DO 009, s. 2026</div></div>
-    ${sfMeta(cd)}
-    ${cards}
+  <div class="twrap"><table class="gtbl"><thead>${hdr1}${hpsRow}</thead><tbody>${rows}</tbody></table></div>`;
+  if(APP.hlStudent){const idx2=stu.findIndex(s=>s.name===APP.hlStudent);if(idx2>=0)setTimeout(()=>{document.getElementById('row_'+idx2)?.scrollIntoView({behavior:'smooth',block:'center'});},200);APP.hlStudent=null;}
+}
+function setGrade(name,t,type,idx,val){
+  const cd=getCD();if(!cd.grades[t])cd.grades[t]={};
+  if(!cd.grades[t][name])cd.grades[t][name]={ww:Array(10).fill(null),pt:Array(10).fill(null),te:null};
+  const v=val===''||val===null?null:parseFloat(val);
+  if(type==='ww')cd.grades[t][name].ww[idx]=v;
+  else if(type==='pt')cd.grades[t][name].pt[idx]=v;
+  else if(type==='te')cd.grades[t][name].te=v;
+  save();
+}
+
+// ══════════════════════════════════════════════
+// 11. BULK ENTRY MODULE
+// ══════════════════════════════════════════════
+function renderBulkEntry(){
+  const el=document.getElementById('rb-bulkentry');
+  if(!hasClass()){el.innerHTML='<div class="ws"><h2>Select a class first</h2></div>';return;}
+  const cd=getCD();const t=APP.gt;
+  const termTabs=`<div class="ttabs">${[1,2,3].map(ti=>`<button class="ttab2 ${ti===t?`active-t${ti}`:''}" onclick="setActiveTerm(${ti})">${TERM_DATES[ti].name}</button>`).join('')}</div>`;
+  el.innerHTML=`${termTabs}
+  <div class="card">
+    <div class="ch"><div class="ct">⚡ Bulk Entry — Term ${t}</div><div class="cs">Enter scores for one activity for all students at once</div></div>
+    <div class="fl">
+      <div><div class="lbl">Gender</div><select class="inp" id="be_gender" style="width:100px"><option value="all">All</option><option value="male">Male</option><option value="female">Female</option></select></div>
+      <div><div class="lbl">Category</div><select class="inp" id="be_cat" style="width:140px" onchange="renderBulkFields()"><option value="ww">Written Works</option><option value="pt">Performance Tasks</option><option value="te">Term Examination</option></select></div>
+      <div id="be_item_wrap"><div class="lbl">Item #</div><select class="inp" id="be_item" style="width:80px">${Array.from({length:10},(_,i)=>`<option value="${i}">WW${i+1}</option>`).join('')}</select></div>
+      <button class="btn bp bsm" onclick="loadBulkStudents()">Load Students</button>
+    </div>
+  </div>
+  <div id="bulkArea"></div>`;
+}
+function renderBulkFields(){const cat=document.getElementById('be_cat')?.value;const wrap=document.getElementById('be_item_wrap');if(cat==='te'){if(wrap)wrap.style.display='none';}else{if(wrap){wrap.style.display='';const sel=document.getElementById('be_item');if(sel)sel.innerHTML=Array.from({length:10},(_,i)=>`<option value="${i}">${cat==='ww'?'WW':'PT'}${i+1}</option>`).join('');}}}
+function loadBulkStudents(){
+  const cd=getCD();const t=APP.gt;
+  const gender=document.getElementById('be_gender')?.value||'all';
+  const cat=document.getElementById('be_cat')?.value||'ww';
+  const itemIdx=parseInt(document.getElementById('be_item')?.value||'0');
+  const area=document.getElementById('bulkArea');if(!area)return;
+  let stuList=[];
+  if(gender==='all'||gender==='male')stuList=[...stuList,...cd.students.male.map(n=>({name:n,g:'male'}))];
+  if(gender==='all'||gender==='female')stuList=[...stuList,...cd.students.female.map(n=>({name:n,g:'female'}))];
+  const label=cat==='te'?'Term Examination':cat==='ww'?`WW${itemIdx+1}`:`PT${itemIdx+1}`;
+  const hps=cat==='te'?cd.hps[t].te:cat==='ww'?cd.hps[t].ww[itemIdx]:cd.hps[t].pt[itemIdx];
+  area.innerHTML=`<div class="card">
+    <div class="ch"><div class="ct">${label} — Max: ${hps||'Not set'}</div><div class="cs">${stuList.length} students</div></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:.45rem;margin-bottom:.9rem">
+      ${stuList.map((s,i)=>{const g=(cd.grades[t]&&cd.grades[t][s.name])||{};let curVal='';if(cat==='te')curVal=g.te!==null&&g.te!==undefined?g.te:'';else if(cat==='ww')curVal=g.ww&&g.ww[itemIdx]!==null&&g.ww[itemIdx]!==undefined?g.ww[itemIdx]:'';else curVal=g.pt&&g.pt[itemIdx]!==null&&g.pt[itemIdx]!==undefined?g.pt[itemIdx]:'';
+        return`<div style="display:flex;align-items:center;gap:.55rem;padding:.4rem .65rem;background:var(--surf);border:1px solid var(--bdr);border-radius:var(--rs)">
+          <div style="width:20px;height:20px;border-radius:50%;background:${s.g==='male'?'var(--blue2)':'var(--pink2)'};display:flex;align-items:center;justify-content:center;font-size:.62rem;font-weight:700;color:${s.g==='male'?'var(--blue)':'var(--pink)'};flex-shrink:0">${i+1}</div>
+          <div style="flex:1;font-size:.82rem;font-weight:500">${escH(s.name)}</div>
+          <input type="number" min="0" max="${hps||999}" class="inp" id="be_inp_${i}" value="${curVal}" style="width:72px;font-family:'DM Mono',monospace;text-align:center" onclick="this.select()">
+        </div>`;}).join('')}
+    </div>
+    <button class="btn bg" onclick="saveBulkEntry(${JSON.stringify(stuList.map(s=>s.name))},${t},'${cat}',${itemIdx})">✓ Save All Grades</button>
   </div>`;
 }
+function saveBulkEntry(names,t,cat,itemIdx){const cd=getCD();let saved=0,blank=0;names.forEach((name,i)=>{const inp=document.getElementById(`be_inp_${i}`);const val=inp?.value;if(!cd.grades[t])cd.grades[t]={};if(!cd.grades[t][name])cd.grades[t][name]={ww:Array(10).fill(null),pt:Array(10).fill(null),te:null};if(val===''||val===null){blank++;return;}const v=parseFloat(val);if(cat==='te')cd.grades[t][name].te=v;else if(cat==='ww')cd.grades[t][name].ww[itemIdx]=v;else cd.grades[t][name].pt[itemIdx]=v;saved++;});save();toast(`✓ Saved ${saved} grades (${blank} left blank)`);}
+
+// ══════════════════════════════════════════════
+// 12. SUMMARY MODULE
+// ══════════════════════════════════════════════
+function renderRBSummary(){
+  const el=document.getElementById('rb-summary');
+  if(!hasClass()){el.innerHTML='<div class="ws"><h2>Select a class first</h2></div>';return;}
+  const cd=getCD();const stu=allStu();
+  let rows='';let lastG=null;
+  stu.forEach(s=>{
+    if(s.g!==lastG){rows+=`<tr><td colspan="7" style="background:${s.g==='male'?'var(--blue2)':'var(--pink2)'};font-weight:700;font-size:.72rem;padding:.32rem .65rem;color:${s.g==='male'?'var(--blue)':'var(--pink)'}">${s.g==='male'?'👦 MALE':'👧 FEMALE'}</td></tr>`;lastG=s.g;}
+    const num=(s.g==='male'?cd.students.male:cd.students.female).indexOf(s.name)+1;
+    const t1=calcT(s.name,1).termGrade,t2=calcT(s.name,2).termGrade,t3=calcT(s.name,3).termGrade;
+    const vt=[t1,t2,t3].filter(v=>v!==null);const final=vt.length?Math.round(vt.reduce((a,b)=>a+b,0)/vt.length):null;
+    const rem=final!==null?(final>=75?'PASSED':'FAILED'):'';
+    rows+=`<tr><td style="text-align:center;padding:.35rem;font-size:.72rem;color:var(--tx3)">${num}</td><td style="padding:.35rem .65rem;font-size:.85rem;font-weight:500">${escH(s.name)}</td>
+      ${[t1,t2,t3].map(v=>`<td style="text-align:center;font-family:'DM Mono',monospace;font-weight:600;color:${v?(v>=75?'var(--green)':'var(--red)'):'var(--tx3)'}">${v||'—'}</td>`).join('')}
+      <td style="text-align:center;font-family:'DM Mono',monospace;font-size:.92rem;font-weight:700;color:${final?(final>=75?'var(--blue)':'var(--red)'):'var(--tx3)'}">${final||'—'}</td>
+      <td style="text-align:center">${rem?`<span class="${rem==='PASSED'?'bpass':'bfail'}">${rem}</span>`:''}</td></tr>`;
+  });
+  el.innerHTML=`<div class="ebar"><span class="elbl">Export:</span><button class="btn br bsm" onclick="pdfSummary()">📄 PDF</button><button class="btn bg bsm" onclick="excelGrades()">📊 Excel</button><button class="btn ba bsm" onclick="jsonExport()">📦 JSON for Advisory</button></div>
+  <div class="card"><div class="ch"><div class="ct">Term Grade Summary</div><div class="cs">${escH(cd.school.subject||'Subject')} · ${APP.ac.grade} ${APP.ac.section} · SY ${APP.ac.sy}</div></div>
+  <div style="overflow-x:auto"><table class="stbl"><thead><tr><th style="width:26px">#</th><th style="text-align:left;min-width:170px">Learner's Name</th>
+    <th><span class="tag tt1">Term 1</span></th><th><span class="tag tt2">Term 2</span></th><th><span class="tag tt3">Term 3</span></th>
+    <th>Final</th><th>Remark</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
+
+// ══════════════════════════════════════════════
+// 13. ANALYTICS MODULE
+// ══════════════════════════════════════════════
+function renderAnalytics(){
+  const el=document.getElementById('rb-analytics');
+  if(!hasClass()){el.innerHTML='<div class="ws"><h2>Select a class first</h2></div>';return;}
+  el.innerHTML=`<div class="ebar"><span class="elbl">Filter:</span>
+    <div class="ttabs">${['All Terms','Term 1','Term 2','Term 3'].map((l,i)=>`<button class="ttab2 ${i===APP.aq?`active-t${i||1}`:''}" onclick="selAQ(${i})">${l}</button>`).join('')}</div>
+  </div><div id="analContent"></div>`;
+  renderAnalContent();
+}
+function selAQ(q){APP.aq=q;save();renderAnalContent();}
+function renderAnalContent(){
+  const area=document.getElementById('analContent');if(!area)return;
+  const stu=allStu();const cd=getCD();const q=APP.aq;
+  if(!stu.length){area.innerHTML='<div class="ws"><h2>No students</h2></div>';return;}
+  const stuWithGrade=[];const stuMissing=[];
+  stu.forEach(s=>{
+    let g=null;
+    if(q===0){const vt=[1,2,3].map(t=>calcT(s.name,t).termGrade).filter(v=>v!==null);g=vt.length?Math.round(vt.reduce((a,b)=>a+b,0)/vt.length):null;}
+    else{g=calcT(s.name,q).termGrade;}
+    if(g!==null)stuWithGrade.push({name:s.name,gender:s.g,grade:g});
+    else stuMissing.push({name:s.name,gender:s.g});
+  });
+  const grades=stuWithGrade.map(s=>s.grade);
+  if(!grades.length){area.innerHTML=`<div class="card" style="border:2px solid var(--red)"><div class="ch"><div class="ct" style="color:var(--red)">⚠ No grades for ${q===0?'any term':'Term '+q}</div></div><div style="display:flex;flex-wrap:wrap;gap:.35rem">${stu.map(s=>`<span style="background:var(--red2);color:var(--red);padding:.18rem .55rem;border-radius:99px;font-size:.75rem">${escH(s.name)}</span>`).join('')}</div></div>`;return;}
+  const avg=r2(grades.reduce((a,b)=>a+b,0)/grades.length);const hi=Math.max(...grades);const lo=Math.min(...grades);
+  const pass=grades.filter(g=>g>=75).length;const fail=grades.filter(g=>g<75).length;const miss=stuMissing.length;
+  const bands=[{l:'96–100',mn:96,mx:100,c:'#0d9488'},{l:'91–95',mn:91,mx:95,c:'#0284c7'},{l:'86–90',mn:86,mx:90,c:'#7c3aed'},{l:'81–85',mn:81,mx:85,c:'#d97706'},{l:'76–80',mn:76,mx:80,c:'#f59e0b'},{l:'75',mn:75,mx:75,c:'#84cc16'},{l:'Below 75',mn:0,mx:74,c:'#dc2626'}].map(b=>({...b,cnt:grades.filter(g=>g>=b.mn&&g<=b.mx).length,students:stuWithGrade.filter(s=>s.grade>=b.mn&&s.grade<=b.mx)}));
+  const mx=Math.max(...bands.map(b=>b.cnt),1);
+  window._analyticsBands=bands;window._analyticsQ=q;
+  area.innerHTML=`
+  <div class="ag4">
+    <div class="sc"><div class="sn2" style="color:var(--blue)">${avg}</div><div class="sl2">Class Average</div></div>
+    <div class="sc"><div class="sn2" style="color:var(--green)">${hi}</div><div class="sl2">Highest</div></div>
+    <div class="sc"><div class="sn2" style="color:var(--red)">${lo}</div><div class="sl2">Lowest</div></div>
+    <div class="sc"><div class="sn2" style="color:var(--amber)">${grades.length}/${stu.length}</div><div class="sl2">Graded</div></div>
+  </div>
+  <div class="g2" style="margin-bottom:.9rem">
+    <div class="card">
+      <div class="ch"><div class="ct">📊 Performance Bands</div><div class="cs">Click band to see students</div></div>
+      ${bands.map((b,i)=>`<div class="brow" style="cursor:${b.cnt>0?'pointer':'default'}" onclick="${b.cnt>0?`showBandStudents(${i})`:''}"><div class="bla">${b.l}</div><div class="bbw"><div class="bb" style="width:${Math.round((b.cnt/mx)*100)}%;background:${b.c}"></div></div><div class="bcnt">${b.cnt}</div></div>`).join('')}
+      ${miss>0?`<div class="brow"><div class="bla" style="color:var(--red);font-weight:600">⚠ Missing</div><div class="bbw"><div class="bb" style="width:${Math.round((miss/stu.length)*100)}%;background:#fee2e2"></div></div><div class="bcnt" style="color:var(--red);font-weight:600">${miss}</div></div>`:''}
+    </div>
+    <div class="card">
+      <div class="ch"><div class="ct">✅ Pass / Fail</div></div>
+      ${[{l:'Passing (≥75)',v:pass,c:'var(--green)'},{l:'Below 75',v:fail,c:'var(--red)'}].map(r=>`<div style="margin-bottom:.9rem"><div class="fl" style="margin-bottom:.35rem;justify-content:space-between"><span style="font-size:.82rem;color:${r.c};font-weight:600">${r.l}</span><span style="font-family:'DM Mono',monospace;font-size:.82rem">${r.v}/${grades.length}</span></div><div style="background:var(--bg);border-radius:99px;height:8px;overflow:hidden"><div style="height:100%;border-radius:99px;background:${r.c};width:${grades.length?Math.round((r.v/grades.length)*100):0}%"></div></div></div>`).join('')}
+      <div class="g2"><div style="text-align:center;padding:.7rem;background:var(--blue2);border-radius:var(--rs)"><div style="font-size:.68rem;color:var(--blue);font-weight:600">Top (90+)</div><div style="font-size:1.4rem;font-weight:700;font-family:'DM Mono',monospace;color:var(--blue)">${grades.filter(g=>g>=90).length}</div></div>
+      <div style="text-align:center;padding:.7rem;background:${miss>0?'var(--red2)':'var(--green2)'};border-radius:var(--rs)"><div style="font-size:.68rem;color:${miss>0?'var(--red)':'var(--green)'};font-weight:600">Missing</div><div style="font-size:1.4rem;font-weight:700;font-family:'DM Mono',monospace;color:${miss>0?'var(--red)':'var(--green)'}">${miss}</div></div></div>
+    </div>
+  </div>
+  ${miss>0?`<div class="card" style="border:2px solid var(--red);margin-bottom:.9rem">
+    <div class="ch"><div class="ct" style="color:var(--red)">⚠ Students with Missing Grades (${miss})</div><span style="background:var(--red2);color:var(--red);padding:.22rem .65rem;border-radius:99px;font-size:.78rem;font-weight:700">${miss}</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:.45rem;margin-bottom:.65rem">
+      ${stuMissing.map((s,i)=>`<div style="display:flex;align-items:center;gap:.55rem;padding:.45rem .65rem;background:var(--red2);border:1px solid rgba(220,38,38,.2);border-radius:var(--rs)">
+        <div style="width:20px;height:20px;border-radius:50%;background:var(--red);color:#fff;font-size:.65rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i+1}</div>
+        <div style="flex:1"><div style="font-size:.82rem;font-weight:600">${escH(s.name)}</div><div style="font-size:.68rem;color:var(--tx3)">${s.gender==='male'?'Male':'Female'}</div></div>
+        <button class="btn bsm" style="padding:.25rem .55rem;font-size:.68rem;background:var(--red);color:#fff;border:none" onclick="goToMissingStudent('${esc(s.name)}',${q===0?1:q})">Go →</button>
+      </div>`).join('')}
+    </div>
+    <div style="padding:.55rem .7rem;background:var(--amber2);border-radius:var(--rs);font-size:.78rem;color:var(--amber);border-left:3px solid var(--amber)">💡 Click Go → to jump to that student's grade entry row.</div>
+  </div>`:'<div class="card" style="border:2px solid var(--green);text-align:center;padding:1rem"><div style="font-size:1.3rem">✅</div><div style="font-size:.9rem;font-weight:600;color:var(--green)">All students have grades!</div></div>'}
+  <div class="card"><div class="ch" style="cursor:pointer" onclick="toggleAnalStudentList()"><div><div class="ct">👤 Full Student Grade List</div><div class="cs">${grades.length} students, sorted highest to lowest</div></div><span id="analListToggle" style="font-size:.78rem;color:var(--blue);font-weight:600">▼ Show</span></div>
+    <div id="analStudentList" style="display:none"><div style="overflow-x:auto"><table class="stbl"><thead><tr><th style="width:30px">#</th><th style="text-align:left">Name</th><th>Grade</th><th>Band</th><th>Remark</th></tr></thead>
+    <tbody>${[...stuWithGrade].sort((a,b)=>b.grade-a.grade).map((s,i)=>{const band=bands.find(b=>s.grade>=b.mn&&s.grade<=b.mx);return`<tr><td style="text-align:center;font-family:'DM Mono',monospace;font-size:.72rem;color:var(--tx3)">${i+1}</td><td style="font-weight:500;font-size:.82rem">${escH(s.name)}</td><td style="text-align:center;font-family:'DM Mono',monospace;font-size:.88rem;font-weight:700;color:${s.grade>=75?'var(--green)':'var(--red)'}">${s.grade}</td><td style="text-align:center"><span style="font-size:.68rem;font-weight:600;padding:.12rem .45rem;border-radius:99px;background:${band?band.c+'22':''};color:${band?band.c:''}">${band?band.l:'—'}</span></td><td style="text-align:center"><span class="${s.grade>=75?'bpass':'bfail'}">${s.grade>=75?'PASSED':'FAILED'}</span></td></tr>`;}).join('')}</tbody></table></div></div>
+  </div>`;
+}
+function toggleAnalStudentList(){const el=document.getElementById('analStudentList');const tog=document.getElementById('analListToggle');if(!el||!tog)return;const open=el.style.display==='none';el.style.display=open?'block':'none';tog.textContent=open?'▲ Hide':'▼ Show';}
+function showBandStudents(i){if(!window._analyticsBands)return;const b=window._analyticsBands[i];if(!b||!b.students.length)return;const q=window._analyticsQ;const html=`<div style="margin-bottom:.65rem;font-size:.85rem;color:var(--tx2)">${b.students.length} student${b.students.length>1?'s':''} — <strong>${b.l}</strong></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.45rem">${b.students.map(s=>`<div style="display:flex;align-items:center;gap:.55rem;padding:.45rem .65rem;background:${b.c}22;border:1px solid ${b.c}55;border-radius:var(--rs)"><div style="width:34px;height:34px;border-radius:50%;background:${b.c};color:#fff;font-size:.85rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${s.grade}</div><div><div style="font-size:.85rem;font-weight:600">${escH(s.name)}</div><div style="font-size:.68rem;color:var(--tx3)">${s.gender==='male'?'Male':'Female'}</div></div></div>`).join('')}</div>`;const cd=getCD();openModal(`${b.l} — ${b.students.length} Student${b.students.length>1?'s':''}`,`${escH(cd.school.subject||'')} · ${q===0?'Final':'Term '+q}`,html);}
+function goToMissingStudent(name,t){APP.gt=t;APP.hlStudent=name;showRB('gradeentry');showPage('recordbook');toast('📍 Jumping to '+name);}
+
+// ══════════════════════════════════════════════
+// 14. LOA REPORTS MODULE
+// ══════════════════════════════════════════════
+function renderLOA(){
+  const el=document.getElementById('rb-loa');
+  if(!hasClass()){el.innerHTML='<div class="ws"><h2>Select a class first</h2></div>';return;}
+  const cd=getCD();const t=APP.gt;
+  const termTabs=`<div class="ttabs">${[1,2,3].map(ti=>`<button class="ttab2 ${ti===t?`active-t${ti}`:''}" onclick="setActiveTerm(${ti})">${TERM_DATES[ti].name}</button>`).join('')}</div>`;
+  el.innerHTML=`<div class="ebar"><span class="elbl">Export:</span><button class="btn br bsm" onclick="pdfLOA()">📄 PDF</button><button class="btn bg bsm" onclick="excelLOA()">📊 LOA Excel</button><div class="sp"></div><span style="font-size:.72rem;color:var(--tx3)">Auto-computed from grade entries</span></div>
+  <div class="card" style="margin-bottom:.9rem"><div class="ch"><div class="ct">📋 Diagnostic Test Configuration</div></div>
+    <div class="g3">
+      <div><div class="lbl">Number of Items</div><input class="inp" type="number" min="0" id="diag_items" value="${cd.diag?.items||''}" placeholder="50" onchange="saveDiag()"></div>
+      <div><div class="lbl">Highest Score</div><input class="inp" type="number" min="0" id="diag_hso" value="${cd.diag?.hso||''}" placeholder="48" onchange="saveDiag()"></div>
+      <div><div class="lbl">Lowest Score</div><input class="inp" type="number" min="0" id="diag_lso" value="${cd.diag?.lso||''}" placeholder="12" onchange="saveDiag()"></div>
+    </div>
+  </div>
+  ${termTabs}
+  <div id="loaContent"></div>`;
+  renderLOAContent();
+}
+function saveDiag(){const cd=getCD();cd.diag={items:parseFloat(document.getElementById('diag_items').value)||0,hso:parseFloat(document.getElementById('diag_hso').value)||0,lso:parseFloat(document.getElementById('diag_lso').value)||0};save();renderLOAContent();}
+function renderLOAContent(){
+  const area=document.getElementById('loaContent');if(!area)return;
+  const cd=getCD();const stu=allStu();const t=APP.gt;const h=cd.hps[t];
+  if(!stu.length){area.innerHTML='<div class="ws"><h2>No students</h2></div>';return;}
+  const section=`${APP.ac.grade} – ${APP.ac.section}`;
+  function profBands(scores){const r={np:0,lp:0,np2:0,p:0,hp:0,miss:0};scores.forEach(v=>{if(v===null)r.miss++;else if(v>=90)r.hp++;else if(v>=75)r.p++;else if(v>=50)r.np2++;else if(v>=25)r.lp++;else r.np++;});return r;}
+  function descBands(scores){const r={dnm:0,fs:0,s:0,vs:0,o1:0,o2:0,o3:0,miss:0};scores.forEach(v=>{if(v===null)r.miss++;else if(v>=98)r.o3++;else if(v>=95)r.o2++;else if(v>=90)r.o1++;else if(v>=85)r.vs++;else if(v>=80)r.s++;else if(v>=75)r.fs++;else r.dnm++;});return r;}
+  function pct(n,tot){return tot?r2((n/tot)*100):0}
+  const stuData=stu.map(s=>({name:s.name,g:s.g,c:calcT(s.name,t)}));
+  const wwPS=stuData.map(s=>s.c.wwPS);const ptPS=stuData.map(s=>s.c.ptPS);const tePS=stuData.map(s=>s.c.tePS);const tGrades=stuData.map(s=>s.c.termGrade);
+  const wwBands=profBands(wwPS);const ptBands=descBands(ptPS);const teBands=profBands(tePS);const tgBands=descBands(tGrades);
+  const N=stu.length;
+  function profHdr(){return`<tr><th colspan="2" class="loa-np">Not Proficient (0–24%)</th><th colspan="2" class="loa-lp">Low Proficient (25–49%)</th><th colspan="2" class="loa-nep">Nearly Proficient (50–74%)</th><th colspan="2" class="loa-p">Proficient (75–89%)</th><th colspan="2" class="loa-hp">Highly Proficient (90–100%)</th></tr><tr>${['No.','%','No.','%','No.','%','No.','%','No.','%'].map(h=>`<th>${h}</th>`).join('')}</tr>`;}
+  function descHdr(){return`<tr><th colspan="2" style="background:#fee2e2;color:#991b1b">Did Not Meet (≤74%)</th><th colspan="2" style="background:#fef9c3;color:#713f12">Fairly Satisfactory (75–79%)</th><th colspan="2" style="background:#dcfce7;color:#14532d">Satisfactory (80–84%)</th><th colspan="2" style="background:#d1fae5;color:#065f46">Very Satisfactory (85–89%)</th><th colspan="6" style="background:#dbeafe;color:#1e40af">Outstanding</th></tr><tr>${['No.','%','No.','%','No.','%','No.','%'].map(h=>`<th>${h}</th>`).join('')}<th colspan="2" style="font-size:.62rem">90–94%</th><th colspan="2" style="font-size:.62rem">95–97%</th><th colspan="2" style="font-size:.62rem">98–100%</th></tr>`;}
+  function profRow(b,N){return`<td>${b.np}</td><td>${pct(b.np,N)}%</td><td>${b.lp}</td><td>${pct(b.lp,N)}%</td><td>${b.np2}</td><td>${pct(b.np2,N)}%</td><td>${b.p}</td><td>${pct(b.p,N)}%</td><td>${b.hp}</td><td>${pct(b.hp,N)}%</td>`;}
+  function descRow(b,N){return`<td>${b.dnm}</td><td>${pct(b.dnm,N)}%</td><td>${b.fs}</td><td>${pct(b.fs,N)}%</td><td>${b.s}</td><td>${pct(b.s,N)}%</td><td>${b.vs}</td><td>${pct(b.vs,N)}%</td><td>${b.o1}</td><td>${pct(b.o1,N)}%</td><td>${b.o2}</td><td>${pct(b.o2,N)}%</td><td>${b.o3}</td><td>${pct(b.o3,N)}%</td>`;}
+  const diagItems=cd.diag?.items||0;const diagHSO=cd.diag?.hso||0;const diagMPS=diagItems?r2((diagHSO/diagItems)*100):0;
+  const wwHT=h.ww.reduce((a,v)=>a+(v||0),0);const wwValid=wwPS.filter(v=>v!==null);const wwHSO=wwValid.length?Math.max(...wwValid):0;const wwLSO=wwValid.length?Math.min(...wwValid):0;const wwMean=wwValid.length?r2(wwValid.reduce((a,b)=>a+b,0)/wwValid.length):0;
+  area.innerHTML=`
+  <div style="font-size:.78rem;font-weight:600;color:var(--tx2);margin-bottom:.85rem;padding:.5rem .75rem;background:var(--surf2);border-radius:var(--rs);border:1px solid var(--bdr)">
+    📊 ${escH(cd.school.subject||'Subject')} · ${section} · <span class="tag tt${t}">Term ${t}</span> · ${escH(cd.school.teacher||'Teacher')} · SY ${APP.ac.sy}
+  </div>
+  <div class="card" style="margin-bottom:.9rem">
+    <div class="loa-group-hdr" style="background:var(--blue2);color:var(--blue)">📝 Section 1 — Diagnostic Test Results</div>
+    <div style="overflow-x:auto"><table class="loa-full-table"><thead><tr><th class="sec-col" rowspan="3">Section</th><th rowspan="3">Learners</th><th rowspan="3">Items</th><th rowspan="3">HSO</th><th rowspan="3">LSO</th><th rowspan="3">MPS%</th>${profHdr()}</thead>
+    <tbody><tr><td class="sec-col">${section}</td><td>${N}</td><td>${diagItems}</td><td>${diagHSO}</td><td>${cd.diag?.lso||0}</td><td>${diagMPS}%</td>${profRow(wwBands,N)}</tr>
+    <tr class="total-row"><td class="sec-col">Total</td><td>${N}</td><td>${diagItems}</td><td>${diagHSO}</td><td>${cd.diag?.lso||0}</td><td>${diagMPS}%</td>${profRow(wwBands,N)}</tr></tbody></table></div>
+  </div>
+  <div class="card" style="margin-bottom:.9rem">
+    <div class="loa-group-hdr" style="background:var(--amber2);color:var(--amber)">✏️ Section 2 — Written Works (30%)</div>
+    <div style="overflow-x:auto"><table class="loa-full-table"><thead><tr><th class="sec-col" rowspan="3">Section</th><th rowspan="3">Learners</th><th rowspan="3">HPS</th><th rowspan="3">HSO%</th><th rowspan="3">LSO%</th><th rowspan="3">Mean%</th><th rowspan="3">MPS%</th>${profHdr()}</thead>
+    <tbody><tr><td class="sec-col">${section}</td><td>${N}</td><td>${wwHT}</td><td>${wwHSO.toFixed(1)}%</td><td>${wwLSO.toFixed(1)}%</td><td>${wwMean}%</td><td>${wwMean}%</td>${profRow(wwBands,N)}</tr>
+    <tr class="total-row"><td class="sec-col">Total</td><td>${N}</td><td>${wwHT}</td><td>${wwHSO.toFixed(1)}%</td><td>${wwLSO.toFixed(1)}%</td><td>${wwMean}%</td><td>${wwMean}%</td>${profRow(wwBands,N)}</tr></tbody></table></div>
+  </div>
+  <div class="card" style="margin-bottom:.9rem">
+    <div class="loa-group-hdr" style="background:var(--green2);color:var(--green)">🎯 Section 3 — Performance Tasks (50%) — Descriptor Bands</div>
+    <div style="overflow-x:auto"><table class="loa-full-table"><thead><tr><th class="sec-col" rowspan="3">Section</th><th rowspan="3">Learners</th>${descHdr()}</thead>
+    <tbody><tr><td class="sec-col">${section}</td><td>${N}</td>${descRow(ptBands,N)}</tr>
+    <tr class="total-row"><td class="sec-col">Total</td><td>${N}</td>${descRow(ptBands,N)}</tr></tbody></table></div>
+  </div>
+  ${h.te?`<div class="card" style="margin-bottom:.9rem"><div class="loa-group-hdr" style="background:var(--purple2);color:var(--purple)">📄 Section 4 — Term Examination (20%)</div>
+    <div style="overflow-x:auto"><table class="loa-full-table"><thead><tr><th class="sec-col" rowspan="3">Section</th><th rowspan="3">Learners</th><th rowspan="3">HPS</th>${profHdr()}</thead>
+    <tbody><tr><td class="sec-col">${section}</td><td>${N}</td><td>${h.te}</td>${profRow(teBands,N)}</tr>
+    <tr class="total-row"><td class="sec-col">Total</td><td>${N}</td><td>${h.te}</td>${profRow(teBands,N)}</tr></tbody></table></div>
+  </div>`:''}
+  <div class="card"><div class="loa-group-hdr" style="background:var(--teal2);color:var(--teal)">🎓 Section 5 — Term ${t} Grades (Transmuted) — Descriptor Bands</div>
+    <div style="overflow-x:auto"><table class="loa-full-table"><thead><tr><th class="sec-col" rowspan="3">Section</th><th rowspan="3">Learners</th>${descHdr()}</thead>
+    <tbody><tr><td class="sec-col">${section}</td><td>${N}</td>${descRow(tgBands,N)}</tr>
+    <tr class="total-row"><td class="sec-col">Total</td><td>${N}</td>${descRow(tgBands,N)}</tr></tbody></table></div>
+  </div>`;
+}
+function excelLOA(){toast('Use the main Excel export for LOA data — it includes a dedicated LOA SUMMARY sheet.');excelGrades();}
+
+// ══════════════════════════════════════════════
+// 15. GRADE SUMMARY PAGE
+// ══════════════════════════════════════════════
+function showGSTab(tab){
+  const tabMap={table:'gstabTable',loa:'gstabLOA',student:'gstabStudent'};
+  const btnMap={table:'gsTbl',loa:'gsLOA',student:'gsStud'};
+  ['table','loa','student'].forEach(t=>{const el=document.getElementById(tabMap[t]);if(el)el.style.display=t===tab?'block':'none';const btn=document.getElementById(btnMap[t]);if(btn)btn.classList.toggle('active',t===tab);});
+  if(tab==='loa')renderGSLOA();if(tab==='student')renderGSStudent();
+}
+function renderGradeSummaryPage(){
+  const el=document.getElementById('gradeSummaryCard');
+  if(!hasClass()){el.innerHTML='<div class="ws"><h2>Select a class first</h2></div>';return;}
+  const cd=getCD();const stu=allStu();let rows='';let lastG=null;
+  stu.forEach(s=>{
+    if(s.g!==lastG){rows+=`<tr><td colspan="8" style="background:${s.g==='male'?'var(--blue2)':'var(--pink2)'};font-weight:700;font-size:.72rem;padding:.3rem .65rem;color:${s.g==='male'?'var(--blue)':'var(--pink)'}">${s.g==='male'?'👦 MALE':'👧 FEMALE'}</td></tr>`;lastG=s.g;}
+    const num=(s.g==='male'?cd.students.male:cd.students.female).indexOf(s.name)+1;
+    const t1=calcT(s.name,1).termGrade,t2=calcT(s.name,2).termGrade,t3=calcT(s.name,3).termGrade;
+    const vt=[t1,t2,t3].filter(v=>v!==null);const final=vt.length?Math.round(vt.reduce((a,b)=>a+b,0)/vt.length):null;const rem=final!==null?(final>=75?'PASSED':'FAILED'):'';
+    rows+=`<tr><td style="text-align:center;font-size:.72rem;color:var(--tx3)">${num}</td><td style="padding:.35rem .65rem;font-size:.85rem;font-weight:500">${escH(s.name)}</td>${[t1,t2,t3].map(v=>`<td style="text-align:center;font-family:'DM Mono',monospace;font-weight:600;color:${v?(v>=75?'var(--green)':'var(--red)'):'var(--tx3)'}">${v||'—'}</td>`).join('')}<td style="text-align:center;font-family:'DM Mono',monospace;font-size:.92rem;font-weight:700;color:${final?(final>=75?'var(--blue)':'var(--red)'):'var(--tx3)'}">${final||'—'}</td><td style="text-align:center">${rem?`<span class="${rem==='PASSED'?'bpass':'bfail'}">${rem}</span>`:''}</td></tr>`;
+  });
+  el.innerHTML=`<div style="font-size:.72rem;color:var(--tx3);margin-bottom:.7rem">${escH(cd.school.subject||'—')} · ${APP.ac.grade} ${APP.ac.section} · ${escH(cd.school.teacher||'—')} · SY ${APP.ac.sy}</div>
+  <div style="overflow-x:auto"><table class="stbl"><thead><tr><th style="width:26px">#</th><th style="text-align:left;min-width:170px">Learner's Name</th><th style="text-align:center"><span class="tag tt1">Term 1</span></th><th style="text-align:center"><span class="tag tt2">Term 2</span></th><th style="text-align:center"><span class="tag tt3">Term 3</span></th><th style="text-align:center">Final</th><th style="text-align:center">Remark</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function renderGSLOA(){
+  const el=document.getElementById('gsLOAContent');if(!hasClass()||!el)return;
+  const cd=getCD();const stu=allStu();const N=stu.length;
+  if(!N){el.innerHTML='<div class="ws"><h2>No students</h2></div>';return;}
+  const section=`${APP.ac.grade} – ${APP.ac.section}`;
+  function descB(scores){const r={dnm:0,fs:0,s:0,vs:0,o1:0,o2:0,o3:0,miss:0};scores.forEach(v=>{if(v===null||v===undefined){r.miss++;return;}if(v>=98)r.o3++;else if(v>=95)r.o2++;else if(v>=90)r.o1++;else if(v>=85)r.vs++;else if(v>=80)r.s++;else if(v>=75)r.fs++;else r.dnm++;});return r;}
+  function pct(n,t){return t?r2((n/t)*100):0}
+  const finals=stu.map(s=>{const vt=[1,2,3].map(t=>calcT(s.name,t).termGrade).filter(v=>v!==null);return vt.length?Math.round(vt.reduce((a,b)=>a+b,0)/vt.length):null;});
+  const fb=descB(finals);const pass=finals.filter(v=>v!==null&&v>=75).length;const wg=finals.filter(v=>v!==null).length;const avg=wg?r2(finals.filter(v=>v!==null).reduce((a,b)=>a+b,0)/wg):0;
+  const tSum=[1,2,3].map(t=>{const tg=stu.map(s=>calcT(s.name,t).termGrade);const vld=tg.filter(v=>v!==null);const qb=descB(tg);return{t,avg:vld.length?r2(vld.reduce((a,b)=>a+b,0)/vld.length):null,pass:vld.filter(v=>v>=75).length,fail:vld.filter(v=>v<75).length,total:vld.length,b:qb};});
+  const bDefs=[{k:'dnm',lb:'Did Not Meet',rng:'≤74',clr:'#991b1b',bg:'#fee2e2'},{k:'fs',lb:'Fairly Satisfactory',rng:'75–79',clr:'#92400e',bg:'#fef3c7'},{k:'s',lb:'Satisfactory',rng:'80–84',clr:'#14532d',bg:'#dcfce7'},{k:'vs',lb:'Very Satisfactory',rng:'85–89',clr:'#065f46',bg:'#d1fae5'},{k:'o1',lb:'Outstanding',rng:'90–94',clr:'#1e40af',bg:'#dbeafe'},{k:'o2',lb:'Outstanding',rng:'95–97',clr:'#1d4ed8',bg:'#bfdbfe'},{k:'o3',lb:'Outstanding',rng:'98–100',clr:'#1e3a8a',bg:'#93c5fd'}];
+  el.innerHTML=`<div style="font-size:.78rem;color:var(--tx2);padding:.5rem .75rem;background:var(--surf2);border:1px solid var(--bdr);border-radius:var(--rs);margin-bottom:.9rem;font-weight:500">📊 LOA Overview — ${escH(cd.school.subject||'Subject')} · ${escH(section)} · SY ${APP.ac.sy}</div>
+  <div class="ag4"><div class="sc"><div class="sn2" style="color:var(--blue)">${avg}</div><div class="sl2">Overall Avg</div></div><div class="sc"><div class="sn2" style="color:var(--green)">${pass}</div><div class="sl2">Passing</div></div><div class="sc"><div class="sn2" style="color:var(--red)">${N-pass}</div><div class="sl2">Below 75</div></div><div class="sc"><div class="sn2" style="color:var(--tx2)">${wg}/${N}</div><div class="sl2">With Final Grade</div></div></div>
+  <div class="card" style="margin-bottom:.9rem"><div class="ch"><div class="ct">Final Grade Distribution</div></div>
+    <div style="overflow-x:auto"><table class="loa-full-table"><thead><tr><th class="sec-col" rowspan="2">Section</th><th rowspan="2">Learners</th>${bDefs.map(b=>`<th colspan="2" style="background:${b.bg};color:${b.clr};font-size:.62rem">${b.lb}<br><span style="font-weight:400">${b.rng}</span></th>`).join('')}</tr><tr>${bDefs.map(()=>'<th style="font-size:.62rem">No.</th><th style="font-size:.62rem">%</th>').join('')}</tr></thead>
+    <tbody><tr><td class="sec-col">${escH(section)}</td><td>${N}</td>${bDefs.map(b=>`<td>${fb[b.k]||0}</td><td>${pct(fb[b.k]||0,N)}%</td>`).join('')}</tr><tr class="total-row"><td class="sec-col">Total</td><td>${N}</td>${bDefs.map(b=>`<td>${fb[b.k]||0}</td><td>${pct(fb[b.k]||0,N)}%</td>`).join('')}</tr></tbody></table></div>
+  </div>
+  <div class="g3">${tSum.map(ts=>`<div class="card"><div class="ch"><div class="ct"><span class="tag tt${ts.t}">Term ${ts.t}</span></div><div class="cs">${ts.total} graded</div></div>
+    <div style="display:flex;gap:.5rem;margin-bottom:.7rem">
+      <div style="flex:1;text-align:center;padding:.45rem;background:var(--blue2);border-radius:var(--rs)"><div style="font-size:.62rem;color:var(--blue);font-weight:600">Avg</div><div style="font-size:1.1rem;font-weight:700;font-family:'DM Mono',monospace;color:var(--blue)">${ts.avg||'—'}</div></div>
+      <div style="flex:1;text-align:center;padding:.45rem;background:var(--green2);border-radius:var(--rs)"><div style="font-size:.62rem;color:var(--green);font-weight:600">Pass</div><div style="font-size:1.1rem;font-weight:700;font-family:'DM Mono',monospace;color:var(--green)">${ts.pass}</div></div>
+      <div style="flex:1;text-align:center;padding:.45rem;background:var(--red2);border-radius:var(--rs)"><div style="font-size:.62rem;color:var(--red);font-weight:600">Fail</div><div style="font-size:1.1rem;font-weight:700;font-family:'DM Mono',monospace;color:var(--red)">${ts.fail}</div></div>
+    </div>
+    ${bDefs.map(b=>`<div style="display:flex;align-items:center;gap:4px;padding:.18rem 0;border-bottom:1px solid var(--bdr)"><div style="width:7px;height:7px;border-radius:2px;background:${b.bg};border:1px solid ${b.clr};flex-shrink:0"></div><div style="font-size:.68rem;flex:1;color:var(--tx2)">${b.lb} <span style="color:var(--tx4)">${b.rng}</span></div><div style="font-family:'DM Mono',monospace;font-size:.72rem;font-weight:600;width:20px;text-align:right">${ts.b[b.k]||0}</div><div style="font-size:.65rem;color:var(--tx3);width:28px;text-align:right">${pct(ts.b[b.k]||0,N)}%</div></div>`).join('')}
+  </div>`).join('')}</div>`;
+}
+function renderGSStudent(){
+  const el=document.getElementById('gsStudContent');if(!el)return;
+  if(!hasClass()){el.innerHTML='<div class="ws"><h2>Select a class first</h2></div>';return;}
+  const cd=getCD();
+  el.innerHTML=`<div class="card" style="margin-bottom:.9rem"><div class="ch"><div class="ct">Student Detail</div></div><div class="fl">
+    <div><div class="lbl">Term</div><select class="inp" id="gssdT" style="width:100px" onchange="renderGSSD()"><option value="1">Term 1</option><option value="2">Term 2</option><option value="3">Term 3</option></select></div>
+    <div><div class="lbl">Student</div><select class="inp" id="gssdName" style="width:260px" onchange="renderGSSD()"><option value="">-- Select --</option>${cd.students.male.map(n=>`<option>[M] ${escH(n)}</option>`).join('')}${cd.students.female.map(n=>`<option>[F] ${escH(n)}</option>`).join('')}</select></div>
+    <button class="btn bp bsm" onclick="goToStudRow2()">📍 Go to Row</button>
+  </div></div>
+  <div id="gssdArea"><div class="ws"><h2>Select a student above</h2></div></div>`;
+}
+function renderGSSD(){
+  const rawVal=document.getElementById('gssdName')?.value;const name=rawVal?rawVal.replace(/^\[.\] /,''):'';
+  const t=parseInt(document.getElementById('gssdT')?.value||'1');
+  const area=document.getElementById('gssdArea');if(!area||!name)return;
+  const cd=getCD();const h=cd.hps[t];const g=(cd.grades[t]&&cd.grades[t][name])||{};
+  const ww=g.ww||Array(10).fill(null);const pt=g.pt||Array(10).fill(null);const te=g.te!==undefined?g.te:null;
+  const c=calcT(name,t);const wwC=Math.max(h.ww.filter(v=>v).length,1);const ptC=Math.max(h.pt.filter(v=>v).length,1);
+  const allT=[1,2,3].map(ti=>({t:ti,c:calcT(name,ti)}));const vt=allT.map(a=>a.c.termGrade).filter(v=>v!==null);const final=vt.length?Math.round(vt.reduce((a,b)=>a+b,0)/vt.length):null;
+  area.innerHTML=`<div class="card"><div class="ch"><div><div class="ct">${escH(name)}</div><div class="cs">${APP.ac.grade} ${APP.ac.section} · Term ${t}</div></div>
+    <div class="fl">${allT.map(a=>`<div style="text-align:center;padding:.5rem .85rem;background:${a.t===t?`var(--term${a.t}-2)`:'var(--surf2)'};border:${a.t===t?`2px solid var(--term${a.t})`:'1px solid var(--bdr)'};border-radius:var(--rs)"><div style="font-size:.62rem;color:${a.t===t?`var(--term${a.t})`:'var(--tx3)'};font-weight:700">Term ${a.t}</div><div style="font-size:1.1rem;font-weight:700;font-family:'DM Mono',monospace;color:${a.c.termGrade?(a.c.termGrade>=75?'var(--green)':'var(--red)'):'var(--tx3)'}">${a.c.termGrade||'—'}</div></div>`).join('')}
+    <div style="text-align:center;padding:.5rem .85rem;background:var(--blue2);border:2px solid var(--blue);border-radius:var(--rs)"><div style="font-size:.62rem;color:var(--blue);font-weight:700">FINAL</div><div style="font-size:1.2rem;font-weight:700;font-family:'DM Mono',monospace;color:${final?(final>=75?'var(--green)':'var(--red)'):'var(--tx3)'}">${final||'—'}</div>${final?`<div style="font-size:.62rem;color:${final>=75?'var(--green)':'var(--red)'};font-weight:700">${final>=75?'PASSED':'FAILED'}</div>`:''}</div></div></div>
+    <div style="margin-bottom:.8rem"><div class="fl" style="margin-bottom:.4rem"><span class="tag tb">WW (30%)</span><span style="font-size:.75rem;color:var(--tx2)">Total: ${c.wwT!==null?c.wwT:'—'} · PS: ${c.wwPS!==null?c.wwPS:'—'}% · WS: ${c.wwWS!==null?c.wwWS:'—'}</span></div>
+      <div style="display:flex;flex-wrap:wrap;gap:3px">${Array.from({length:wwC},(_,i)=>`<div style="text-align:center;padding:.3rem .2rem;border:1px solid var(--bdr);border-radius:var(--rss);min-width:44px;background:var(--surf)"><div style="font-size:.62rem;color:var(--tx3)">WW${i+1}${h.ww[i]?'<br>/'+h.ww[i]:''}</div><div style="font-size:.85rem;font-weight:600;font-family:'DM Mono',monospace">${ww[i]!==null&&ww[i]!==undefined?ww[i]:'—'}</div></div>`).join('')}</div></div>
+    <div style="margin-bottom:.8rem"><div class="fl" style="margin-bottom:.4rem"><span class="tag ta">PT (50%)</span><span style="font-size:.75rem;color:var(--tx2)">Total: ${c.ptT!==null?c.ptT:'—'} · PS: ${c.ptPS!==null?c.ptPS:'—'}% · WS: ${c.ptWS!==null?c.ptWS:'—'}</span></div>
+      <div style="display:flex;flex-wrap:wrap;gap:3px">${Array.from({length:ptC},(_,i)=>`<div style="text-align:center;padding:.3rem .2rem;border:1px solid var(--bdr);border-radius:var(--rss);min-width:44px;background:var(--surf)"><div style="font-size:.62rem;color:var(--tx3)">PT${i+1}${h.pt[i]?'<br>/'+h.pt[i]:''}</div><div style="font-size:.85rem;font-weight:600;font-family:'DM Mono',monospace">${pt[i]!==null&&pt[i]!==undefined?pt[i]:'—'}</div></div>`).join('')}</div></div>
+    ${h.te?`<div style="margin-bottom:.8rem"><div class="fl" style="margin-bottom:.4rem"><span class="tag tg">Term Exam (20%)</span><span style="font-size:.75rem;color:var(--tx2)">Score: ${te!==null?te:'—'} / ${h.te} · PS: ${c.tePS!==null?c.tePS:'—'}% · WS: ${c.teWS!==null?c.teWS:'—'}</span></div></div>`:''}
+    <div style="padding:.65rem .9rem;background:var(--surf2);border-radius:var(--r);border:1px solid var(--bdr);display:flex;gap:.9rem;flex-wrap:wrap">${[['WW WS',c.wwWS],['PT WS',c.ptWS],['TE WS',c.teWS],['Initial',c.initial]].map(([l,v])=>`<div><div style="font-size:.65rem;color:var(--tx3)">${l}</div><div style="font-size:.85rem;font-weight:600;font-family:'DM Mono',monospace">${v!==null?v:'—'}</div></div>`).join('')}
+    <div><div style="font-size:.65rem;color:var(--tx3)">Term ${t} Grade</div><div style="font-size:1.15rem;font-weight:700;font-family:'DM Mono',monospace;color:${c.termGrade?(c.termGrade>=75?'var(--green)':'var(--red)'):'var(--tx3)'}">${c.termGrade||'—'}</div></div></div>
+  </div>`;
+}
+function goToStudRow2(){const rawVal=document.getElementById('gssdName')?.value;const name=rawVal?rawVal.replace(/^\[.\] /,''):'';const t=parseInt(document.getElementById('gssdT')?.value||'1');if(!name){toast('Select a student');return;}APP.gt=t;APP.hlStudent=name;showRB('gradeentry');showPage('recordbook');}
+
+// ══════════════════════════════════════════════
+// 16. DAILY ATTENDANCE
+// ══════════════════════════════════════════════
+function renderDailyAtt(){
+  const el=document.getElementById('dailyAttContent');
+  if(!hasClass()){el.innerHTML='<div class="ws"><h2>Select a class first</h2></div>';return;}
+  const cd=getCD();const stu=allStu();const ds=APP.attDate||today();const att=cd.att[ds]||{};
+  let P=0,A=0,L=0;stu.forEach(s=>{const st=att[s.name]||'';if(st==='P')P++;else if(st==='A')A++;else if(st==='L')L++;});
+  let rows='';let lastG=null;
+  stu.forEach((s,i)=>{
+    if(s.g!==lastG){rows+=`<div style="grid-column:1/-1;padding:.28rem .55rem;background:${s.g==='male'?'var(--blue2)':'var(--pink2)'};border-radius:var(--rs);font-size:.68rem;font-weight:700;color:${s.g==='male'?'var(--blue)':'var(--pink)'}">${s.g==='male'?'👦 MALE':'👧 FEMALE'}</div>`;lastG=s.g;}
+    const num=(s.g==='male'?cd.students.male:cd.students.female).indexOf(s.name)+1;const st=att[s.name]||'';
+    rows+=`<div class="acard"><span class="anum">${num}</span><span class="aname">${escH(s.name)}</span><div class="atog">
+      <button class="abtn ${st==='P'?'pres':'off'}" onclick="setAtt('${esc(s.name)}','${ds}','${st==='P'?'':'P'}')">P</button>
+      <button class="abtn ${st==='A'?'abs':'off'}" onclick="setAtt('${esc(s.name)}','${ds}','${st==='A'?'':'A'}')">A</button>
+      <button class="abtn ${st==='L'?'late':'off'}" onclick="setAtt('${esc(s.name)}','${ds}','${st==='L'?'':'L'}')">L</button>
+    </div></div>`;
+  });
+  el.innerHTML=`<div class="ebar"><span class="elbl">📅 Daily Attendance</span><div class="sp"></div><button class="btn br bsm" onclick="pdfDailyAtt('${ds}')">📄 PDF</button></div>
+  <div class="card" style="margin-bottom:.9rem"><div class="fl">
+    <div><div class="lbl">Date</div><input type="date" class="inp" id="attDate" value="${ds}" style="width:155px" onchange="APP.attDate=this.value;save();renderDailyAtt()"></div>
+    <button class="btn bp bsm" onclick="markAllP('${ds}')">✓ All Present</button>
+    <button class="btn bo bsm" onclick="clearDay('${ds}')">Clear Day</button>
+    <button class="btn bg bsm" onclick="save();toast('✓ Saved')">💾 Save</button>
+    <div class="sp"></div>
+    <div style="display:flex;gap:.5rem">
+      <div class="astat"><div class="astn" style="color:var(--green)">${P}</div><div class="astl">Present</div></div>
+      <div class="astat"><div class="astn" style="color:var(--red)">${A}</div><div class="astl">Absent</div></div>
+      <div class="astat"><div class="astn" style="color:var(--amber)">${L}</div><div class="astl">Late</div></div>
+      <div class="astat"><div class="astn" style="color:var(--tx3)">${stu.length}</div><div class="astl">Total</div></div>
+    </div>
+  </div></div>
+  <div class="agrid">${rows}</div>`;
+}
+function setAtt(name,ds,status){const cd=getCD();if(!cd.att[ds])cd.att[ds]={};if(status==='')delete cd.att[ds][name];else cd.att[ds][name]=status;save();renderDailyAtt();}
+function markAllP(ds){const cd=getCD();const stu=allStu();if(!cd.att[ds])cd.att[ds]={};stu.forEach(s=>cd.att[ds][s.name]='P');save();renderDailyAtt();}
+function clearDay(ds){const cd=getCD();delete cd.att[ds];save();renderDailyAtt();}
+
+// ══════════════════════════════════════════════
+// 17. ATTENDANCE SUMMARY
+// ══════════════════════════════════════════════
+function renderAttSum(){
+  const el=document.getElementById('attSumContent');
+  if(!hasClass()){el.innerHTML='<div class="ws"><h2>Select a class first</h2></div>';return;}
+  const cd=getCD();const stu=allStu();const dates=Object.keys(cd.att).sort().slice(-20);
+  if(!dates.length){el.innerHTML='<div class="ws"><h2>No attendance records yet</h2></div>';return;}
+  let rows='';let lastG=null;
+  stu.forEach(s=>{
+    if(s.g!==lastG){rows+=`<tr><td colspan="${dates.length+5}" style="background:${s.g==='male'?'var(--blue2)':'var(--pink2)'};font-weight:700;font-size:.68rem;padding:.28rem .55rem;color:${s.g==='male'?'var(--blue)':'var(--pink)'}">${s.g==='male'?'👦 MALE':'👧 FEMALE'}</td></tr>`;lastG=s.g;}
+    const num=(s.g==='male'?cd.students.male:cd.students.female).indexOf(s.name)+1;
+    let P=0,A=0,L=0;const cells=dates.map(d=>{const st=(cd.att[d]||{})[s.name]||'';if(st==='P')P++;else if(st==='A')A++;else if(st==='L')L++;return`<td style="text-align:center;color:${st==='P'?'var(--green)':st==='A'?'var(--red)':st==='L'?'var(--amber)':'var(--tx4)'};font-weight:600;font-size:.7rem">${st||'—'}</td>`;}).join('');
+    rows+=`<tr><td style="text-align:center;font-size:.65rem;color:var(--tx3)">${num}</td><td style="font-size:.78rem;font-weight:500;white-space:nowrap">${escH(s.name)}</td>${cells}<td style="text-align:center;font-weight:700;color:var(--green)">${P}</td><td style="text-align:center;font-weight:700;color:var(--red)">${A}</td><td style="text-align:center;font-weight:700;color:var(--amber)">${L}</td></tr>`;
+  });
+  el.innerHTML=`<div class="ebar"><span class="elbl">Export:</span><button class="btn br bsm" onclick="pdfAttSum()">📄 PDF</button><button class="btn bg bsm" onclick="excelAtt()">📊 Excel</button></div>
+  <div class="card"><div style="overflow-x:auto"><table class="att-tbl"><thead><tr><th>#</th><th style="text-align:left;min-width:140px">Name</th>${dates.map(d=>`<th style="font-size:.62rem">${d.slice(5)}</th>`).join('')}<th style="color:var(--green)">P</th><th style="color:var(--red)">A</th><th style="color:var(--amber)">L</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
+
+// ══════════════════════════════════════════════
+// 18. CONSOLIDATED GRADES
+// ══════════════════════════════════════════════
+function renderCons(){
+  const el=document.getElementById('consContent');if(!el)return;
+  if(!APP.imported.length){
+    el.innerHTML=`<div class="ebar"><label class="btn bp bsm" style="cursor:pointer">📂 Import Subject Teacher JSONs<input type="file" accept=".json" multiple style="display:none" onchange="handleImportFiles(this)"></label></div>
+    <div class="iz" id="consDropZone" ondrop="dropFiles(event)" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')">
+      <div class="iz-icon">📦</div><div class="iz-text">Drop JSON files here or click the Import button above</div>
+      <div class="iz-sub">Import .json files exported from Subject Teachers (Three-Term format)</div>
+    </div>`;return;
+  }
+  const subjects=APP.imported.map(s=>s.subject||'?');
+  const allNames=new Set();APP.imported.forEach(s=>(s.students||[]).forEach(st=>allNames.add(norm(st.name))));
+  const nameArr=[...allNames].sort();const lkp={};APP.imported.forEach(s=>{lkp[s.subject]={};(s.students||[]).forEach(st=>lkp[s.subject][norm(st.name)]=st);});
+  let rows='';
+  nameArr.forEach((name,idx)=>{
+    const allTerms=subjects.map(subj=>{const st=lkp[subj][name];if(!st)return{t1:null,t2:null,t3:null,final:null};return{t1:st.terms?.T1||null,t2:st.terms?.T2||null,t3:st.terms?.T3||null,final:st.finalGrade||null};});
+    const finals=allTerms.map(t=>t.final).filter(v=>v!==null&&!isNaN(v));
+    const ga=finals.length?Math.round(finals.reduce((a,b)=>a+b,0)/finals.length):null;
+    const allP=subjects.every(subj=>{const st=lkp[subj][name];return!st||!st.finalGrade||(st.finalGrade>=75);});
+    const prom=ga!==null?(ga>=75&&allP?'PROMOTED':'RETAINED'):'';
+    rows+=`<tr><td style="text-align:center;font-size:.68rem;color:var(--tx3)">${idx+1}</td><td class="nc" style="font-size:.78rem">${escH(name)}</td>
+      ${allTerms.map(t=>[t.t1,t.t2,t.t3,t.final].map(v=>`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:.72rem;font-weight:${v?'600':'400'};color:${v?(v>=75?'var(--green)':'var(--red)'):'var(--tx4)'}">${v||'—'}</td>`).join('')).join('')}
+      <td style="text-align:center;font-family:'DM Mono',monospace;font-size:.78rem;font-weight:700;color:var(--blue)">${ga||'—'}</td>
+      <td style="text-align:center"><span class="${prom==='PROMOTED'?'bprom':prom==='RETAINED'?'bret':''}">${prom||'—'}</span></td>
+    </tr>`;
+  });
+  el.innerHTML=`<div class="ebar"><span class="elbl">Imported: ${APP.imported.length} subjects</span>
+    <label class="btn bp bsm" style="cursor:pointer">+ Add More<input type="file" accept=".json" multiple style="display:none" onchange="handleImportFiles(this)"></label>
+    <button class="btn br bsm" onclick="APP.imported=[];save();renderCons()">✕ Clear All</button>
+    <div class="sp"></div><button class="btn bg bsm" onclick="pdfCons()">📄 PDF</button><button class="btn ba bsm" onclick="excelCons()">📊 Excel</button>
+  </div>
+  <div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:.85rem">${APP.imported.map(s=>`<span style="background:var(--blue2);color:var(--blue);padding:.18rem .55rem;border-radius:99px;font-size:.68rem;font-weight:600">${escH(s.subject||'?')}</span>`).join('')}</div>
+  <div class="card"><div style="overflow-x:auto"><table class="ctbl">
+    <thead><tr><th style="width:26px">#</th><th class="nc" style="min-width:150px">Learner's Name</th>${subjects.map(subj=>`<th colspan="4" style="font-size:.62rem">${escH(subj)}</th>`).join('')}<th>Gen. Avg</th><th>Status</th></tr>
+    <tr><th colspan="2"></th>${subjects.map(()=>'<th style="font-size:.62rem">T1</th><th style="font-size:.62rem">T2</th><th style="font-size:.62rem">T3</th><th style="font-size:.62rem">Final</th>').join('')}<th></th><th></th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div></div>`;
+}
+function handleImportFiles(inp){const files=[...inp.files];let loaded=0;files.forEach(f=>{const r=new FileReader();r.onload=e=>{try{const data=JSON.parse(e.target.result);if(data.exportType==='gradeSummaryJSON'||data.exportType==='termSummaryJSON'){const existing=APP.imported.findIndex(s=>s.subject===data.subject);if(existing>=0)APP.imported.splice(existing,1);APP.imported.push(data);loaded++;save();if(loaded===files.length){renderCons();toast(`✓ Imported ${loaded} file${loaded>1?'s':''}`);}}else{toast('✗ Invalid format: '+f.name);}}catch(err){toast('✗ Error reading: '+f.name);}};r.readAsText(f);});inp.value='';}
+function dropFiles(e){e.preventDefault();document.getElementById('consDropZone')?.classList.remove('drag');if(e.dataTransfer.files.length){handleImportFiles({files:e.dataTransfer.files});}}
+
+// ══════════════════════════════════════════════
+// SF FORMS RENDERING
+// ══════════════════════════════════════════════
+function renderSF9(el,cd,stu){const t=APP.gt;let cards='';stu.forEach(s=>{const c=calcT(s.name,t);const final=calcFinal(s.name);cards+=`<div style="border:1px solid var(--bdr);border-radius:var(--r);padding:.9rem;margin-bottom:.6rem;background:var(--surf)"><div style="display:flex;justify-content:space-between;margin-bottom:.5rem"><div><div style="font-size:.85rem;font-weight:700">${escH(s.name)}</div><div style="font-size:.68rem;color:var(--tx3)">${s.g==='male'?'Male':'Female'} · ${escH(APP.ac.grade)} ${escH(APP.ac.section)}</div></div><div class="tag tt${t}" style="font-size:.7rem">Term ${t} Report · SY ${APP.ac.sy}</div></div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem;margin-bottom:.5rem">${[['Written Works',c.wwPS!==null?c.wwPS+'%':'—','WW 30%'],['Performance Tasks',c.ptPS!==null?c.ptPS+'%':'—','PT 50%'],['Term Exam',c.tePS!==null?c.tePS+'%':'—','TE 20%'],['Term Grade',c.termGrade||'—','Transmuted']].map(([l,v,s])=>`<div style="background:var(--surf2);border:1px solid var(--bdr);border-radius:var(--rs);padding:.4rem;text-align:center"><div style="font-size:.58rem;color:var(--tx3)">${s}</div><div style="font-size:1rem;font-weight:700;font-family:'DM Mono',monospace">${v}</div><div style="font-size:.62rem;color:var(--tx2)">${l}</div></div>`).join('')}</div><div style="font-size:.68rem;color:var(--tx2)">Final (all terms avg): <strong style="color:${final?(final>=75?'var(--green)':'var(--red)'):'var(--tx3)'}">${final||'—'}</strong> · ${final?(final>=75?'PASSED':'FAILED'):''} · ${escH(cd.school.subject||'—')}</div></div>`;});el.innerHTML=`<div class="sf-export-bar"><div class="ttabs">${[1,2,3].map(ti=>`<button class="ttab2 ${ti===t?`active-t${ti}`:''}" onclick="setActiveTerm(${ti});showSF('sf9')">${TERM_DATES[ti].name}</button>`).join('')}</div><button class="btn br bsm" onclick="window.print()">📄 Print All Cards</button></div><div class="sf-form"><div class="sf-header"><div class="sf-title">SF9 — Term Report Card</div><div class="sf-subtitle">Term ${t} · ${TERM_DATES[t].start} – ${TERM_DATES[t].end}</div></div>${sfMeta(cd)}${cards}</div>`;}
+
+function showSF(sf){APP.activeSF=sf;save();document.querySelectorAll('#sfNav .stab').forEach(b=>b.classList.remove('active'));const sfOrder=['sf1','sf2','sf4','sf5','sf9','sf10'];const idx=sfOrder.indexOf(sf);document.querySelectorAll('#sfNav .stab')[idx]?.classList.add('active');renderSF(sf);}
+function renderSF(sf){const el=document.getElementById('sf-content');if(!el)return;if(!hasClass()){el.innerHTML='<div class="ws"><h2>Select a class first</h2></div>';return;}const cd=getCD();const stu=allStu();if(sf==='sf1')renderSF1(el,cd,stu);else if(sf==='sf2')renderSF2(el,cd,stu);else if(sf==='sf4')renderSF4(el,cd,stu);else if(sf==='sf5')renderSF5(el,cd,stu);else if(sf==='sf9')renderSF9(el,cd,stu);else if(sf==='sf10')renderSF10(el,cd,stu);}
+function sfMeta(cd){return`<div class="sf-meta-grid"><div class="sf-meta-item"><div class="sf-meta-label">School</div><div class="sf-meta-val">${escH(cd.school.name||'—')}</div></div><div class="sf-meta-item"><div class="sf-meta-label">School ID</div><div class="sf-meta-val">${escH(cd.school.id||'—')}</div></div><div class="sf-meta-item"><div class="sf-meta-label">School Year</div><div class="sf-meta-val">${escH(cd.school.sy||cd.school.year||APP.ac.sy||'—')}</div></div><div class="sf-meta-item"><div class="sf-meta-label">Region</div><div class="sf-meta-val">${escH(cd.school.region||'—')}</div></div><div class="sf-meta-item"><div class="sf-meta-label">Division</div><div class="sf-meta-val">${escH(cd.school.division||'—')}</div></div><div class="sf-meta-item"><div class="sf-meta-label">Grade & Section</div><div class="sf-meta-val">${escH(APP.ac.grade)} – ${escH(APP.ac.section)}</div></div><div class="sf-meta-item"><div class="sf-meta-label">Teacher</div><div class="sf-meta-val">${escH(cd.school.teacher||'—')}</div></div><div class="sf-meta-item"><div class="sf-meta-label">Subject</div><div class="sf-meta-val">${escH(cd.school.subject||'—')}</div></div><div class="sf-meta-item"><div class="sf-meta-label">Calendar</div><div class="sf-meta-val">Three-Term · DO 009, s. 2026</div></div></div>`;}
+function renderSF1(el,cd,stu){let rows='';stu.forEach((s,i)=>{rows+=`<tr><td style="text-align:center">${i+1}</td><td class="sf-nc">${escH(s.name)}</td><td>${s.g==='male'?'M':'F'}</td><td></td><td></td><td></td><td></td><td></td></tr>`;});el.innerHTML=`<div class="sf-export-bar"><button class="btn bg bsm" onclick="excelSF1()">📊 Excel</button><button class="btn br bsm" onclick="window.print()">📄 Print</button></div><div class="sf-form"><div class="sf-header"><div class="sf-title">School Form 1 (SF1) — School Register</div><div class="sf-subtitle">Republic of the Philippines · Department of Education · Three-Term · DO 009, s. 2026</div></div>${sfMeta(cd)}<div style="overflow-x:auto"><table class="sf-tbl"><thead><tr><th style="width:30px">#</th><th class="sf-nc">Learner's Name (Last, First, Middle)</th><th>Sex</th><th>LRN</th><th>Date of Birth</th><th>Age</th><th>Barangay</th><th>Remarks</th></tr></thead><tbody>${rows}</tbody></table></div><div style="margin-top:.75rem;font-size:.72rem;color:var(--tx2)">Total: ${stu.length} · Male: ${cd.students.male.length} · Female: ${cd.students.female.length}</div></div>`;}
+function renderSF2(el,cd,stu){const dates=Object.keys(cd.att).sort();const months=[...new Set(dates.map(d=>d.substring(0,7)))];if(!months.length){el.innerHTML=`<div class="ws"><h2>No attendance records yet</h2></div>`;return;}const mon=months[months.length-1];const monDates=dates.filter(d=>d.startsWith(mon));let rows='';stu.forEach((s,i)=>{let P=0,A=0,L=0;const cells=monDates.map(d=>{const st=(cd.att[d]||{})[s.name]||'';if(st==='P')P++;else if(st==='A')A++;else if(st==='L')L++;return`<td style="text-align:center;font-size:.62rem">${st||''}</td>`;}).join('');rows+=`<tr><td style="text-align:center;font-size:.68rem">${i+1}</td><td class="sf-nc" style="font-size:.72rem">${escH(s.name)}</td>${cells}<td style="text-align:center;font-weight:600;color:var(--green)">${P}</td><td style="text-align:center;font-weight:600;color:var(--red)">${A}</td><td style="text-align:center;font-weight:600;color:var(--amber)">${L}</td></tr>`;});el.innerHTML=`<div class="sf-export-bar"><button class="btn bg bsm" onclick="excelSF2('${mon}')">📊 Excel</button><button class="btn br bsm" onclick="window.print()">📄 Print</button></div><div class="sf-form"><div class="sf-header"><div class="sf-title">SF2 — Daily Attendance Record · ${mon}</div></div>${sfMeta(cd)}<div style="overflow-x:auto"><table class="sf-tbl"><thead><tr><th>#</th><th class="sf-nc">Learner's Name</th>${monDates.map(d=>`<th style="font-size:.6rem">${d.slice(8)}</th>`).join('')}<th>P</th><th>A</th><th>L</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;}
+function renderSF4(el,cd,stu){const dates=Object.keys(cd.att).sort();const months=[...new Set(dates.map(d=>d.substring(0,7)))];let rows='';months.forEach(mon=>{const monDates=dates.filter(d=>d.startsWith(mon));let P=0,A=0,L=0;stu.forEach(s=>{monDates.forEach(d=>{const st=(cd.att[d]||{})[s.name]||'';if(st==='P')P++;else if(st==='A')A++;else if(st==='L')L++;});});rows+=`<tr><td>${mon}</td><td style="text-align:center">${stu.length}</td><td style="text-align:center">${monDates.length}</td><td style="text-align:center;color:var(--green);font-weight:600">${P}</td><td style="text-align:center;color:var(--red);font-weight:600">${A}</td><td style="text-align:center;color:var(--amber);font-weight:600">${L}</td><td></td></tr>`;});el.innerHTML=`<div class="sf-export-bar"><button class="btn bg bsm" onclick="excelSF4()">📊 Excel</button><button class="btn br bsm" onclick="window.print()">📄 Print</button></div><div class="sf-form"><div class="sf-header"><div class="sf-title">SF4 — Monthly Attendance Report</div></div>${sfMeta(cd)}<table class="sf-tbl"><thead><tr><th>Month</th><th>Enrollment</th><th>School Days</th><th>Total Present</th><th>Total Absent</th><th>Total Late</th><th>Remarks</th></tr></thead><tbody>${rows}</tbody></table></div>`;}
+function renderSF5(el,cd,stu){let rows='';let prom=0,ret=0;let lastG=null;stu.forEach((s,i)=>{if(s.g!==lastG){rows+=`<tr><td colspan="8" style="background:${s.g==='male'?'#e8f4fd':'#fce8f3'};font-weight:700;font-size:.68rem;padding:.25rem .5rem">${s.g==='male'?'MALE':'FEMALE'}</td></tr>`;lastG=s.g;}const num=(s.g==='male'?cd.students.male:cd.students.female).indexOf(s.name)+1;const t1=calcT(s.name,1).termGrade,t2=calcT(s.name,2).termGrade,t3=calcT(s.name,3).termGrade;const vt=[t1,t2,t3].filter(v=>v!==null);const final=vt.length?Math.round(vt.reduce((a,b)=>a+b,0)/vt.length):null;const status=final!==null?(final>=75?'PROMOTED':'RETAINED'):'';if(status==='PROMOTED')prom++;else if(status==='RETAINED')ret++;rows+=`<tr><td style="text-align:center;font-size:.65rem">${num}</td><td class="sf-nc" style="font-size:.75rem">${escH(s.name)}</td><td style="text-align:center;font-weight:600;color:${t1?(t1>=75?'var(--green)':'var(--red)'):'var(--tx4)'}">${t1||'—'}</td><td style="text-align:center;font-weight:600;color:${t2?(t2>=75?'var(--green)':'var(--red)'):'var(--tx4)'}">${t2||'—'}</td><td style="text-align:center;font-weight:600;color:${t3?(t3>=75?'var(--green)':'var(--red)'):'var(--tx4)'}">${t3||'—'}</td><td style="text-align:center;font-weight:700;color:${final?(final>=75?'var(--blue)':'var(--red)'):'var(--tx4)'}">${final||'—'}</td><td style="text-align:center"><span class="${status==='PROMOTED'?'bprom':status==='RETAINED'?'bret':''}">${status||'—'}</span></td><td></td></tr>`;});el.innerHTML=`<div class="sf-export-bar"><button class="btn bg bsm" onclick="excelSF5()">📊 Excel</button><button class="btn br bsm" onclick="window.print()">📄 Print</button></div><div class="sf-form"><div class="sf-header"><div class="sf-title">SF5 — Report on Promotion and Level of Proficiency</div><div class="sf-subtitle">Three-Term System · DO 009, s. 2026</div></div>${sfMeta(cd)}<div style="display:flex;gap:.85rem;margin-bottom:.85rem"><div class="astat"><div class="astn" style="color:var(--blue)">${prom}</div><div class="astl">Promoted</div></div><div class="astat"><div class="astn" style="color:var(--amber)">${ret}</div><div class="astl">Retained</div></div><div class="astat"><div class="astn" style="color:var(--tx2)">${stu.length}</div><div class="astl">Total</div></div></div><table class="sf-tbl"><thead><tr><th>#</th><th class="sf-nc">Learner's Name</th><th><span class="tag tt1">Term 1</span></th><th><span class="tag tt2">Term 2</span></th><th><span class="tag tt3">Term 3</span></th><th>Final</th><th>Status</th><th>Remarks</th></tr></thead><tbody>${rows}</tbody></table></div>`;}
+function renderSF10(el,cd,stu){
+  let rows='';
+  stu.forEach((s,i)=>{
+    const t1=calcT(s.name,1).termGrade,t2=calcT(s.name,2).termGrade,t3=calcT(s.name,3).termGrade;
+    const vt=[t1,t2,t3].filter(v=>v!==null);
+    const final=vt.length?Math.round(vt.reduce((a,b)=>a+b,0)/vt.length):null;
+    rows+=`<tr>
+      <td style="text-align:center;font-size:.7rem">${i+1}</td>
+      <td class="sf-nc" style="font-size:.78rem">${escH(s.name)}</td>
+      <td>${s.g==='male'?'M':'F'}</td>
+      <td></td><td></td>
+      <td style="text-align:center;font-weight:600;color:${t1?(t1>=75?'var(--green)':'var(--red)'):'var(--tx4)'}">${t1||'—'}</td>
+      <td style="text-align:center;font-weight:600;color:${t2?(t2>=75?'var(--green)':'var(--red)'):'var(--tx4)'}">${t2||'—'}</td>
+      <td style="text-align:center;font-weight:600;color:${t3?(t3>=75?'var(--green)':'var(--red)'):'var(--tx4)'}">${t3||'—'}</td>
+      <td style="text-align:center;font-weight:700;color:${final?(final>=75?'var(--blue)':'var(--red)'):'var(--tx4)'}">${final||'—'}</td>
+      <td style="text-align:center"><span class="${final?(final>=75?'bprom':'bret'):''}">${final?(final>=75?'PROMOTED':'RETAINED'):'—'}</span></td>
+      <td></td>
+    </tr>`;
+  });
+  el.innerHTML=`
+  <div class="sf-export-bar"><button class="btn bg bsm" onclick="excelSF10()">📊 Export Excel</button><button class="btn br bsm" onclick="window.print()">📄 Print/PDF</button></div>
+  <div class="sf-form">
+    <div class="sf-header"><div class="sf-title">School Form 10 (SF10) — Learner's Permanent Academic Record</div><div class="sf-subtitle">Three-Term System · DO 009, s. 2026</div></div>
+    ${sfMeta(cd)}
+    <div style="overflow-x:auto"><table class="sf-tbl">
+      <thead><tr>
+        <th>#</th><th class="sf-nc">Learner's Name</th><th>Sex</th><th>LRN</th><th>Date of Birth</th>
+        <th><span class="tag tt1">T1</span></th>
+        <th><span class="tag tt2">T2</span></th>
+        <th><span class="tag tt3">T3</span></th>
+        <th>Final</th><th>Status</th><th>Remarks</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.5rem;margin-top:2rem;padding-top:1rem;border-top:1px solid var(--bdr)">
+      <div style="text-align:center"><div style="height:40px;border-bottom:1px solid var(--tx)"></div><div style="font-size:.72rem;font-weight:600;margin-top:.3rem">${escH(cd.school.teacher||'CLASS ADVISER')}</div><div style="font-size:.65rem;color:var(--tx3)">Class Adviser Signature over Printed Name</div></div>
+      <div style="text-align:center"><div style="height:40px;border-bottom:1px solid var(--tx)"></div><div style="font-size:.72rem;font-weight:600;margin-top:.3rem">SCHOOL REGISTRAR</div><div style="font-size:.65rem;color:var(--tx3)">Registrar Signature over Printed Name</div></div>
+      <div style="text-align:center"><div style="height:40px;border-bottom:1px solid var(--tx)"></div><div style="font-size:.72rem;font-weight:600;margin-top:.3rem">SCHOOL PRINCIPAL</div><div style="font-size:.65rem;color:var(--tx3)">Principal Signature over Printed Name / Date</div></div>
+    </div>
+  </div>`;
+}
+
+function exportFullPackage(){
+  toast('⏳ Building submission package...');
+  setTimeout(()=>{
+    try{excelGrades();toast('✓ Package exported — bring to Registrar');}
+    catch(e){toast('✗ Export failed: '+e.message);}
+  },300);
+}
+
+
 
 function renderRegistrar(){
   const el=document.getElementById('registrarContent');if(!el)return;
