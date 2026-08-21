@@ -1,0 +1,98 @@
+/*
+ * Design tokens — Mendtrix Academic Records Platform
+ *
+ * Values are taken verbatim from the design handoff
+ * (design_handoff_academic_records/README.md, "Design tokens").
+ * One accent; semantic colour is reserved for status only.
+ *
+ * The handoff's per-module accent colours (teal, green, purple, orange)
+ * from V0 are deliberately gone.
+ */
+
+:root {
+  /* ---- text ---- */
+  --ink:            #171a21;
+  --body:           #3c4250;
+  --muted:          #667085;
+  --faint:          #98a0af;
+
+  /* ---- accent ---- */
+  --accent:         #33418f;
+  --accent-hover:   #232e6b;
+  --accent-tint:    #eef0fa;
+
+  /* ---- status ---- */
+  --success:        #1f6b45;
+  --success-tint:   #eaf4ee;
+  --success-border: #bcd9c8;
+  --warning:        #8a5a00;
+  --warning-tint:   #fdf3e0;
+  --warning-border: #e8cf9d;
+  --error:          #a3242f;
+  --error-tint:     #fbecec;
+  --error-border:   #e3b3b8;
+  --info:           #2a5f9e;
+  --info-tint:      #eaf1fa;
+
+  /* ---- surfaces ---- */
+  --app-bg:         #f6f7f9;
+  --panel:          #ffffff;
+  --panel-alt:      #fbfbfc;
+  --panel-alt-2:    #fafbfc;
+  --border:         #e3e6ec;
+  --border-strong:  #d7dbe3;
+  --border-row:     #f2f4f7;
+  --table-head:     #f4f5f8;
+  --table-head-calc:#eceef4;
+
+  /* ---- sidebar ---- */
+  --side-bg:        #171a21;
+  --side-divider:   #262a34;
+  --side-text:      #c9cdd6;
+  --side-label:     #7d838f;
+  --side-control:   #2e333f;
+
+  /* ---- gradebook cell states ---- */
+  --cell-missing:   var(--warning-tint);
+  --cell-over:      var(--error-tint);
+  --cell-calc:      var(--panel-alt);
+  --cell-locked:    var(--panel-alt-2);
+  --dot-missing:    #d99a1f;
+  --dot-ok:         #cfd4dd;
+  --dot-saving:     #d99a1f;
+  --dot-saved:      #1f6b45;
+
+  /* ---- type ---- */
+  --font-ui:      'Archivo', Helvetica, Arial, sans-serif;
+  --font-display: 'Spectral', Georgia, serif;
+  --font-mono:    'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  /* ---- radius ---- */
+  --r-badge:  4px;
+  --r-sm:     5px;
+  --r-ctl:    6px;
+  --r-inline: 7px;
+  --r-panel:  8px;
+  --r-dialog: 10px;
+
+  /* ---- elevation ---- */
+  --shadow-dialog: 0 18px 48px rgba(23, 26, 33, .22);
+  --backdrop:      rgba(23, 26, 33, .45);
+
+  /* ---- layout maxima ---- */
+  --max-content: 1440px;
+  --max-doc:     900px;
+  --max-portal:  520px;
+  --max-setup:   820px;
+
+  --sidebar-w:      248px;
+  --sidebar-rail-w: 64px;
+}
+
+/*
+ * The handoff specifies a single light theme, and the product is a
+ * print-adjacent records system where paper fidelity matters more than
+ * a dark mode. That is a deliberate commitment, not an omission — so
+ * every colour below is painted explicitly and nothing is left to
+ * borrow the host's ground.
+ */
