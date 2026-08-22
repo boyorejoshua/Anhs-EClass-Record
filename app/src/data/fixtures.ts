@@ -154,3 +154,90 @@ export function getGradebook(classId: string, periodId: string): GradebookData {
     editable: status === 'draft' || status === 'in_progress' || status === 'returned' || status === 'reopened',
   };
 }
+
+
+/* ------------------------------------------------------------------ *
+ * DataSource implementation
+ *
+ * Async throughout, deliberately. A synchronous fixture path would let
+ * loading and error states go unwritten, and they would then be
+ * discovered by a school on a bad connection rather than by us.
+ * ------------------------------------------------------------------ */
+import type { DataSource, ScoreEdit, SessionContext } from './source';
+import { SF10_FIXTURE } from './sf10';
+
+const FIXTURE_SESSION: SessionContext = {
+  user: {
+    id: CURRENT_USER.id,
+    name: CURRENT_USER.name,
+    initials: CURRENT_USER.initials,
+    email: 'maria@anhs.test',
+    employeeId: 'EMP-003',
+    schoolId: CURRENT_USER.schoolId,
+    roles: ['teacher'],
+  },
+  school: {
+    id: CURRENT_USER.schoolId,
+    code: CURRENT_USER.schoolCode,
+    name: CURRENT_USER.schoolName,
+    govtSchoolId: '301417',
+    region: 'IV-A CALABARZON',
+    division: 'Rizal',
+    district: 'Angono',
+  },
+  academicYears: [YEAR_TRIMESTER, YEAR_QUARTER].map((y) => ({
+    id: y.id,
+    label: y.label,
+    periodStructure: y.periodStructure,
+    status: 'active',
+    periods: y.periods.map((p) => ({
+      id: p.id, ordinal: p.ordinal, name: p.name, shortName: p.shortName,
+      startDate: p.startDate, endDate: p.endDate, status: p.status,
+    })),
+  })),
+  settings: {},
+};
+
+/** Mutable in-memory scores, so edits persist for the length of a session. */
+const editedScores = new Map<string, { raw: number | null; isExcused: boolean }>();
+
+export function createFixtureSource(): DataSource {
+  return {
+    kind: 'fixtures',
+
+    async getSession() { return FIXTURE_SESSION; },
+    async signIn() { /* no auth against fixtures */ },
+    async signOut() { /* no-op */ },
+    onAuthChange() { return () => {}; },
+
+    async getClasses() { return CLASSES; },
+
+    async getGradebook(classId, periodId) {
+      const base = getGradebook(classId, periodId);
+      // Replay edits made this session so the grid does not appear to
+      // discard work when a period is switched and switched back.
+      for (const [key, value] of editedScores) {
+        const [ceId, aId] = key.split('|');
+        if (!ceId || !aId) continue;
+        const row = base.scores[ceId];
+        if (row) row[aId] = value;
+      }
+      return base;
+    },
+
+    async saveScores(edits: ScoreEdit[]) {
+      for (const e of edits) {
+        editedScores.set(`${e.classEnrollmentId}|${e.assessmentId}`,
+          { raw: e.raw, isExcused: e.isExcused });
+      }
+      return { written: edits.length };
+    },
+
+    async getSf10() {
+      // Static import, not dynamic: a dynamic one emits a second chunk,
+      // which the single-file staging build cannot inline and which then
+      // 404s at runtime. The fixture is a couple of kilobytes.
+      return SF10_FIXTURE;
+    },
+  };
+}

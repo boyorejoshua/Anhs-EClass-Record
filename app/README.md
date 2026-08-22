@@ -56,12 +56,44 @@ workspace, and the gradebook (sticky panes, full keyboard model, paste,
 autosave, live computation, locked calculated columns, gaps filter,
 mobile card entry).
 
-Fixtures, not Supabase, back the UI today — `src/data/fixtures.ts`
-mirrors the seeded database shape exactly, so `src/data/supabase.ts` is
-a drop-in replacement returning the same types.
+**Both data sources are built.** `src/data/index.ts` picks Supabase when
+`VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are set, and fixtures
+otherwise. Screens depend only on the `DataSource` contract in
+`src/data/source.ts` and never on either implementation.
+
+The fallback is not a convenience: it keeps local development, the test
+suite and the single-file staging build working with no backend, and it
+means a missing environment variable degrades to obviously-fake data
+rather than a blank screen. A session on fixtures shows a **Sample
+data** chip, so nobody demos fake numbers believing they are live.
 
 Not built yet: attendance, submission workflow UI, registrar queue,
 student portal, document generation.
+
+## Connecting a backend
+
+```bash
+cp .env.example .env.local     # then fill in the two VITE_SUPABASE_* values
+```
+
+Apply `supabase/migrations/` to that project first. Reads go through
+four contract functions (migration 0014), each returning its screen's
+payload in one round trip, already shaped for TypeScript:
+
+| Call | Returns |
+|---|---|
+| `session_context()` | user, roles, school, academic years and periods |
+| `my_classes(year)` | class list with per-period status and completeness |
+| `gradebook(class, period)` | scheme, assessments, roster and every score |
+| `sf10_jhs(student)` | the permanent record |
+
+Writes go through `save_scores(jsonb)`, which upserts only the dirty
+cells. All are `SECURITY INVOKER`, so row-level security applies exactly
+as it would to a direct query — they add reachability, never authority.
+
+Because the whole contract is SQL returning JSON, it is verifiable in
+psql without a browser or an HTTP layer. That is how the missing
+`enrollments` read policy was found.
 
 ## Staging build
 

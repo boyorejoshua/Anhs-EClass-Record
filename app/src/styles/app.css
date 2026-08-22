@@ -357,3 +357,52 @@ button { font: inherit; color: inherit; }
 .menu-text span   { font-size: 11.5px; color: var(--muted); }
 .menu-check { color: var(--accent); font-weight: 700; width: 12px; flex-shrink: 0; }
 @media (max-width: 900px) { .menu-label { display: none; } }
+
+/* ------------------------------------------------------------------ *
+ * Sign in
+ * ------------------------------------------------------------------ */
+.signin { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: var(--app-bg); }
+.signin-card { width: 100%; max-width: 384px; padding: 26px 28px; display: flex; flex-direction: column; gap: 16px; }
+.signin-brand { display: flex; align-items: center; gap: 12px; }
+.signin-brand h1 { font-family: var(--font-display); font-size: 19px; font-weight: 600; }
+.signin-brand p { font-size: 12px; color: var(--muted); }
+.signin-field { display: flex; flex-direction: column; gap: 5px; }
+.signin-field span { font-size: 12px; font-weight: 600; color: var(--body); }
+.signin-field .input { width: 100%; padding: 9px 11px; font-size: 13.5px; }
+.signin-error {
+  font-size: 12.5px; color: var(--error);
+  background: var(--error-tint); border: 1px solid var(--error-border);
+  border-radius: var(--r-inline); padding: 9px 11px;
+}
+.signin-help { font-size: 11.5px; color: var(--muted); text-align: center; }
+
+/* ------------------------------------------------------------------ *
+ * App-level states
+ * ------------------------------------------------------------------ */
+.app-state { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: var(--app-bg); }
+.app-state-card { max-width: 440px; text-align: center; display: flex; flex-direction: column; gap: 10px; }
+.app-state-card h2 { font-family: var(--font-display); font-size: 18px; }
+.app-state-card p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+.app-state-card .btn { align-self: center; margin-top: 4px; }
+
+.load-banner {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 16px; font-size: 12px; color: var(--muted);
+  background: var(--panel-alt); border-bottom: 1px solid var(--border);
+}
+.err-banner {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 10px 16px; font-size: 12.5px;
+  color: var(--error); background: var(--error-tint);
+  border-bottom: 1px solid var(--error-border);
+}
+
+/* Marks a session running on fixtures, so nobody demos fake numbers
+   believing they are live. */
+.source-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 600; padding: 3px 9px;
+  border-radius: var(--r-badge);
+  background: var(--warning-tint); color: var(--warning);
+  border: 1px dashed var(--warning-border);
+}

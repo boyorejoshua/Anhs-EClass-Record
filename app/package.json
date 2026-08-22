@@ -14,7 +14,7 @@
     "build:staging": "VITE_DEMO_MODE=true vite build --outDir dist-staging && node scripts/build-staging.mjs"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.58.0",
+    "@supabase/supabase-js": "^2.112.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

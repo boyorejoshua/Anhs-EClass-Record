@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { compute, flattenComponents } from '../lib/grading';
 import type { GradebookData } from '../data/types';
+import type { ScoreEdit } from '../data/source';
 import { SaveIndicator, type SaveState } from '../components/SaveIndicator';
 
 type ScoreMap = GradebookData['scores'];
@@ -8,6 +9,7 @@ type Category = 'all' | string;
 
 interface Props {
   data: GradebookData;
+  onSaveScores: (edits: ScoreEdit[]) => Promise<{ written: number }>;
   onDirtyChange?: (dirty: number) => void;
 }
 
@@ -22,7 +24,7 @@ interface Props {
  * It replaces three V0 screens — Setup, Grade Entry and Bulk Entry —
  * with one grid where bulk is a MODE, not a page.
  */
-export function Gradebook({ data, onDirtyChange }: Props) {
+export function Gradebook({ data, onSaveScores, onDirtyChange }: Props) {
   const { scheme, assessments, roster, editable } = data;
 
   const [scores, setScores] = useState<ScoreMap>(data.scores);
@@ -30,6 +32,7 @@ export function Gradebook({ data, onDirtyChange }: Props) {
   const [bulkMode, setBulkMode] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [onlyGaps, setOnlyGaps] = useState(false);
 
   const dirty = useRef<Set<string>>(new Set());
@@ -127,18 +130,54 @@ export function Gradebook({ data, onDirtyChange }: Props) {
   /* ---------------------------------------------------------------- *
    * Saving — debounced, batched, and never silent.
    * ---------------------------------------------------------------- */
+  // Latest scores, readable from the debounced timer without making the
+  // callback depend on `scores` (which would reset the debounce on every
+  // keystroke and effectively disable it).
+  const scoresRef = useRef(scores);
+  useEffect(() => { scoresRef.current = scores; }, [scores]);
+
   const scheduleSave = useCallback(() => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     setSaveState('saving');
+    setSaveError(null);
+
     saveTimer.current = setTimeout(() => {
-      // A real save posts only the dirty cells and lets the server
-      // recompute authoritatively. Values stay in the inputs on failure.
-      dirty.current.clear();
-      setSaveState('saved');
-      setSavedAt(new Date());
-      onDirtyChange?.(0);
+      // Post only the dirty cells. Snapshot the keys first: more edits
+      // may arrive while the request is in flight, and those belong to
+      // the next batch, not this one.
+      const batch = [...dirty.current];
+      if (batch.length === 0) { setSaveState('idle'); return; }
+
+      const edits: ScoreEdit[] = batch.flatMap((key) => {
+        const [ceId, assessmentId] = key.split(':');
+        if (!ceId || !assessmentId) return [];
+        const cell = scoresRef.current[ceId]?.[assessmentId];
+        return [{
+          classEnrollmentId: ceId,
+          assessmentId,
+          raw: cell?.raw ?? null,
+          isExcused: cell?.isExcused ?? false,
+        }];
+      });
+
+      void onSaveScores(edits)
+        .then(() => {
+          for (const k of batch) dirty.current.delete(k);
+          setSaveState('saved');
+          setSavedAt(new Date());
+          onDirtyChange?.(dirty.current.size);
+        })
+        .catch((e: unknown) => {
+          // Keep the values in the inputs and keep them dirty, so a
+          // retry re-sends them. Losing a teacher's typing because a
+          // request failed is the one unforgivable bug here.
+          setSaveState('error');
+          setSaveError(e instanceof Error ? e.message : 'Could not save.');
+        });
     }, 700);
-  }, [onDirtyChange]);
+  }, [onSaveScores, onDirtyChange]);
+
+  const retrySave = useCallback(() => { scheduleSave(); }, [scheduleSave]);
 
   const setScore = useCallback(
     (ceId: string, assessmentId: string, raw: number | null) => {
@@ -327,6 +366,9 @@ export function Gradebook({ data, onDirtyChange }: Props) {
 
         <div className="spacer" />
         <SaveIndicator state={saveState} savedAt={savedAt} />
+        {saveState === 'error' && (
+          <button className="btn btn-sm" onClick={retrySave}>Retry</button>
+        )}
         <button
           className="btn btn-sm"
           aria-pressed={onlyGaps}
@@ -338,6 +380,13 @@ export function Gradebook({ data, onDirtyChange }: Props) {
           Bulk entry
         </button>
       </div>
+
+      {saveError && (
+        <div className="err-banner" role="alert">
+          <span>{saveError}</span>
+          <span style={{ opacity: .8 }}>Your entries are still here — press Retry.</span>
+        </div>
+      )}
 
       {bulkMode && (
         <div className="gb-bulk">

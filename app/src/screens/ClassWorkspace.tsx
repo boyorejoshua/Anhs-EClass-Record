@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { AcademicYear, ClassSummary, GradebookData } from '../data/types';
+import type { ScoreEdit } from '../data/source';
 import { StatusBadge } from '../components/StatusBadge';
 import { Gradebook } from './Gradebook';
 
@@ -11,6 +12,7 @@ interface Props {
   periodId: string;
   onPeriodChange: (id: string) => void;
   gradebook: GradebookData;
+  onSaveScores: (edits: ScoreEdit[]) => Promise<{ written: number }>;
 }
 
 /**
@@ -23,7 +25,7 @@ interface Props {
  * gradebook inside it. That removes ~150px of permanent chrome and the
  * empty state entirely.
  */
-export function ClassWorkspace({ cls, year, periodId, onPeriodChange, gradebook }: Props) {
+export function ClassWorkspace({ cls, year, periodId, onPeriodChange, gradebook, onSaveScores }: Props) {
   const [tab, setTab] = useState<Tab>('gradebook');
   const status = cls.status[periodId] ?? 'draft';
   const period = year.periods.find((p) => p.id === periodId);
@@ -79,7 +81,7 @@ export function ClassWorkspace({ cls, year, periodId, onPeriodChange, gradebook 
       </div>
 
       {tab === 'gradebook' ? (
-        <Gradebook data={gradebook} />
+        <Gradebook data={gradebook} onSaveScores={onSaveScores} />
       ) : (
         <div className="panel">
           <div className="empty">
