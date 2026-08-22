@@ -414,3 +414,36 @@
   border-top: 1px solid var(--border);
   font-size: 12px; color: var(--muted);
 }
+
+/* --- chain of custody ------------------------------------------------ *
+ * Three steps, left to right, each either signed for or still waiting.
+ * The teacher reads this to answer one question — has anyone picked it
+ * up? — so a completed step has to be distinguishable at a glance and
+ * not by colour alone.
+ * --------------------------------------------------------------------- */
+
+.chain {
+  list-style: none; margin: 0 0 16px; padding: 0;
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+.chain li {
+  flex: 1 1 160px; min-width: 0;
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 9px 12px;
+  border: 1px solid var(--border); border-radius: var(--r-panel);
+  background: var(--panel-alt-2);
+  position: relative;
+}
+.chain li b { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+.chain li span { font-size: 12px; color: var(--faint); }
+
+.chain li[data-done] {
+  background: var(--success-tint);
+  border-color: var(--success-border);
+}
+.chain li[data-done] b { color: var(--success); }
+.chain li[data-done] span { color: var(--success); }
+/* A tick, not just a colour — this has to survive greyscale and
+   colour-blindness like every other status in the system. */
+.chain li[data-done] b::before { content: '✓ '; }
+.chain li:not([data-done]) b::before { content: '○ '; }

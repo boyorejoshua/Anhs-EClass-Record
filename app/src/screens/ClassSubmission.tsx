@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import type { AcademicPeriod, ClassSummary, SubmissionStatus, ValidationReport } from '../data/types';
 import { StatusBadge } from '../components/StatusBadge';
 import { Async, useAsync } from '../components/Async';
-import { STATUS_MEANING, isEditable, missingCount, pct } from '../lib/status';
+import { STATUS_MEANING, canRecall, custodian, isEditable, missingCount, pct } from '../lib/status';
 
 interface Props {
   cls: ClassSummary;
@@ -10,8 +10,21 @@ interface Props {
   status: SubmissionStatus;
   validate: () => Promise<ValidationReport>;
   submit: (acknowledgeWarnings: boolean) => Promise<void>;
+  /** Take it back. Only offered while nobody has signed for the record. */
+  recall: (reason?: string) => Promise<void>;
   onSubmitted: () => void;
   onReviewMissing: () => void;
+  /** When the class adviser signed for it, if they have. */
+  receivedAt?: string | null;
+  /** When the registrar signed for it, if they have. */
+  registrarReceivedAt?: string | null;
+}
+
+/** "22 Aug, 8:04 pm" — enough to match against a memory, no more. */
+function when(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit',
+  });
 }
 
 /**
@@ -36,7 +49,8 @@ interface Props {
  * courtesy, it is an argument submit_grades checks.
  */
 export function ClassSubmission({
-  cls, period, status, validate, submit, onSubmitted, onReviewMissing,
+  cls, period, status, validate, submit, recall, onSubmitted, onReviewMissing,
+  receivedAt, registrarReceivedAt,
 }: Props) {
   const [report, retry] = useAsync(validate, [cls.id, period.id, status]);
   const [confirming, setConfirming] = useState(false);
@@ -47,6 +61,8 @@ export function ClassSubmission({
   const progress = pct(done);
   const missing = missingCount(done);
   const editable = isEditable(status);
+  const recallable = canRecall(status);
+  const holder = custodian(status);
 
   const doSubmit = useCallback(async (acknowledge: boolean) => {
     setBusy(true);
@@ -61,6 +77,21 @@ export function ClassSubmission({
       setBusy(false);
     }
   }, [submit, onSubmitted]);
+
+  const doRecall = useCallback(async () => {
+    setBusy(true);
+    setFailure(null);
+    try {
+      await recall();
+      onSubmitted();     // same refresh: the status changed
+    } catch (e) {
+      // The server's refusal is written for a teacher — "ask for it to be
+      // returned instead" — so show it rather than a generic message.
+      setFailure(e instanceof Error ? e.message : 'Could not recall this submission.');
+    } finally {
+      setBusy(false);
+    }
+  }, [recall, onSubmitted]);
 
   return (
     <div className="panel">
@@ -103,14 +134,51 @@ export function ClassSubmission({
           </div>
         )}
 
+        {/*
+          THE CHAIN OF CUSTODY.
+
+          A teacher who has submitted wants to know one thing: has anyone
+          picked it up, and can I still pull it back? Showing the trail
+          answers both without them having to ask anyone.
+        */}
+        {holder && (
+          <ol className="chain" aria-label="Where this record is">
+            <li data-done="true">
+              <b>Submitted</b>
+              <span>by you</span>
+            </li>
+            <li data-done={receivedAt ? 'true' : undefined}>
+              <b>Class adviser</b>
+              <span>{receivedAt ? `received ${when(receivedAt)}` : 'not yet received'}</span>
+            </li>
+            <li data-done={registrarReceivedAt ? 'true' : undefined}>
+              <b>Registrar</b>
+              <span>
+                {registrarReceivedAt ? `received ${when(registrarReceivedAt)}`
+                  : status === 'forwarded' ? 'sent, not yet received'
+                  : 'not yet sent'}
+              </span>
+            </li>
+          </ol>
+        )}
+
         {!editable ? (
           <div className="sub-locked">
             <b>Editing is locked</b>
             <span>
-              {status === 'submitted'
-                ? 'This period is with the registrar. If a correction is needed, ask them to return it.'
-                : 'This period is closed. A registrar can reopen it if a correction is needed.'}
+              {recallable
+                ? 'Nobody has received this yet, so you can still take it back and keep editing.'
+                : status === 'received'
+                  ? 'The class adviser has this record. If a correction is needed, ask them to return it.'
+                  : status === 'forwarded' || status === 'registrar_received'
+                    ? 'This record is with the registrar. If a correction is needed, ask them to return it.'
+                    : 'This period is closed. A registrar can reopen it if a correction is needed.'}
             </span>
+            {recallable && (
+              <button className="btn btn-sm" onClick={doRecall} disabled={busy}>
+                {busy ? 'Recalling…' : `Recall ${period.name}`}
+              </button>
+            )}
           </div>
         ) : (
           <Async state={report} retry={retry} rows={2}>

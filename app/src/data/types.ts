@@ -3,7 +3,11 @@ import type { GradingScheme } from '../lib/grading';
 
 export type Role = 'teacher' | 'adviser' | 'registrar' | 'school_admin' | 'student';
 export type SubmissionStatus =
-  | 'draft' | 'in_progress' | 'submitted' | 'returned'
+  | 'draft' | 'in_progress' | 'submitted'
+  | 'received'            // the class adviser has signed for it
+  | 'forwarded'           // the adviser has passed it to the registrar
+  | 'registrar_received'  // the registrar has signed for it
+  | 'returned'
   | 'approved' | 'finalized' | 'published' | 'reopened';
 
 export interface CurrentUser {
@@ -44,6 +48,17 @@ export interface ClassSummary {
   room: string | null;
   /** Per period, keyed by period id. */
   status: Record<string, SubmissionStatus>;
+  /**
+   * The chain of custody, per period. Present only for periods that have
+   * a submission row at all — a period nobody has submitted has no
+   * receipts, which is different from having empty ones.
+   */
+  receipts: Record<string, {
+    receivedAt: string | null;
+    forwardedAt: string | null;
+    registrarReceivedAt: string | null;
+    recalledAt: string | null;
+  }>;
   completeness: Record<string, { scored: number; total: number }>;
 }
 
@@ -154,10 +169,21 @@ export interface SubmissionRow {
   teacher: string | null;
   status: SubmissionStatus;
   submittedAt: string | null;
+  /** When the class adviser signed for it. Never cleared by a later return. */
+  receivedAt: string | null;
+  /** When the adviser passed it to the registrar. */
+  forwardedAt: string | null;
+  /** When the registrar signed for it. */
+  registrarReceivedAt: string | null;
   returnedAt: string | null;
   returnReason: string | null;
-  studentCount: number;
-  completeness: { scored: number; total: number };
+  /**
+   * Absent on the adviser's queue: an adviser cannot read another
+   * teacher's marks, and a count silently returning 0 would read as
+   * "nothing entered" rather than "not visible to you".
+   */
+  studentCount?: number;
+  completeness?: { scored: number; total: number };
 }
 
 export interface StudentProfile {

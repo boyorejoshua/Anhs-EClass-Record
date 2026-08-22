@@ -138,6 +138,27 @@ export interface DataSource {
   ): Promise<CohortSection[]>;
 
   validateSubmission(classId: string, periodId: string): Promise<ValidationReport>;
+
+  /* ---- the chain of custody --------------------------------------- *
+   * A record now gets signed for at each hand-off, the way it would on
+   * paper: the teacher submits, the class adviser receives it, the
+   * adviser forwards it, the registrar receives it. Each step is a
+   * database RPC that checks the caller's identity against the section
+   * and writes an audit row.
+   * ------------------------------------------------------------------ */
+
+  /** The teacher takes it back. Refused once the adviser has received it. */
+  recallSubmission(classId: string, periodId: string, reason?: string): Promise<void>;
+  /** The class adviser signs for it. */
+  receiveSubmission(submissionId: string): Promise<void>;
+  /** The adviser passes it to the registrar. */
+  forwardSubmission(submissionId: string): Promise<void>;
+  /** The adviser withdraws the hand-off, while the registrar has not signed. */
+  unforwardSubmission(submissionId: string): Promise<void>;
+  /** The registrar signs for it, before reviewing. */
+  registrarReceiveSubmission(submissionId: string): Promise<void>;
+  /** Every class in the sections this adviser advises. */
+  getAdviserQueue(academicYearId: string): Promise<SubmissionRow[]>;
   submitGrades(classId: string, periodId: string, acknowledgeWarnings: boolean): Promise<void>;
   getSubmissionQueue(academicYearId: string): Promise<SubmissionRow[]>;
   returnSubmission(submissionId: string, reason: string): Promise<void>;
