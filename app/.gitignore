@@ -6,3 +6,4 @@ dist/
 dist-demo/
 dist-staging/
 staging/
+*.tsbuildinfo

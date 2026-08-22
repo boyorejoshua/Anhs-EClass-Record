@@ -11,7 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "build:staging": "VITE_DEMO_MODE=true vite build --outDir dist-staging && node scripts/build-staging.mjs"
+    "build:staging": "VITE_DEMO_MODE=true VITE_SUPABASE_URL= VITE_SUPABASE_ANON_KEY= vite build --outDir dist-staging && node scripts/build-staging.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",
