@@ -1,0 +1,133 @@
+/*
+ * APPEARANCE
+ * ==========
+ * The default appearance lives in tokens.css (:root). This file holds
+ * the alternatives, each purely a block of custom-property overrides —
+ * no component code differs between them.
+ *
+ *   (default)   Refined      light, dense, dark sidebar
+ *   comfortable Comfortable  light sidebar, roomier rows
+ *   dark        Dark         full dark chrome
+ *
+ * "System" is not a third block: it resolves at runtime to either the
+ * default or `dark` by reading prefers-color-scheme. See useAppearance.
+ *
+ * The attribute is `data-appearance`, NOT `data-appearance`, deliberately.
+ * Embedding hosts (preview frames, docs sites, artifact viewers) commonly
+ * stamp `data-appearance` on the root to express THEIR theme. Sharing that
+ * attribute means the host and the app fight over one value, and the app
+ * clearing its own preference would strip the host's. A distinct name
+ * removes the whole class of bug.
+ */
+
+/* ══════════════════════════════════════════════════════════════════
+ * COMFORTABLE — light sidebar, more room per row
+ * Trade-off: roughly two fewer gradebook rows fit on screen. Offered
+ * as a preference because some users genuinely prefer it, but Refined
+ * stays the default because density is what the grid is for.
+ * ══════════════════════════════════════════════════════════════════ */
+:root[data-appearance='comfortable'] {
+  --app-bg:        #fbfbfc;
+  --panel-alt:     #f8f9fb;
+  --panel-alt-2:   #f6f7f9;
+  --border:        #e8eaee;
+  --border-strong: #dcdfe5;
+  --border-row:    #f1f2f5;
+  --table-head:    #f7f8fa;
+  --table-head-calc: #f1f2f6;
+
+  --accent:        #3a4ba0;
+  --accent-hover:  #2a3878;
+  --accent-tint:   #eef0fb;
+
+  --side-bg:       #ffffff;
+  --side-divider:  #ebedf1;
+  --side-text:     #4a5162;
+  --side-label:    #9aa1b0;
+  --side-control:  #e3e6ec;
+
+  --r-panel: 12px;
+}
+:root[data-appearance='comfortable'] .sidebar { border-right: 1px solid var(--border); }
+:root[data-appearance='comfortable'] .side-name,
+:root[data-appearance='comfortable'] .side-user-name { color: var(--ink); }
+:root[data-appearance='comfortable'] .side-link[aria-current='page'] {
+  background: var(--accent-tint); color: var(--accent);
+}
+:root[data-appearance='comfortable'] .side-link:hover { background: var(--panel-alt); }
+:root[data-appearance='comfortable'] .side-avatar { background: var(--accent-tint); color: var(--accent); }
+:root[data-appearance='comfortable'] .gb-name { height: 42px; }
+:root[data-appearance='comfortable'] .gb-input { padding: 12px 6px; }
+:root[data-appearance='comfortable'] .panel-head,
+:root[data-appearance='comfortable'] .panel-body { padding: 18px 20px; }
+
+/* ══════════════════════════════════════════════════════════════════
+ * DARK — full dark chrome
+ * Genuinely useful for evening encoding and for projector demos in a
+ * bright room, where a white grid glares.
+ * ══════════════════════════════════════════════════════════════════ */
+:root[data-appearance='dark'] {
+  --ink:    #e8eaf0;
+  --body:   #b6bcc9;
+  --muted:  #8b93a3;
+  --faint:  #666e7e;
+
+  --accent:       #7d8ce8;
+  --accent-hover: #93a0ef;
+  --accent-tint:  #23294a;
+
+  --app-bg:        #0f1116;
+  --panel:         #171a21;
+  --panel-alt:     #1c2029;
+  --panel-alt-2:   #1a1e26;
+  --border:        #272c37;
+  --border-strong: #333945;
+  --border-row:    #22262f;
+  --table-head:    #1e222b;
+  --table-head-calc: #232833;
+
+  --success: #5cbf8a; --success-tint: #16301f; --success-border: #2b5c40;
+  --warning: #e0aa5a; --warning-tint: #33280f; --warning-border: #6b5423;
+  --error:   #e88b92; --error-tint:   #3a1d20; --error-border:   #703a3f;
+  --info:    #7fb0ea; --info-tint:    #16263a;
+
+  --side-bg:      #0b0d11;
+  --side-divider: #1d212a;
+  --side-text:    #b6bcc9;
+  --side-label:   #6a7182;
+  --side-control: #262b36;
+
+  --dot-ok: #3d4453;
+
+  --shadow-panel:  0 1px 2px rgba(0, 0, 0, .3);
+  --shadow-raised: 0 4px 14px rgba(0, 0, 0, .45);
+  --shadow-menu:   0 8px 28px rgba(0, 0, 0, .55);
+  --shadow-dialog: 0 18px 48px rgba(0, 0, 0, .6);
+}
+:root[data-appearance='dark'] .badge-finalized,
+:root[data-appearance='dark'] .badge-published { color: #0f1116; }
+
+/* A warm tint that reads correctly as a small badge becomes muddy olive
+   when it fills a whole grid cell on a dark ground. Mark a missing score
+   with an edge and a dimmed field instead of a wash — still fill plus
+   text, never colour alone. */
+:root[data-appearance='dark'] .gb td[data-state='missing'] .gb-input {
+  background: rgba(224, 170, 90, .07);
+  box-shadow: inset 2px 0 0 rgba(224, 170, 90, .55);
+}
+:root[data-appearance='dark'] .gb td[data-state='over'] .gb-input {
+  background: rgba(232, 139, 146, .10);
+  box-shadow: inset 2px 0 0 var(--error);
+}
+
+/* Print templates stay on white in every appearance — they are paper,
+   not screen, and an SF10 must look the same however the operator has
+   set their preference. */
+:root[data-appearance='dark'] .sf10 {
+  --ink: #171a21; --body: #3c4250; --muted: #667085; --faint: #98a0af;
+  --panel: #ffffff; --panel-alt: #fbfbfc; --border: #e3e6ec;
+  --border-strong: #d7dbe3; --border-row: #f2f4f7;
+  --table-head: #f4f5f8; --table-head-calc: #eceef4;
+  --warning: #8a5a00; --warning-tint: #fdf3e0; --warning-border: #e8cf9d;
+  background: #ffffff; color: #171a21;
+}

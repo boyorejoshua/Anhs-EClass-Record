@@ -1,0 +1,199 @@
+/*
+ * MOTION
+ * ======
+ * Animation here earns its place by carrying information: what changed,
+ * where you are, whether your work is safe. Nothing moves for decoration.
+ *
+ * Two rules hold throughout:
+ *   1. One duration scale and one easing (tokens.css) — nothing arbitrary.
+ *   2. `prefers-reduced-motion` removes ALL of it, and the interface must
+ *      remain fully legible and usable with every animation gone. Every
+ *      state is readable from colour, text and position alone.
+ *
+ * This is an academic records system used all day, often at speed. Motion
+ * that is charming on the first encounter is an irritant on the four
+ * hundredth, so durations stay short and nothing blocks input.
+ */
+
+/* ── theme change ──────────────────────────────────────────────────
+   A hard cut between light and dark is jarring. Transition colour only:
+   never layout, or every page reflows visibly when the theme changes. */
+:root.theme-animating,
+:root.theme-animating *,
+:root.theme-animating *::before,
+:root.theme-animating *::after {
+  transition:
+    background-color var(--dur-base) var(--ease),
+    border-color     var(--dur-base) var(--ease),
+    color            var(--dur-base) var(--ease),
+    box-shadow       var(--dur-base) var(--ease) !important;
+  transition-delay: 0s !important;
+}
+
+/* ── entrance ──────────────────────────────────────────────────────
+   A short, small fade-up on first paint. Panels arrive in reading order
+   so the eye is led down the page rather than everything appearing at
+   once. Capped at six steps: past that it stops reading as sequence and
+   starts reading as lag. */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.page > * {
+  animation: rise var(--dur-slow) var(--ease-out) both;
+}
+.page > *:nth-child(1) { animation-delay: 0ms; }
+.page > *:nth-child(2) { animation-delay: 40ms; }
+.page > *:nth-child(3) { animation-delay: 80ms; }
+.page > *:nth-child(4) { animation-delay: 120ms; }
+.page > *:nth-child(5) { animation-delay: 160ms; }
+.page > *:nth-child(n+6) { animation-delay: 200ms; }
+
+/* ── navigation ────────────────────────────────────────────────────
+   The active rail grows from the centre, so moving between items reads
+   as the marker travelling rather than blinking out and back. */
+.side-link::before {
+  transform: scaleY(0);
+  transform-origin: center;
+  transition: transform var(--dur-base) var(--ease);
+}
+.side-link[aria-current='page']::before { transform: scaleY(1); }
+.side-link { transition: background-color var(--dur-fast) var(--ease); }
+
+/* ── controls ──────────────────────────────────────────────────────
+   A press should feel like a press. 40ms, barely perceptible, but its
+   absence is what makes a web app feel like a document. */
+.btn {
+  transition: background-color var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease),
+              box-shadow var(--dur-fast) var(--ease),
+              transform var(--dur-instant) var(--ease);
+}
+.btn:active:not(:disabled) { transform: scale(.975); }
+
+.seg button, .ui-switch button, .side-preview button {
+  transition: background-color var(--dur-fast) var(--ease),
+              color var(--dur-fast) var(--ease);
+}
+
+/* Tabs: the underline slides between tabs instead of jumping. */
+.tabs button {
+  transition: color var(--dur-fast) var(--ease),
+              border-color var(--dur-base) var(--ease);
+}
+
+/* ── cards ─────────────────────────────────────────────────────────── */
+.class-card {
+  transition: box-shadow var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease),
+              transform var(--dur-fast) var(--ease);
+}
+.class-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-raised); }
+.class-card:active { transform: translateY(0); }
+
+/* ── save state ────────────────────────────────────────────────────
+   The most important motion in the product. A teacher needs to believe
+   their work is safe without being told twice: the dot breathes while
+   saving and settles when saved. Silence would be worse than noise here
+   — V0's answer was a forced file download every fifteen minutes. */
+@keyframes breathe {
+  0%, 100% { opacity: 1;  transform: scale(1); }
+  50%      { opacity: .45; transform: scale(.82); }
+}
+@keyframes settle {
+  0%   { transform: scale(.4); opacity: 0; }
+  60%  { transform: scale(1.25); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.save-dot { transition: background-color var(--dur-base) var(--ease); }
+.save[data-state='saving'] .save-dot { animation: breathe 1.1s ease-in-out infinite; }
+.save[data-state='saved']  .save-dot { animation: settle var(--dur-base) var(--ease-out); }
+.save[data-state='error']  .save-dot { animation: breathe .6s ease-in-out infinite; }
+.save { transition: color var(--dur-base) var(--ease); }
+
+/* ── gradebook ─────────────────────────────────────────────────────
+   The focused cell must be unmistakable while moving fast. The ring
+   snaps (90ms) because a laggy focus ring feels broken during rapid
+   keyboard entry — this is one place where faster is strictly better. */
+.gb-input {
+  transition: background-color var(--dur-instant) var(--ease),
+              box-shadow var(--dur-instant) var(--ease);
+}
+.gb tbody tr th, .gb tbody tr td {
+  transition: background-color var(--dur-fast) var(--ease);
+}
+
+/* A recomputed grade gets a single quiet pulse. Without it the number
+   changes silently three columns away from where the teacher is typing
+   and the causal link is lost. */
+@keyframes chip-pulse {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+.gb-chip { transition: background-color var(--dur-base) var(--ease), color var(--dur-base) var(--ease); }
+.gb-chip[data-changed='true'] { animation: chip-pulse var(--dur-base) var(--ease-out); }
+
+/* The missing-score dot fades rather than snapping, so a row completing
+   registers as progress. */
+.gb-dot { transition: background-color var(--dur-base) var(--ease); }
+
+/* ── menus ─────────────────────────────────────────────────────────── */
+@keyframes menu-in {
+  from { opacity: 0; transform: translateY(-4px) scale(.98); }
+  to   { opacity: 1; transform: none; }
+}
+.menu-panel {
+  animation: menu-in var(--dur-fast) var(--ease-out);
+  transform-origin: top right;
+}
+
+/* ── status badges ─────────────────────────────────────────────────
+   A workflow transition is significant: submitted, returned, published.
+   Worth one pulse, not a flourish. */
+@keyframes badge-in {
+  from { opacity: 0; transform: scale(.9); }
+  to   { opacity: 1; transform: none; }
+}
+.badge { animation: badge-in var(--dur-fast) var(--ease-out); }
+
+/* ── loading ───────────────────────────────────────────────────────
+   A skeleton, not a spinner: it shows the shape of what is coming, so
+   the layout does not jump when data lands. */
+@keyframes shimmer { to { background-position-x: -200%; } }
+.skeleton {
+  background: linear-gradient(90deg,
+    var(--panel-alt) 0%, var(--border-row) 50%, var(--panel-alt) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+  border-radius: var(--r-badge);
+  color: transparent;
+  user-select: none;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+ * REDUCED MOTION
+ * Not a courtesy. Vestibular disorders are real, and this is software
+ * people use for hours. Everything above is removed, and because no
+ * state is communicated by motion alone, nothing is lost.
+ * ══════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* The saving dot still has to distinguish itself without pulsing. */
+  .save[data-state='saving'] .save-dot { opacity: .55; }
+  .page > * { opacity: 1; transform: none; }
+}
+
+/* Printing: never animate paper. */
+@media print {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .page > * { opacity: 1 !important; transform: none !important; }
+}
