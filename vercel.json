@@ -1,8 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "bash app/scripts/vercel-build.sh",
+  "buildCommand": "cd app && npm ci && npm run build && mkdir -p dist/legacy && cp -r ../index.html ../assets ../CHEATSHEET.html dist/legacy/",
   "outputDirectory": "app/dist",
-  "installCommand": "echo 'install runs inside the build script (no root package.json)'",
+  "installCommand": "echo 'install runs inside buildCommand (no root package.json)'",
   "framework": null,
   "redirects": [
     { "source": "/legacy", "destination": "/legacy/", "permanent": false }
