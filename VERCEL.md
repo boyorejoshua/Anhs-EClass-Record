@@ -40,20 +40,35 @@ change the rewrite's `(?!legacy/)` guard.
 
 The app is connected to Supabase project `wxkxdqwhefezjfmysypa`
 (region `ap-southeast-1`, Singapore). `VITE_SUPABASE_URL` and
-`VITE_SUPABASE_ANON_KEY` are set inline in `buildCommand`.
+`VITE_SUPABASE_ANON_KEY` live in `app/.env.production`, which Vite loads
+automatically for `vite build`.
+
+They are **not** in `buildCommand`: Vercel caps that field at 256
+characters and rejects the whole deployment if it is longer — the
+build never starts and the logs are empty, which is a confusing failure
+to diagnose. Keeping them in a file also means a local `npm run build`
+produces the same artifact as a deploy. Real environment variables set
+in the Vercel dashboard still take precedence over the file.
 
 **The anon key belongs in the client.** It carries no authority: every
 table has `FORCE ROW LEVEL SECURITY`, and every policy derives the
 tenant from `app.current_school_id()`, which reads the verified JWT —
 either a top-level `school_id` claim or `app_metadata.school_id`, both
-server-issued. An anonymous holder of this key can reach nothing,
-because `app.current_school_id()` returns NULL and every policy fails
-closed. Prefer moving it to the Vercel dashboard's environment
-variables when convenient; the build reads whichever is set.
+server-issued. An anonymous holder of this key can reach nothing:
+`app.current_school_id()` returns NULL so every policy fails closed, and
+migration 0017 revoked `EXECUTE` from `anon` on every function we own,
+so the RPCs refuse the call before they run.
 
 Without those variables, `app/src/data/index.ts` falls back to fixtures.
 That fallback is what keeps local development, the test suite and the
-single-file staging build working with no backend.
+single-file staging build working with no backend — and it is genuinely
+free: Vite folds `getSupabase()` to `null` when they are absent and
+Rollup then drops `supabase-js` entirely (460 kB → 243 kB).
+
+`npm run dev` runs in development mode and never reads
+`.env.production`. `npm run build:staging` blanks both variables
+explicitly, so the single-file staging artifact stays self-contained and
+offline.
 
 Apply `supabase/migrations/` in order before pointing a build at a new
 project. `supabase/seed.sql` loads two demo tenants; it assumes matching
