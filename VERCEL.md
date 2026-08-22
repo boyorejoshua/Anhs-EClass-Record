@@ -20,8 +20,8 @@ new app.
 
 V0 is kept deliberately. It is the most accurate record of how the
 school actually works, and it is still usable as a demo asset. Delete
-the `mkdir -p dist/legacy && cp ...` clause from the build script when
-it is no longer wanted.
+the `mkdir -p dist/legacy && cp ...` clause from `buildCommand` when it
+is no longer wanted.
 
 ### The trailing slash on `/legacy/` is load-bearing
 
@@ -49,27 +49,29 @@ never starts and the log is empty, which is a miserable failure to
 diagnose. Keeping them in a file also means a local `npm run build`
 produces the same artifact as a deploy.
 
-### ⚠️ Delete the stale dashboard variables
+### A note on precedence
 
-The Vercel project has `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
-set in **Project → Settings → Environment Variables**, pointing at
-`aylaiatvrrownsqzlntc` — V0's old project, which is now **paused** and
-has none of the V1 schema.
+Real environment variables set in the Vercel dashboard beat `.env`
+files. That is useful — it is how you point a future build at a
+production project without touching the repo — but it is silent when it
+goes wrong.
 
-Vite gives real environment variables precedence over `.env` files, so
-those dashboard values silently won: the first Supabase-connected deploy
-shipped pointing at a dead backend. It was caught by grepping the
-deployed bundle, which contained that project's URL instead of ours —
-not by anything failing loudly.
+It did go wrong once here. The project carried stale `VITE_SUPABASE_*`
+variables from V0, pointing at `aylaiatvrrownsqzlntc`, a project that is
+now paused and has none of the V1 schema. The build succeeded, the
+bundle was the right size, and only the embedded URL was wrong. It was
+caught by grepping the deployed JavaScript, not by anything failing.
 
-`app/scripts/vercel-build.sh` now sources `.env.production` with
-`set -a`, which makes the repo authoritative and beats the injected
-values. That is a workaround, not the destination.
+Those variables have since been deleted, so `.env.production` is the
+single source again and `buildCommand` is a plain npm run.
 
-**Please delete those two dashboard variables.** Once they are gone,
-`buildCommand` can go back to a plain `cd app && npm ci && npm run build
-&& …` and dashboard precedence works the way it should — which is what
-you want the day this points at a production project.
+**If a deploy ever behaves as though it is talking to the wrong
+database, check the built bundle before anything else:**
+
+```
+curl -s https://anhs-grading-system.vercel.app/assets/index-*.js \
+  | grep -o 'https://[a-z]*\.supabase\.co'
+```
 
 **The anon key belongs in the client.** It carries no authority: every
 table has `FORCE ROW LEVEL SECURITY`, and every policy derives the
