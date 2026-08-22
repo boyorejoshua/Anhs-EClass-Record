@@ -1,10 +1,14 @@
 import { useMemo, useState } from 'react';
 import './styles/app.css';
 import './styles/gradebook.css';
+import './styles/sf10.css';
 import { Sidebar } from './components/Sidebar';
 import { TeacherDashboard } from './screens/TeacherDashboard';
 import { ClassWorkspace } from './screens/ClassWorkspace';
 import { CLASSES, CURRENT_USER, YEAR_QUARTER, YEAR_TRIMESTER, getGradebook } from './data/fixtures';
+import { Sf10Preview } from './screens/Sf10Preview';
+import { SF10_FIXTURE } from './data/sf10';
+import { DEMO_MODE } from './config';
 import type { Role } from './data/types';
 
 export default function App() {
@@ -31,6 +35,10 @@ export default function App() {
 
   const openClass = (id: string) => { setClassId(id); setNavKey('gradebook'); };
 
+  // Academic Records (registrar) and Academic History (student) both
+  // land on the permanent record.
+  const showSf10 = navKey === 'records' || navKey === 'history';
+
   return (
     <div className="shell">
       <Sidebar
@@ -48,7 +56,11 @@ export default function App() {
             <span>My Classes</span>
             {cls && <span>{cls.gradeLevel} – {cls.section}</span>}
           </div>
-          <h1>{cls ? `${cls.gradeLevel} – ${cls.section} · ${cls.subject}` : 'Dashboard'}</h1>
+          <h1>
+            {showSf10
+              ? 'Learner Permanent Record'
+              : cls ? `${cls.gradeLevel} – ${cls.section} · ${cls.subject}` : 'Dashboard'}
+          </h1>
           <div className="topbar-row">
             <span className="topbar-label">Academic year</span>
             <select
@@ -62,19 +74,30 @@ export default function App() {
             </select>
 
             <div className="spacer" />
-            {/* Demonstrates the core multi-school claim in one click. */}
-            <button
-              className="btn btn-sm"
-              aria-pressed={quarterSchool}
-              onClick={() => { setQuarterSchool((v) => !v); setPeriodId(''); }}
-              title="Switch the tenant's period structure. Same code, different rows."
-            >
-              {quarterSchool ? '4 quarters' : '3 trimesters'}
-            </button>
+            {/* DEMO SCAFFOLDING — a review aid that demonstrates the
+                multi-school claim in one click. Absent from a production
+                build; see src/config.ts. */}
+            {DEMO_MODE && (
+              <>
+                <span className="demo-chip" title="Review aid — not part of the delivered product">
+                  <span aria-hidden="true">◈</span> Demo
+                </span>
+                <button
+                  className="btn btn-sm"
+                  aria-pressed={quarterSchool}
+                  onClick={() => { setQuarterSchool((v) => !v); setPeriodId(''); }}
+                  title="Switch the tenant's period structure. Same code, different rows."
+                >
+                  {quarterSchool ? '4 quarters' : '3 trimesters'}
+                </button>
+              </>
+            )}
           </div>
         </header>
 
-        {cls && gradebook ? (
+        {showSf10 ? (
+          <Sf10Preview data={SF10_FIXTURE} />
+        ) : cls && gradebook ? (
           <ClassWorkspace
             cls={cls}
             year={year}

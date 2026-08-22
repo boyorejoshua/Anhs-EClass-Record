@@ -229,3 +229,117 @@ Three patterns recur across the gaps:
 | **Out of scope** | SF3 | Property management. Recommend declining rather than doing it badly. |
 
 > Mendtrix should state the coverage plainly in sales conversations: **seven of the ten forms come directly from this data; SF3 and SF8 belong to different systems.** A product that claims all ten and delivers three properly is worse than one that is honest about its boundary — and registrars respect the distinction, because they know which forms come from where.
+
+---
+
+# Addendum — SF10-JHS, from the school's actual blank form
+
+*Added after receiving `SF10_BLANK_FORM.xlsx` (SFRT Revised 2017). This
+section supersedes the SF10 row above wherever the two disagree.*
+
+Holding the real template moves SF10 from mostly **Requires validation**
+to mostly **Confirmed**, and it surfaced one conflict that no amount of
+desk research would have produced.
+
+## ⚠️ The four-column / three-term conflict — Requires validation
+
+**SF10-JHS provides exactly FOUR quarterly rating columns** (headers `1 2 3 4`
+above `FINAL RATING`). **DepEd Order 009 s.2026 moves schools to THREE terms.**
+
+The form has not caught up with the calendar, and a learner's permanent
+record now spans both regimes. Our seeded fixture shows a real instance:
+
+| School year | School | Structure |
+|---|---|---|
+| 2025–2026 | Taytay NHS (transferred in) | **4 quarters** |
+| 2026–2027 | Angono NHS | **3 terms** |
+
+Three possible resolutions, none of which we may choose unilaterally:
+
+1. DepEd issues a revised SF10 with three columns — most likely, timing unknown
+2. Schools leave the fourth column blank
+3. Schools map three terms across four boxes somehow
+
+**What the platform does in the meantime:** `rds.sf10_jhs()` returns
+`periods` as an **ordered array**, not fixed `q1..q4` keys, so the payload
+is correct under any regime. The template prints exactly the periods the
+year declares, hatches the unused column, and prints a visible note. It
+does **not** average, stretch or back-fill — inventing a value in an
+unused box would be a fabricated grade on a legal record.
+
+⚖️ Registered as **F11** in [20 Assumptions Register](20-assumptions-register.md).
+This is a question for the division office, and it should be asked early:
+it affects every SF10 the school issues from SY 2026–2027 onward.
+
+## Confirmed structure
+
+**Two pages.** Front carries learner information, eligibility and the
+first scholastic blocks; back continues the blocks and carries the
+transfer-out certification. Footer reads `SFRT Revised 2017`.
+
+### Learner's Information — Confirmed
+Last name · First name · **Name Extension (Jr, I, II)** · Middle name ·
+Learner Reference Number (LRN) · Birthdate (mm/dd/yyyy) · Sex
+
+### Eligibility for JHS Enrolment — Confirmed
+A checkbox group — Elementary School Completer · Other Credential
+Presented · PEPT Passer (with Rating) · ALS — plus General Average,
+Citation (if any), Name of Elementary School, School ID, Address of
+School, and Date of Examination/Assessment (mm/dd/yyyy).
+
+> **Model gap this closed.** None of this existed. Added as
+> `student_eligibility` in migration `0012`.
+
+### Scholastic Record — Confirmed, repeating per school year
+Each block carries **its own** School, School ID, District, Division,
+Region, Classified as Grade, Section, School Year and Name of Adviser.
+
+> **Model gap this closed.** A transferred learner's earlier years
+> happened at a different school, so these cannot be read from the
+> tenant's `schools` row. Added as `recording_*` columns on
+> `enrollments`; NULL means "this school".
+
+### Learning Areas — Confirmed, and hierarchical
+Filipino · English · Mathematics · Science · Araling Panlipunan (AP) ·
+Edukasyon sa Pagpapakatao (EsP) · Technology and Livelihood Education
+(TLE) · **MAPEH**, printed with four indented children — **Music, Arts,
+Physical Education, Health** — each carrying its own quarterly ratings
+and final rating, beneath a MAPEH aggregate row.
+
+The sample also carries school-added rows (`Technical drawing`, `ICF`),
+confirming that the learning-area list is **school-specific**, not fixed.
+
+> **Model gap this closed.** `subjects.parent_subject_id`, one level deep,
+> enforced by trigger.
+
+### General Average and Remarks — Confirmed
+A General Average row per block, with `PROMOTED` / `RETAINED` in Remarks.
+Per-area Remarks are `PASSED` / `FAILED`.
+
+### Remedial Classes — Confirmed, per block
+"Conducted from (mm/dd/yyyy) ___ to ___", then a table of Learning Areas ·
+Final Rating · Remedial Class Mark · **Recomputed Final Grade** · Remarks.
+
+> **Model gap this closed.** `remedial_classes` + `remedial_marks`. Note
+> that a recomputed final grade is a *second* official grade for the same
+> subject — it must not overwrite the original, and does not.
+
+### Certification — Confirmed
+"I CERTIFY that this is a true record of ___" · Name of School · School ID ·
+Date · Name of Principal/School Head over Printed Name · **(Affix School
+Seal here)** · "For Transfer Out / JHS Completer Only" on the back ·
+"(May add Certification box if needed)".
+
+> The school seal is a **physical** artifact. It reinforces the V1
+> position in [11 Document Engine](11-document-engine.md): print and
+> wet-sign, exactly as the school does today.
+
+## Still requiring validation
+
+| # | Question |
+|---|---|
+| F11 | How to reconcile three terms with four rating columns ⚖️ |
+| F12 | Is there an SF10-SHS variant the school also files? |
+| F13 | Are `Technical drawing` and `ICF` standing learning areas, or one learner's electives? |
+| F14 | Page-2 continuation rules — how many blocks per page before overflow? |
+| F15 | Is a document number required on SF10, and in what format? ⚖️ |

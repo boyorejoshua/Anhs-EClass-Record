@@ -1,4 +1,5 @@
 import type { CurrentUser, Role } from '../data/types';
+import { DEMO_MODE } from '../config';
 
 /**
  * Role-based navigation. Never render a nav item the role cannot use
@@ -96,20 +97,34 @@ export function Sidebar({ user, activeRole, activeKey, onNavigate, onRoleChange 
       </div>
 
       <div className="side-foot">
-        <div className="side-section" style={{ padding: '0 0 8px' }}>Preview as</div>
-        <div className="side-preview">
-          <div className="side-preview-grid">
-            {(['teacher', 'adviser', 'registrar', 'school_admin', 'student'] as Role[]).map((r) => (
-              <button
-                key={r}
-                aria-pressed={activeRole === r}
-                onClick={() => onRoleChange(r)}
-              >
-                {ROLE_LABEL[r].split(' ')[0]}
-              </button>
-            ))}
+        {/* DEMO SCAFFOLDING — not product.
+            This switcher exists so the platform can be reviewed across
+            all four roles before real accounts exist. In a production
+            build it is absent entirely, and a user's role comes from
+            their `user_roles` rows. Removing it changes no permission:
+            the database has always been the boundary, and this only ever
+            changed which navigation was drawn. */}
+        {DEMO_MODE && (
+          <div className="side-demo">
+            <div className="side-demo-tag">
+              <span aria-hidden="true">◈</span> Demo preview
+            </div>
+            <p className="side-demo-note">
+              Role switching is a review aid. It is removed once real accounts are in place.
+            </p>
+            <div className="side-preview-grid">
+              {(['teacher', 'adviser', 'registrar', 'school_admin', 'student'] as Role[]).map((r) => (
+                <button
+                  key={r}
+                  aria-pressed={activeRole === r}
+                  onClick={() => onRoleChange(r)}
+                >
+                  {ROLE_LABEL[r].split(' ')[0]}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
         <div className="side-user">
           <div className="side-avatar" aria-hidden="true">{user.initials}</div>
           <div>

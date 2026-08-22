@@ -80,8 +80,8 @@ This is the document to take to the first discovery meeting. Each row names an a
 
 | # | Assumption | Impact if wrong | Status |
 |---|---|---|---|
-| F1 | Form purposes match public DepEd issuances | Data-source contracts wrong | 🟨 *purposes confirmed; fields not* |
-| F2 | SF field lists and layouts match public templates | Template rework per form | ⬜ |
+| F1 | Form purposes match public DepEd issuances | Data-source contracts wrong | 🟨 *purposes confirmed; fields confirmed for SF10 only* |
+| F2 | SF field lists and layouts match public templates | Template rework per form | 🟨 **SF10-JHS confirmed** from the school's own blank form (SFRT Revised 2017) — see [05 addendum](05-school-forms-strategy.md). Others still open. |
 | F3 | The school uses standard SF forms without customisation | Additional template variants | ⬜ |
 | F4 | The school files SF1, 2, 4, 5, 9, 10 (per V0's implementation) | Phase 2 scope changes | ⬜ |
 | F5 | SF3 (books) and SF8 (health) are out of scope | Scope expansion, or decline | ⬜ |
@@ -90,6 +90,11 @@ This is the document to take to the first discovery meeting. Each row names an a
 | F8 | Digitally generated forms are accepted by the division office ⚖️ | **Could invalidate the document engine's value** | ⬜ |
 | F9 | The observed-values rubric on the report card is school-specific | Template rework | ⬜ |
 | F10 | A4 portrait is the standard page setup | Template rework | ⬜ |
+| F11 | **SF10-JHS has FOUR quarterly rating columns; DO 009 s.2026 gives three terms.** How should a three-term year be recorded on a four-column form? ⚖️ | **Every SF10 issued from SY 2026-2027 onward** | ⬜ |
+| F12 | Is there an SF10-SHS variant the school also files? | Additional template | ⬜ |
+| F13 | Are `Technical drawing` and `ICF` (seen on the sample) standing learning areas or one learner's electives? | Subject catalogue seeding | ⬜ |
+| F14 | SF10 page-2 continuation rules — how many scholastic blocks per page before overflow? | Template pagination | ⬜ |
+| F15 | Is a document number required on SF10, and in what format? ⚖️ | Numbering configuration | ⬜ |
 
 > **F8 is quietly one of the most important rows in this register.** If a division office insists on the official Excel templates rather than system-generated equivalents, the document engine's value drops sharply and the product's pitch changes. Ask early.
 
@@ -164,6 +169,7 @@ If time is short, these ten answers unblock the most:
 2. **A1–A3** — actual weights and transmutation table (decides the grading engine's seed data)
 3. **I12** — DepEd requirements for third-party systems (potential hard gate)
 4. **F8** — are generated forms accepted by the division office (decides the document engine's value)
+4b. **F11** — three terms vs four SF10 columns (blocks correct SF10 issuance this school year)
 5. **H1** — real connectivity, measured by location (decides the offline question)
 6. **E5** — willingness to issue learner credentials (gates the portal)
 7. **D1** — attendance mode (decides the default and the UI)

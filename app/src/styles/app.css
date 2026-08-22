@@ -277,3 +277,32 @@ button { font: inherit; color: inherit; }
   .side-brand, .side-section, .side-foot, .side-preview { display: none; }
   .side-nav { flex-direction: row; padding: 6px; }
 }
+
+/* ------------------------------------------------------------------ *
+ * Demo scaffolding — visually marked as NOT product, and absent from
+ * a production build. See src/config.ts.
+ * ------------------------------------------------------------------ */
+.side-demo {
+  margin: 0 0 14px;
+  padding: 10px;
+  border: 1px dashed var(--side-control);
+  border-radius: var(--r-ctl);
+  background: rgba(255, 255, 255, .02);
+}
+.side-demo-tag {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10.5px; font-weight: 600; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--warning-border);
+  margin-bottom: 5px;
+}
+.side-demo-note {
+  font-size: 10.5px; line-height: 1.4; color: var(--side-label);
+  margin: 0 0 8px;
+}
+.demo-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 600; letter-spacing: .04em;
+  padding: 3px 9px; border-radius: var(--r-badge);
+  background: var(--warning-tint); color: var(--warning);
+  border: 1px dashed var(--warning-border);
+}

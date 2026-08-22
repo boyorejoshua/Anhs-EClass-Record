@@ -68,3 +68,27 @@ student portal, document generation.
 `npm run build && npm run preview`. Open a class from the dashboard to
 reach the gradebook. The header toggle switches the tenant between three
 trimesters and four quarters.
+
+## Demo scaffolding — how it comes out
+
+Two affordances exist purely so the platform can be reviewed before real
+data and real accounts land:
+
+| Affordance | Where |
+|---|---|
+| "Preview as" role switcher | sidebar footer, boxed and labelled **Demo preview** |
+| "3 trimesters / 4 quarters" tenant toggle | header, beside a **Demo** chip |
+
+Both are gated on `DEMO_MODE` in `src/config.ts`, which resolves:
+
+- **dev server** → on
+- **production build** → **off**, unless `VITE_DEMO_MODE=true`
+
+So `npm run build` already produces a build with neither. Verified by
+assertion, not by eye: a production build renders 0 demo blocks and 0
+tenant toggles; a `VITE_DEMO_MODE=true` build renders them.
+
+Removing them changes **no permission**. Role has always come from the
+signed-in user's `user_roles` rows and access has always been decided by
+row-level security in the database — the switcher only ever changed which
+navigation was drawn on top of that.

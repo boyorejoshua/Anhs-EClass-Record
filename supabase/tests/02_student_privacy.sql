@@ -97,12 +97,22 @@ begin;
   insert into _r select 'learner sees only own student record',
     count(*) || ' student rows visible', count(*) = 1 from public.students;
 
-  insert into _r select 'learner sees only own enrollment',
-    count(*) || ' enrollments visible', count(*) = 1 from public.enrollments;
+  -- A learner has one enrollment PER YEAR and legitimately sees all of
+  -- their own (that is their academic history). Assert OWNERSHIP, not a
+  -- count: every visible row must be theirs, and at least one must be.
+  insert into _r select 'every visible enrollment belongs to the learner',
+    count(*) filter (where student_id <> app.current_student_id()) || ' foreign of '
+      || count(*) || ' visible',
+    count(*) > 0 and count(*) filter (where student_id <> app.current_student_id()) = 0
+  from public.enrollments;
 
-  -- A roster would expose classmates' names; not a student-facing feature.
+  -- A roster would expose classmates' names; not a student-facing
+  -- feature. Every visible roster row must trace back to this learner.
   insert into _r select 'learner cannot enumerate classmates',
-    count(*) || ' roster rows visible', count(*) <= 2 from public.class_enrollments;
+    count(*) filter (where not app.enrollment_is_mine(enrollment_id)) || ' foreign of '
+      || count(*) || ' roster rows visible',
+    count(*) filter (where not app.enrollment_is_mine(enrollment_id)) = 0
+  from public.class_enrollments;
 
   -- Cannot reach another learner by naming them directly.
   insert into _r select 'direct query for another learner returns nothing',

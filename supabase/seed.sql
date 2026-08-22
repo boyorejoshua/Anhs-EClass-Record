@@ -339,3 +339,78 @@ where a.class_id='aa000000-0000-0000-0000-000000000001'
   and (p.ordinal = 1 or (p.ordinal = 2 and abs(hashtext(ce.id::text || a.id::text)) % 5 <> 0));
 
 commit;
+begin;
+-- MAPEH children (Music / Arts / PE / Health), which the real form prints
+-- indented beneath the MAPEH aggregate row.
+insert into public.subjects (id, school_id, code, title, subject_category_id, parent_subject_id) values
+  ('a6000000-0000-0000-0000-000000000101','11111111-1111-1111-1111-111111111111','MUS10','Music 10','a5000000-0000-0000-0000-000000000002','a6000000-0000-0000-0000-000000000004'),
+  ('a6000000-0000-0000-0000-000000000102','11111111-1111-1111-1111-111111111111','ART10','Arts 10','a5000000-0000-0000-0000-000000000002','a6000000-0000-0000-0000-000000000004'),
+  ('a6000000-0000-0000-0000-000000000103','11111111-1111-1111-1111-111111111111','PE10','Physical Education 10','a5000000-0000-0000-0000-000000000002','a6000000-0000-0000-0000-000000000004'),
+  ('a6000000-0000-0000-0000-000000000104','11111111-1111-1111-1111-111111111111','HLTH10','Health 10','a5000000-0000-0000-0000-000000000002','a6000000-0000-0000-0000-000000000004');
+
+-- Eligibility block for Joshua
+insert into public.student_eligibility
+  (school_id, student_id, eligibility_type, general_average, prev_school_name,
+   prev_school_govt_id, prev_school_address)
+values
+  ('11111111-1111-1111-1111-111111111111','a8000000-0000-0000-0000-000000000005',
+   'elem_completer', 89.40, 'Angono Elementary School', '104721', 'Angono, Rizal');
+
+-- A prior year the learner spent at ANOTHER school, so the SF10 block must
+-- print that school's details rather than this tenant's.
+insert into public.academic_years (id, school_id, label, start_date, end_date, period_structure, status)
+values ('e0000001-0000-0000-0000-000000000000','11111111-1111-1111-1111-111111111111',
+        -- created 'closed', archived at the end of this script: the
+        -- archived-year trigger correctly refuses writes, so the
+        -- enrollment must land first. That guard is the point.
+        '2025-2026','2025-08-25','2026-05-30','quarter','closed');
+
+insert into public.academic_periods (school_id, academic_year_id, ordinal, name, short_name, start_date, end_date)
+select '11111111-1111-1111-1111-111111111111','e0000001-0000-0000-0000-000000000000',
+       n, 'Quarter '||n, 'Q'||n, ('2025-08-25'::date + (n-1)*70), ('2025-08-25'::date + n*70 - 1)
+from generate_series(1,4) n;
+
+insert into public.grade_levels (id, school_id, code, name, ordinal, key_stage)
+values ('a4000000-0000-0000-0000-000000000109','11111111-1111-1111-1111-111111111111','G9P','Grade 9',9,'KS3')
+on conflict do nothing;
+
+insert into public.enrollments
+  (id, school_id, student_id, academic_year_id, grade_level_id, section_id, date_enrolled,
+   status, promotion_status, general_average,
+   recording_school_name, recording_school_govt_id, recording_district,
+   recording_division, recording_region, adviser_name)
+values
+  ('a9000000-0000-0000-0000-0000000000f1','11111111-1111-1111-1111-111111111111',
+   'a8000000-0000-0000-0000-000000000005','e0000001-0000-0000-0000-000000000000',
+   'a4000000-0000-0000-0000-000000000009', null,'2025-08-25','completed','promoted',86.00,
+   'Taytay National High School','301422','Taytay','Rizal','IV-A CALABARZON','Mr. R. Villanueva');
+
+-- Remedial block on the current year
+insert into public.remedial_classes (id, school_id, enrollment_id, conducted_from, conducted_to)
+select 'ac000000-0000-0000-0000-000000000001','11111111-1111-1111-1111-111111111111', e.id,
+       '2027-04-12','2027-05-10'
+from public.enrollments e
+where e.student_id='a8000000-0000-0000-0000-000000000005'
+  and e.academic_year_id='e0000001-0000-0000-0000-000000000001';
+
+insert into public.remedial_marks
+  (school_id, remedial_class_id, subject_id, final_rating, remedial_class_mark, recomputed_final_grade, remarks)
+values ('11111111-1111-1111-1111-111111111111','ac000000-0000-0000-0000-000000000001',
+        'a6000000-0000-0000-0000-000000000002', 72, 80, 75, 'PASSED');
+
+-- Final subject grades so the SF10 FINAL RATING column has values
+insert into public.final_subject_grades (school_id, class_enrollment_id, final_grade, remark)
+select ce.school_id, ce.id,
+       round(80 + (abs(hashtext(ce.id::text)) % 15))::numeric,
+       case when (abs(hashtext(ce.id::text)) % 15) + 80 >= 75 then 'PASSED' else 'FAILED' end
+from public.class_enrollments ce;
+
+-- Now archive the prior year, exercising the read-only guard.
+update public.academic_years set status='archived'
+where id='e0000001-0000-0000-0000-000000000000';
+
+insert into public.school_settings (school_id, key, value)
+values ('11111111-1111-1111-1111-111111111111','principal_name','"Dr. Corazon M. Alvarez"'::jsonb)
+on conflict (school_id, key) do update set value = excluded.value;
+
+commit;
