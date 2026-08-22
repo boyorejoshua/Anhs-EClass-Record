@@ -1,0 +1,209 @@
+/*
+ * UI DIRECTIONS
+ * =============
+ * Four options applied purely at the token level. Because every
+ * component reads tokens and never a literal, a whole visual direction
+ * is a block of custom-property overrides — no component changes.
+ *
+ * That is the point of the token layer, and it is also the answer to
+ * "can this look different for a different school": yes, and cheaply.
+ *
+ * A — handoff       the delivered design, unchanged (default)
+ * B — refined       same language, more carefully executed  ← recommended
+ * C — airy          light sidebar, calmer, more whitespace
+ * D — focused       full dark, for evening work and projector demos
+ *
+ * Switch with data-ui="b" on <html>. See ThemeSwitcher (demo only).
+ */
+
+/* ══════════════════════════════════════════════════════════════════
+ * B — REFINED
+ * Not a redesign. The same indigo-on-grey language, with the things
+ * that make an interface feel considered: real elevation instead of
+ * flat borders, a deeper sidebar, an accent rail on the active item,
+ * slightly more generous panel padding, tighter headings.
+ * Lowest risk of the four — a teacher would not notice a "new system",
+ * only that it looks less like a prototype.
+ * ══════════════════════════════════════════════════════════════════ */
+:root[data-ui='b'] {
+  --app-bg:        #f4f6f9;
+  --panel:         #ffffff;
+  --panel-alt:     #f9fafc;
+  --panel-alt-2:   #f6f8fb;
+  --border:        #e6e9f0;
+  --border-strong: #d3d8e3;
+  --border-row:    #eef1f6;
+  --table-head:    #f1f3f8;
+
+  --accent:        #2f3d8c;
+  --accent-hover:  #202b66;
+  --accent-tint:   #eaedf9;
+
+  --side-bg:       #12141a;
+  --side-divider:  #21252f;
+  --side-control:  #2b303c;
+
+  --r-panel:  10px;
+  --r-ctl:    7px;
+  --r-dialog: 12px;
+}
+:root[data-ui='b'] .panel {
+  box-shadow: 0 1px 2px rgba(23, 26, 33, .04), 0 1px 3px rgba(23, 26, 33, .06);
+  border-color: var(--border);
+}
+:root[data-ui='b'] .panel-head { padding: 16px 18px; }
+:root[data-ui='b'] .panel-body { padding: 16px 18px; }
+/* Deliberately NOT increasing page padding: at 1240px the extra inset
+   pushed the calculated Initial/Grade columns off-screen, and those are
+   the whole point of the grid. Elevation and the accent rail carry the
+   refinement instead. */
+:root[data-ui='b'] .page > * + * { margin-top: 18px; }
+:root[data-ui='b'] .topbar { box-shadow: 0 1px 2px rgba(23, 26, 33, .04); }
+:root[data-ui='b'] .topbar h1 { letter-spacing: -.3px; }
+:root[data-ui='b'] .side-link { position: relative; }
+/* An accent rail reads as "you are here" faster than a fill alone. */
+:root[data-ui='b'] .side-link[aria-current='page']::before {
+  content: ''; position: absolute; left: -10px; top: 6px; bottom: 6px;
+  width: 3px; border-radius: 0 3px 3px 0; background: var(--accent);
+}
+:root[data-ui='b'] .stat {
+  box-shadow: 0 1px 2px rgba(23, 26, 33, .04);
+  padding: 16px 18px;
+}
+:root[data-ui='b'] .stat b { font-size: 26px; letter-spacing: -1px; }
+:root[data-ui='b'] .class-card {
+  box-shadow: 0 1px 2px rgba(23, 26, 33, .04);
+  transition: box-shadow .12s ease, transform .12s ease;
+}
+:root[data-ui='b'] .class-card:hover {
+  box-shadow: 0 4px 12px rgba(23, 26, 33, .09);
+  transform: translateY(-1px);
+}
+:root[data-ui='b'] .gb thead th { padding: 9px 6px; }
+:root[data-ui='b'] .gb-name { height: 38px; }
+
+/* ══════════════════════════════════════════════════════════════════
+ * C — AIRY
+ * Light sidebar, more whitespace, taller rows. Reads as a calmer,
+ * more contemporary product.
+ * TRADE-OFF: fewer gradebook rows fit on screen, and the dark sidebar
+ * is doing real work today — it separates chrome from content at a
+ * glance. Prefer this only if you value approachability over density.
+ * ══════════════════════════════════════════════════════════════════ */
+:root[data-ui='c'] {
+  --app-bg:        #fbfbfc;
+  --panel:         #ffffff;
+  --panel-alt:     #f8f9fb;
+  --panel-alt-2:   #f6f7f9;
+  --border:        #e8eaee;
+  --border-strong: #dcdfe5;
+  --border-row:    #f1f2f5;
+  --table-head:    #f7f8fa;
+  --table-head-calc: #f1f2f6;
+
+  --accent:        #3a4ba0;
+  --accent-hover:  #2a3878;
+  --accent-tint:   #eef0fb;
+
+  /* the defining change: a light sidebar */
+  --side-bg:       #ffffff;
+  --side-divider:  #ebedf1;
+  --side-text:     #4a5162;
+  --side-label:    #9aa1b0;
+  --side-control:  #e3e6ec;
+}
+:root[data-ui='c'] .sidebar { border-right: 1px solid var(--border); }
+:root[data-ui='c'] .side-name { color: var(--ink); }
+:root[data-ui='c'] .side-link[aria-current='page'] {
+  background: var(--accent-tint); color: var(--accent);
+}
+:root[data-ui='c'] .side-link:hover { background: var(--panel-alt); }
+:root[data-ui='c'] .side-avatar { background: var(--accent-tint); color: var(--accent); }
+:root[data-ui='c'] .side-user-name { color: var(--ink); }
+:root[data-ui='c'] .side-mark { border-radius: 9px; }
+:root[data-ui='c'] .page { padding: 32px 36px 72px; }
+:root[data-ui='c'] .page > * + * { margin-top: 22px; }
+:root[data-ui='c'] .panel { border-radius: 12px; }
+:root[data-ui='c'] .panel-head, :root[data-ui='c'] .panel-body { padding: 18px 20px; }
+:root[data-ui='c'] .gb-name { height: 42px; }
+:root[data-ui='c'] .gb-input { padding: 12px 6px; }
+:root[data-ui='c'] .btn { padding: 9px 15px; border-radius: 8px; }
+:root[data-ui='c'] .stat { border-radius: 12px; padding: 18px 20px; }
+:root[data-ui='c'] .side-demo { border-color: var(--border-strong); background: var(--panel-alt); }
+:root[data-ui='c'] .side-demo-tag { color: var(--warning); }
+
+/* ══════════════════════════════════════════════════════════════════
+ * D — FOCUSED (dark)
+ * Full dark chrome. Genuinely useful for evening encoding and for
+ * projector demos in a bright room, where a white grid glares.
+ * TRADE-OFF: the SF10 and report-card templates stay light because
+ * they are print artifacts — so document screens will not match.
+ * That is correct, but it is a visible inconsistency.
+ * ══════════════════════════════════════════════════════════════════ */
+:root[data-ui='d'] {
+  --ink:    #e8eaf0;
+  --body:   #b6bcc9;
+  --muted:  #8b93a3;
+  --faint:  #666e7e;
+
+  --accent:       #7d8ce8;
+  --accent-hover: #93a0ef;
+  --accent-tint:  #23294a;
+
+  --app-bg:        #0f1116;
+  --panel:         #171a21;
+  --panel-alt:     #1c2029;
+  --panel-alt-2:   #1a1e26;
+  --border:        #272c37;
+  --border-strong: #333945;
+  --border-row:    #22262f;
+  --table-head:    #1e222b;
+  --table-head-calc: #232833;
+
+  --success:      #5cbf8a; --success-tint: #16301f; --success-border: #2b5c40;
+  --warning:      #e0aa5a; --warning-tint: #33280f; --warning-border: #6b5423;
+  --error:        #e88b92; --error-tint:   #3a1d20; --error-border:   #703a3f;
+  --info:         #7fb0ea; --info-tint:    #16263a;
+
+  --side-bg:      #0b0d11;
+  --side-divider: #1d212a;
+  --side-text:    #b6bcc9;
+  --side-label:   #6a7182;
+  --side-control: #262b36;
+
+  --dot-ok:       #3d4453;
+  --shadow-dialog: 0 18px 48px rgba(0, 0, 0, .6);
+}
+:root[data-ui='d'] .badge-finalized { color: #0f1116; }
+:root[data-ui='d'] .badge-published { color: #0f1116; }
+:root[data-ui='d'] .side-mark { color: #fff; }
+/* A warm tint that reads correctly as a small badge becomes muddy olive
+   when it fills a whole grid cell on a dark ground. On dark, mark a
+   missing score with an edge and a dimmed field instead of a wash —
+   still fill-plus-text, still not colour alone. */
+:root[data-ui='d'] .gb td[data-state='missing'] .gb-input {
+  background: rgba(224, 170, 90, .07);
+  box-shadow: inset 2px 0 0 rgba(224, 170, 90, .55);
+}
+:root[data-ui='d'] .gb td[data-state='over'] .gb-input {
+  background: rgba(232, 139, 146, .10);
+  box-shadow: inset 2px 0 0 var(--error);
+}
+
+/* Print templates stay on white — they are paper, not screen. */
+:root[data-ui='d'] .sf10 {
+  --ink: #171a21; --body: #3c4250; --muted: #667085; --faint: #98a0af;
+  --panel: #ffffff; --panel-alt: #fbfbfc; --border: #e3e6ec;
+  --border-strong: #d7dbe3; --border-row: #f2f4f7;
+  --table-head: #f4f5f8; --table-head-calc: #eceef4;
+  background: #ffffff; color: #171a21;
+}
+
+/* ── the switcher itself (demo only) ── */
+.ui-switch { display: inline-flex; gap: 2px; padding: 2px; background: var(--panel-alt); border: 1px solid var(--border-strong); border-radius: var(--r-ctl); }
+.ui-switch button {
+  border: 0; background: transparent; cursor: pointer;
+  font-size: 11.5px; font-weight: 600; color: var(--muted);
+  padding: 4px 9px; border-radius: var(--r-sm);
+}
+.ui-switch button[aria-pressed='true'] { background: var(--accent); color: #fff; }

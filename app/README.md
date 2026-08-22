@@ -92,3 +92,24 @@ Removing them changes **no permission**. Role has always come from the
 signed-in user's `user_roles` rows and access has always been decided by
 row-level security in the database — the switcher only ever changed which
 navigation was drawn on top of that.
+
+## UI directions
+
+Four visual directions live in `src/styles/themes.css`, selectable in demo
+mode via the header switcher and persisted to `localStorage`:
+
+| | Direction | Character |
+|---|---|---|
+| **A** | Handoff | The delivered design, unchanged — the default |
+| **B** | Refined | Same language, executed with more care |
+| **C** | Airy | Light sidebar, calmer, more whitespace |
+| **D** | Focused | Full dark, for evening work and projector demos |
+
+Each is **only** a block of custom-property overrides — no component
+changes anywhere. That is what the token layer buys, and it is also the
+answer to "can this look different for a different school".
+
+Once a direction is chosen it should be folded into `tokens.css` as the
+default, and the other three plus the switcher deleted. Carrying four
+themes indefinitely is four times the visual regression surface for no
+product benefit.

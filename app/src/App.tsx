@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import './styles/app.css';
 import './styles/gradebook.css';
 import './styles/sf10.css';
+import './styles/themes.css';
 import { Sidebar } from './components/Sidebar';
 import { TeacherDashboard } from './screens/TeacherDashboard';
 import { ClassWorkspace } from './screens/ClassWorkspace';
@@ -9,9 +10,11 @@ import { CLASSES, CURRENT_USER, YEAR_QUARTER, YEAR_TRIMESTER, getGradebook } fro
 import { Sf10Preview } from './screens/Sf10Preview';
 import { SF10_FIXTURE } from './data/sf10';
 import { DEMO_MODE } from './config';
+import { ThemeSwitcher, useUiTheme } from './components/ThemeSwitcher';
 import type { Role } from './data/types';
 
 export default function App() {
+  const [uiTheme, setUiTheme] = useUiTheme();
   const [role, setRole] = useState<Role>('teacher');
   const [navKey, setNavKey] = useState('dashboard');
   const [classId, setClassId] = useState<string | null>(null);
@@ -82,6 +85,7 @@ export default function App() {
                 <span className="demo-chip" title="Review aid — not part of the delivered product">
                   <span aria-hidden="true">◈</span> Demo
                 </span>
+                <ThemeSwitcher value={uiTheme} onChange={setUiTheme} />
                 <button
                   className="btn btn-sm"
                   aria-pressed={quarterSchool}
