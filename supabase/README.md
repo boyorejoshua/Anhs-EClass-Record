@@ -72,3 +72,51 @@ revoked from every role including `service_role`.
 weights, transmutation bands, attendance statuses and descriptor bands
 are all rows. The seed proves it: School A runs three trimesters and
 School B four quarters, on identical code.
+
+## Application contracts (migration 0014)
+
+Screens call these, never tables. Each returns its payload in one round
+trip, keyed in camelCase because the JSON crosses into TypeScript
+unchanged — a mapping layer between SQL and TS is one more place for a
+typo to survive both a typecheck and a test.
+
+| Function | Returns |
+|---|---|
+| `session_context()` | user, roles, school, academic years and periods |
+| `my_classes(year)` | class list with per-period status and completeness |
+| `gradebook(class, period)` | scheme, assessments, roster, scores, editability |
+| `sf10_jhs(student)` | the permanent record |
+| `save_scores(jsonb)` | upserts dirty cells, returns how many were written |
+
+They live in `rds.*`, with thin `public.*` wrappers because PostgREST
+exposes `public` only. Publishing wrappers per function rather than
+exposing the whole schema means a future contract is not published the
+moment it is written.
+
+All are `SECURITY INVOKER`. They add reachability, never authority.
+
+### Two things migration 0014 fixed
+
+**`subject_categories.grading_scheme_id` never existed.**
+`docs/06-data-architecture.md` describes it as "the join point between
+the curriculum and the grading engine", and `rds.gradebook` needs it,
+but migration 0003 never created the column. The documented model and
+the implemented one had drifted. Scheme resolution is now: the class's
+override, else the category's — which is what lets core subjects inherit
+DO 015's 20/50/30 and MAPEH/EPP-TLE 20/60/20 without setting a scheme on
+every class by hand.
+
+**Teachers could not read `enrollments`.**
+Migration 0009 gave teachers scoped access to `students` and
+`class_enrollments` but left `enrollments` readable only by staff
+holding `enrollments.read` or `students.read.all` — neither of which a
+teacher has. The roster join is
+`class_enrollments -> enrollments -> students`, so a teacher opening
+their own gradebook got an **empty roster** while their learners' scores
+sat right there.
+
+The isolation suite could not have caught it: returning too *few* rows
+is invisible to a test that only asserts no foreign rows leak. It
+surfaced the first time the contract was called as a real authenticated
+teacher — which is the argument for verifying against a live session
+rather than as a superuser.

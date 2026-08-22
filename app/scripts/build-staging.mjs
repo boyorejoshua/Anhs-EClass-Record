@@ -16,9 +16,25 @@ import { join } from 'node:path';
 
 const DIST = 'dist-staging';
 const assets = readdirSync(join(DIST, 'assets'));
-const jsFile  = assets.find((f) => f.endsWith('.js'));
-const cssFile = assets.find((f) => f.endsWith('.css'));
-if (!jsFile || !cssFile) throw new Error(`no build output in ${DIST}/assets`);
+const jsFiles  = assets.filter((f) => f.endsWith('.js'));
+const cssFiles = assets.filter((f) => f.endsWith('.css'));
+if (jsFiles.length === 0 || cssFiles.length === 0) {
+  throw new Error(`no build output in ${DIST}/assets`);
+}
+
+// A single file can only inline a single entry chunk. A code-split build
+// would leave the extra chunks unreferenced and 404 at runtime — and
+// because the page still renders its shell, that failure is quiet.
+// Fail here instead.
+if (jsFiles.length > 1) {
+  throw new Error(
+    `expected one JS chunk, found ${jsFiles.length}: ${jsFiles.join(', ')}. ` +
+    'A dynamic import() has split the bundle — make it static, or teach ' +
+    'this script to inline every chunk.',
+  );
+}
+const jsFile = jsFiles[0];
+const cssFile = cssFiles[0];
 
 const js  = readFileSync(join(DIST, 'assets', jsFile),  'utf8');
 const css = readFileSync(join(DIST, 'assets', cssFile), 'utf8');
