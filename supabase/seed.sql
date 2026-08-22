@@ -414,3 +414,19 @@ values ('11111111-1111-1111-1111-111111111111','principal_name','"Dr. Corazon M.
 on conflict (school_id, key) do update set value = excluded.value;
 
 commit;
+
+-- ------------------------------------------------------------
+-- Category -> grading scheme (added with migration 0014)
+-- ------------------------------------------------------------
+-- With these set, a class needs no scheme of its own: core subjects
+-- inherit DO 015's 20/50/30 and MAPEH/EPP-TLE inherit 20/60/20.
+update public.subject_categories set grading_scheme_id = 'a2000000-0000-0000-0000-000000000001'
+ where school_id = '11111111-1111-1111-1111-111111111111' and code = 'CORE';
+update public.subject_categories set grading_scheme_id = 'a2000000-0000-0000-0000-000000000002'
+ where school_id = '11111111-1111-1111-1111-111111111111' and code = 'MAPEH';
+update public.subject_categories set grading_scheme_id = 'b2000000-0000-0000-0000-000000000001'
+ where school_id = '22222222-2222-2222-2222-222222222222' and code = 'CORE';
+
+-- Clear the per-class overrides so the category fallback is the path
+-- actually exercised — an untested fallback is not a fallback.
+update public.classes set grading_scheme_id = null;

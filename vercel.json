@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd app && npm ci && VITE_DEMO_MODE=true npm run build && mkdir -p dist/legacy && cp -r ../index.html ../assets ../CHEATSHEET.html dist/legacy/",
+  "outputDirectory": "app/dist",
+  "installCommand": "echo 'install runs inside buildCommand (no root package.json)'",
+  "framework": null,
+  "rewrites": [
+    { "source": "/legacy", "destination": "/legacy/index.html" },
+    { "source": "/((?!legacy/).*)", "destination": "/index.html" }
+  ]
+}
