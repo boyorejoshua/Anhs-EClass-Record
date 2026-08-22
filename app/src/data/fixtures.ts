@@ -10,11 +10,12 @@
  */
 import type {
   AcademicYear, AttendanceDay, AttendanceMark, ClassStudent, ClassSummary, CurrentUser,
-  DirectoryStudent, GradebookData, RosterStudent, StudentGradeRow, StudentHistoryRow,
-  StudentProfile, SubmissionRow, ValidationReport,
+  DirectoryStudent, GradebookData, PersistedGrade, RosterStudent, StudentGradeRow,
+  StudentHistoryRow, StudentProfile, SubmissionRow, ValidationReport,
 } from './types';
 import { DO015_CORE, DO015_MAPEH } from '../lib/grading/fixtures';
 import type { Assessment } from '../lib/grading';
+import { compute } from '../lib/grading';
 
 export const YEAR_TRIMESTER: AcademicYear = {
   id: 'year-anhs',
@@ -203,8 +204,62 @@ const FIXTURE_SESSION: SessionContext = {
 /** Mutable in-memory scores, so edits persist for the length of a session. */
 const editedScores = new Map<string, { raw: number | null; isExcused: boolean }>();
 
+/** `classId|periodId` -> classEnrollmentId -> the grade as recorded at submission. */
+const persistedGrades = new Map<string, Record<string, PersistedGrade>>();
+
+/**
+ * The fixtures' stand-in for `record_period_grades`.
+ *
+ * It calls the SAME engine the server's Edge Function calls, in the same
+ * FINAL mode, for the same reason: at submission an unscored assessment
+ * is a zero, because that is what the teacher is certifying. If this
+ * used the running mode the gradebook displays, a demo would show one
+ * number on screen and store another.
+ */
+function recordPeriodGrades(gb: GradebookData): void {
+  const rows: Record<string, PersistedGrade> = {};
+  // ONE stamp for the whole run. Postgres `now()` is transaction-stable,
+  // so a real batch shares a single computed_at and the Summary tab can
+  // say "filed at 10:04". Stamping each learner separately here would
+  // produce twenty timestamps a millisecond apart and suppress it.
+  const computedAt = new Date().toISOString();
+  for (const learner of gb.roster) {
+    const cells = gb.scores[learner.classEnrollmentId] ?? {};
+    const result = compute(
+      gb.scheme,
+      gb.assessments,
+      gb.assessments.map((a) => ({
+        assessmentId: a.id,
+        raw: cells[a.id]?.raw ?? null,
+        isExcused: cells[a.id]?.isExcused ?? false,
+      })),
+      { includeUnscored: true },
+    );
+    const previous = persistedGrades.get(`${gb.classId}|${gb.periodId}`)
+      ?.[learner.classEnrollmentId];
+    rows[learner.classEnrollmentId] = {
+      initialGrade: result.initialGrade,
+      periodGrade: result.periodGrade,
+      descriptor: result.descriptor,
+      remark: result.remark,
+      passed: result.passed,
+      computedAt,
+      computedMode: 'final',
+      version: (previous?.version ?? 0) + 1,
+      componentBreakdown: result.components,
+    };
+  }
+  persistedGrades.set(`${gb.classId}|${gb.periodId}`, rows);
+}
+
 export function createFixtureSource(): DataSource {
-  return {
+  // Named, not returned inline, so the methods below can call each other
+  // by name. They used to use `this` — which broke the moment App passed
+  // a method to a screen as a bare reference (`submitGrades={source.submitGrades}`),
+  // because a detached method has no receiver. Submitting a period in
+  // demo mode failed with "Cannot read properties of undefined" and the
+  // teacher saw an error where a submission should have been.
+  const src: DataSource = {
     kind: 'fixtures',
 
     async getSession() { return FIXTURE_SESSION; },
@@ -339,16 +394,31 @@ export function createFixtureSource(): DataSource {
       } satisfies ValidationReport;
     },
 
+    /**
+     * Mirrors what the server does, in the same order: compute and
+     * record the grades FIRST, then move the workflow. The fixtures are
+     * a stand-in for the database, not for the browser, so a demo that
+     * submits must leave a recorded grade behind exactly as production
+     * does — otherwise the Summary tab would look materialised on real
+     * data and empty on fixtures, and the difference would only surface
+     * in front of a school.
+     */
     async submitGrades(classId, periodId, acknowledgeWarnings) {
       const cls = CLASSES.find((c) => c.id === classId);
       if (!cls) throw new Error('Class not found.');
-      const report = await this.validateSubmission(classId, periodId);
+      const report = await src.validateSubmission(classId, periodId);
       if (!report.ok) throw new Error(report.errors.map((e) => e.message).join('; '));
       if (report.warnings.length > 0 && !acknowledgeWarnings) {
         throw new Error('This submission has warnings that need acknowledging.');
       }
       assertTransition(cls.status[periodId] ?? 'draft', 'submitted');
+
+      recordPeriodGrades(await src.getGradebook(classId, periodId));
       cls.status[periodId] = 'submitted';
+    },
+
+    async getPeriodGrades(classId, periodId) {
+      return persistedGrades.get(`${classId}|${periodId}`) ?? {};
     },
 
     async getSubmissionQueue(_yearId) {
@@ -439,6 +509,8 @@ export function createFixtureSource(): DataSource {
       ] satisfies StudentHistoryRow[];
     },
   };
+
+  return src;
 }
 
 /* ------------------------------------------------------------------ *

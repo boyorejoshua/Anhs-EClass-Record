@@ -209,3 +209,29 @@ export interface StudentHistoryRow {
   generalAverage: number | null;
   schoolName: string;
 }
+
+/**
+ * A grade as the SERVER recorded it.
+ *
+ * Distinct from anything `lib/grading` returns in the browser. The
+ * browser's number is a preview that changes as a teacher types; this
+ * one was computed by `compute-period-grades`, written to
+ * `period_grades`, and is what the registrar reviews and the learner
+ * eventually sees. Where a screen can show either, it shows this one and
+ * says when it was computed — a stored grade and a live recalculation
+ * that disagree is a fact the teacher needs to know, not one to paper
+ * over by silently preferring whichever is newer.
+ */
+export interface PersistedGrade {
+  initialGrade: number | null;
+  periodGrade: number | null;
+  descriptor: string | null;
+  remark: string | null;
+  passed: boolean | null;
+  /** ISO timestamp. */
+  computedAt: string;
+  computedMode: 'running' | 'final';
+  /** Increments each time the grade was superseded; 1 is the first. */
+  version: number;
+  componentBreakdown: unknown;
+}

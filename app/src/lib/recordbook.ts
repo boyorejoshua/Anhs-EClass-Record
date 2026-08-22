@@ -25,7 +25,7 @@
  */
 import { compute, flattenComponents } from './grading';
 import type { GradingScheme } from './grading';
-import type { GradebookData } from '../data/types';
+import type { GradebookData, PersistedGrade } from '../data/types';
 
 /* ------------------------------------------------------------------ *
  * Per-student summary
@@ -375,4 +375,104 @@ export function loaReport(rows: SummaryRow[], scheme: GradingScheme): LoaReport 
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+/* ==================================================================== *
+ * RECORDED vs. LIVE
+ *
+ * Everything above computes from the scores currently in the browser.
+ * That is the right thing for a term in progress — a teacher typing a
+ * mark wants the total to move.
+ *
+ * Once a period has been submitted, though, there is a second, higher
+ * authority: the grade the server computed and wrote to `period_grades`.
+ * That is the number the registrar reviews and the learner eventually
+ * sees, and it does not change when someone reopens the gradebook.
+ *
+ * The two can legitimately differ, for a reason that is not an error:
+ * the tabs above use RUNNING mode, where an unscored assessment is
+ * skipped, while the recorded grade used FINAL mode, where it is a zero.
+ * Comparing those two directly would flag every mid-term class as
+ * broken.
+ *
+ * So the comparison recomputes in FINAL mode — the same mode the server
+ * used — and a difference then means something real: the scores or the
+ * scheme changed after the grade was recorded, and what the registrar is
+ * looking at is stale.
+ * ==================================================================== */
+
+export interface RecordedComparison {
+  classEnrollmentId: string;
+  displayName: string;
+  /** What the server stored, or null if this learner has no recorded grade. */
+  recorded: PersistedGrade | null;
+  /** Today's scores, recomputed in the same FINAL mode the server used. */
+  recomputed: number | null;
+  /** A grade was recorded, and today's scores no longer produce it. */
+  stale: boolean;
+}
+
+export interface RecordedSummary {
+  rows: RecordedComparison[];
+  /** How many learners have a grade on file. */
+  recordedCount: number;
+  /** How many of those no longer match the current scores. */
+  staleCount: number;
+  /** When the grades were computed, if they all came from one run. */
+  computedAt: string | null;
+  /** True once every learner in the roster has a recorded grade. */
+  complete: boolean;
+  /**
+   * True when the filed grade differs from the running grade the rest of
+   * the screen shows — because unscored work counts as zero in one and
+   * is skipped in the other. Not an error, but it puts two different
+   * numbers on the same row, so it has to be explained rather than left
+   * for the teacher to discover.
+   */
+  runningDiffers: boolean;
+}
+
+export function reconcileRecorded(
+  data: GradebookData,
+  recorded: Record<string, PersistedGrade>,
+): RecordedSummary {
+  const rows: RecordedComparison[] = data.roster.map((s) => {
+    const cells = data.scores[s.classEnrollmentId] ?? {};
+    const final = compute(
+      data.scheme,
+      data.assessments,
+      data.assessments.map((a) => ({
+        assessmentId: a.id,
+        raw: cells[a.id]?.raw ?? null,
+        isExcused: cells[a.id]?.isExcused ?? false,
+      })),
+      { includeUnscored: true },
+    );
+    const stored = recorded[s.classEnrollmentId] ?? null;
+    return {
+      classEnrollmentId: s.classEnrollmentId,
+      displayName: s.displayName,
+      recorded: stored,
+      recomputed: final.periodGrade,
+      stale: stored != null && stored.periodGrade !== final.periodGrade,
+    };
+  });
+
+  const withGrade = rows.filter((r) => r.recorded != null);
+  const stamps = new Set(withGrade.map((r) => r.recorded!.computedAt));
+
+  const running = new Map(summaryRows(data).map((r) => [r.classEnrollmentId, r.periodGrade]));
+
+  return {
+    rows,
+    recordedCount: withGrade.length,
+    staleCount: rows.filter((r) => r.stale).length,
+    runningDiffers: withGrade.some(
+      (r) => running.get(r.classEnrollmentId) !== r.recorded!.periodGrade,
+    ),
+    // Several distinct timestamps means the grades came from more than
+    // one run, so no single "computed at" is honest.
+    computedAt: stamps.size === 1 ? [...stamps][0]! : null,
+    complete: withGrade.length === data.roster.length && data.roster.length > 0,
+  };
 }

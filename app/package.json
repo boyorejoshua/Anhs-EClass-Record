@@ -11,6 +11,7 @@
     "test": "vitest run",
     "engine:vendor": "node ../scripts/vendor-grading-engine.mjs",
     "engine:check": "node ../scripts/vendor-grading-engine.mjs --check",
+    "e2e": "node e2e/recorded-grades.mjs",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "build:staging": "VITE_DEMO_MODE=true VITE_SUPABASE_URL= VITE_SUPABASE_ANON_KEY= vite build --outDir dist-staging && node scripts/build-staging.mjs"

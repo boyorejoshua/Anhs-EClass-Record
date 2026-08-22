@@ -1,6 +1,10 @@
-import { useMemo, useState } from 'react';
-import type { AcademicPeriod, ClassSummary, GradebookData } from '../data/types';
-import { analytics, loaReport, summaryRows, type SummaryRow } from '../lib/recordbook';
+import { Fragment, useMemo, useState } from 'react';
+import type {
+  AcademicPeriod, ClassSummary, GradebookData, PersistedGrade,
+} from '../data/types';
+import {
+  analytics, loaReport, reconcileRecorded, summaryRows, type SummaryRow,
+} from '../lib/recordbook';
 import { EmptyState } from '../components/Async';
 import { downloadCsv, slug, toCsv } from '../lib/export';
 
@@ -13,12 +17,34 @@ interface Props {
   onGoGradebook: () => void;
 }
 
+interface SummaryProps extends Props {
+  /**
+   * The grades the server recorded, keyed by class-enrolment id. Empty
+   * until this period has been submitted at least once.
+   */
+  recorded: Record<string, PersistedGrade>;
+}
+
+/** "22 Aug 2026, 10:00" — a stamp a teacher can match to their own memory. */
+function when(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+}
+
 /* ================================================================== *
  * SUMMARY
  * ================================================================== */
 
-export function RecordBookSummary({ cls, period, yearLabel, data, onOpenStudent, onGoGradebook }: Props) {
+export function RecordBookSummary({
+  cls, period, yearLabel, data, recorded, onOpenStudent, onGoGradebook,
+}: SummaryProps) {
   const rows = useMemo(() => summaryRows(data), [data]);
+  const check = useMemo(() => reconcileRecorded(data, recorded), [data, recorded]);
+  const byLearner = useMemo(
+    () => new Map(check.rows.map((r) => [r.classEnrollmentId, r])),
+    [check],
+  );
   const [onlyIssues, setOnlyIssues] = useState(false);
 
   const shown = onlyIssues
@@ -76,6 +102,47 @@ export function RecordBookSummary({ cls, period, yearLabel, data, onOpenStudent,
         <button className="btn btn-sm" onClick={exportCsv}>Export CSV</button>
       </div>
 
+      {/*
+        Where the grade actually lives.
+
+        Before this period is submitted, every number on this screen is a
+        browser calculation — useful, but not a record. Saying so is the
+        honest thing: a teacher who believes these are filed grades will
+        not submit, and the term will pass with nothing on file.
+      */}
+      {check.recordedCount === 0 ? (
+        <p className="callout" data-inline="true" data-tone="info">
+          <b>No grades recorded yet.</b> The figures below are calculated in
+          this browser from the current scores. They become part of the
+          learner's record when you submit {period.name} — the server
+          recomputes them and files the result.
+        </p>
+      ) : check.staleCount > 0 ? (
+        <p className="callout" data-inline="true" data-tone="warn">
+          <b>{check.staleCount} recorded {check.staleCount === 1 ? 'grade differs' : 'grades differ'} from
+          the current scores.</b>{' '}
+          {check.computedAt && <>The filed grades were computed {when(check.computedAt)}. </>}
+          Scores have changed since. The filed grade is what the registrar
+          sees; resubmit {period.name} to bring it up to date.
+        </p>
+      ) : (
+        <p className="callout" data-inline="true" data-tone="ok">
+          <b>Grades filed{check.computedAt ? ` ${when(check.computedAt)}` : ''}.</b>{' '}
+          {check.complete
+            ? 'Every learner has a recorded grade matching the current scores.'
+            : `${check.recordedCount} of ${data.roster.length} learners have a recorded grade — `
+              + 'the rest joined after the last submission.'}
+          {check.runningDiffers && (
+            <>
+              {' '}The <b>Grade</b> column is the running total, which skips work
+              not yet scored. <b>Filed</b> counts it as zero, because that is what
+              a submitted grade means. Enter the missing marks and resubmit to
+              close the gap.
+            </>
+          )}
+        </p>
+      )}
+
       {shown.length === 0 ? (
         <EmptyState title="Nothing needs attention">
           Every learner has a complete set of scores and is at or above the pass mark.
@@ -93,14 +160,22 @@ export function RecordBookSummary({ cls, period, yearLabel, data, onOpenStudent,
                 ))}
                 <th scope="col" rowSpan={2} className="num">Initial</th>
                 <th scope="col" rowSpan={2} className="num">Grade</th>
+                {check.recordedCount > 0 && (
+                  <th scope="col" rowSpan={2} className="num" title="The grade the server recorded at submission">
+                    Filed
+                  </th>
+                )}
                 <th scope="col" rowSpan={2}>Remark</th>
               </tr>
               <tr>
                 {parents.map((c) => (
-                  <>
-                    <th scope="col" className="num sub-th" key={`${c.componentId}-ps`}>PS</th>
-                    <th scope="col" className="num sub-th" key={`${c.componentId}-ws`}>WS</th>
-                  </>
+                  // Keyed on the Fragment, which is what this map
+                  // returns; a key on the children inside is invisible
+                  // to React's list reconciliation.
+                  <Fragment key={c.componentId}>
+                    <th scope="col" className="num sub-th">PS</th>
+                    <th scope="col" className="num sub-th">WS</th>
+                  </Fragment>
                 ))}
               </tr>
             </thead>
@@ -114,14 +189,14 @@ export function RecordBookSummary({ cls, period, yearLabel, data, onOpenStudent,
                     )}
                   </th>
                   {r.components.map((c) => (
-                    <>
-                      <td className="num mono" key={`${c.componentId}-ps`}>
+                    <Fragment key={c.componentId}>
+                      <td className="num mono">
                         {c.percentageScore ?? <span className="faint">—</span>}
                       </td>
-                      <td className="num mono" key={`${c.componentId}-ws`}>
+                      <td className="num mono">
                         {c.weightedScore ?? <span className="faint">—</span>}
                       </td>
-                    </>
+                    </Fragment>
                   ))}
                   <td className="num mono">{r.initialGrade ?? <span className="faint">—</span>}</td>
                   <td className="num mono">
@@ -131,6 +206,25 @@ export function RecordBookSummary({ cls, period, yearLabel, data, onOpenStudent,
                       </span>
                     )}
                   </td>
+                  {check.recordedCount > 0 && (() => {
+                    const filed = byLearner.get(r.classEnrollmentId);
+                    return (
+                      <td className="num mono">
+                        {filed?.recorded == null ? (
+                          <span className="faint" title="No grade on file for this learner">—</span>
+                        ) : (
+                          <>
+                            {filed.recorded.periodGrade}
+                            {filed.stale && (
+                              <span className="tbl-sub" data-warn="true">
+                                now {filed.recomputed ?? '—'}
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </td>
+                    );
+                  })()}
                   <td>
                     {r.descriptor ?? <span className="faint">—</span>}
                     {r.remark && <span className="tbl-sub">{r.remark}</span>}

@@ -117,6 +117,23 @@ export default function App() {
     [source, route.classId, activePeriod, revision],
   );
 
+  /**
+   * The grades the SERVER has recorded for this class and period.
+   *
+   * Loaded alongside the gradebook rather than derived from it, because
+   * these two answer different questions: the gradebook is what the
+   * scores are now, this is what was certified. `revision` is in the
+   * dependency list so a submission refreshes it — the whole point is
+   * that the Summary tab stops showing only a browser calculation the
+   * moment a real grade exists.
+   */
+  const [recordedState] = useAsync(
+    () => (route.classId && activePeriod
+      ? source.getPeriodGrades(route.classId, activePeriod)
+      : Promise.resolve({})),
+    [source, route.classId, activePeriod, revision],
+  );
+
   /* ---- navigation -------------------------------------------------- */
   const go = useCallback((id: RouteId, extra?: Partial<Route>) => {
     setRoute({ id, ...extra });
@@ -306,6 +323,7 @@ export default function App() {
             onPeriodChange={setPeriodId}
             gradebook={gradebookState}
             retryGradebook={retryGradebook}
+            recorded={recordedState}
             onSaveScores={source.saveScores}
             onBack={() => go('classes')}
             validateSubmission={source.validateSubmission}

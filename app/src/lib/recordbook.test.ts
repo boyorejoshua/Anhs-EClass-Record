@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { analytics, loaReport, summaryRows, PROFICIENCY_BANDS } from './recordbook';
+import {
+  analytics, loaReport, reconcileRecorded, summaryRows, PROFICIENCY_BANDS,
+} from './recordbook';
 import { compute } from './grading';
 import { DO015_CORE } from './grading/fixtures';
-import type { GradebookData } from '../data/types';
+import type { GradebookData, PersistedGrade } from '../data/types';
 import type { Assessment, GradingScheme } from './grading';
 
 /* ------------------------------------------------------------------ *
@@ -309,5 +311,113 @@ describe('LOA — Level of Achievement', () => {
     const hp = loa.sections[0]!.bands.find((b) => b.key === 'hp')!;
     expect(hp.count).toBe(1);
     expect(hp.percent).toBe(50);     // 1 of 2 learners, not 1 of 1 scored
+  });
+});
+
+describe('recorded vs. live grades', () => {
+  /** A grade as the server would have stored it for this learner. */
+  const stored = (grade: number, at = '2026-08-22T10:00:00Z'): PersistedGrade => ({
+    initialGrade: grade, periodGrade: grade,
+    descriptor: null, remark: null, passed: grade >= 75,
+    computedAt: at, computedMode: 'final', version: 1, componentBreakdown: null,
+  });
+
+  it('reports nothing recorded before a period has ever been submitted', () => {
+    const r = reconcileRecorded(gradebook({ a: FULL, b: MID }), {});
+    expect(r.recordedCount).toBe(0);
+    expect(r.complete).toBe(false);
+    expect(r.staleCount).toBe(0);
+    expect(r.rows.every((x) => x.recorded === null)).toBe(true);
+  });
+
+  it('matches the server when the scores have not moved since submission', () => {
+    const gb = gradebook({ a: FULL, b: MID });
+    const live = reconcileRecorded(gb, {});
+    const asStored = Object.fromEntries(
+      live.rows.map((x) => [x.classEnrollmentId, stored(x.recomputed!)]),
+    );
+    const r = reconcileRecorded(gb, asStored);
+    expect(r.recordedCount).toBe(2);
+    expect(r.staleCount).toBe(0);
+    expect(r.complete).toBe(true);
+    expect(r.computedAt).toBe('2026-08-22T10:00:00Z');
+  });
+
+  it('flags a recorded grade the current scores no longer produce', () => {
+    // The registrar is looking at 87. Someone has since changed a mark.
+    const gb = gradebook({ a: MID });
+    const r = reconcileRecorded(gb, { a: stored(60) });
+    expect(r.staleCount).toBe(1);
+    expect(r.rows[0]!.recorded!.periodGrade).toBe(60);
+    expect(r.rows[0]!.recomputed).not.toBe(60);
+  });
+
+  it('does NOT flag the running/final difference as staleness', () => {
+    // This is the trap. Mid-term, the Summary tab shows a RUNNING grade
+    // that ignores the unscored exam, while the recorded grade counted
+    // it as zero. Those two numbers differ by design, and a naive
+    // comparison would mark every mid-term class as drifted.
+    const partial = { ww1: 20, ww2: 30, pt1: 40, pt2: 60 };  // qa1 unscored
+    const gb = gradebook({ a: partial });
+
+    const running = summaryRows(gb)[0]!.periodGrade;
+    const final = reconcileRecorded(gb, {}).rows[0]!.recomputed;
+    expect(running).not.toBe(final);   // the modes really do disagree
+
+    // The server recorded the FINAL number, so nothing is stale.
+    const r = reconcileRecorded(gb, { a: stored(final!) });
+    expect(r.staleCount).toBe(0);
+  });
+
+  it('withholds a single computed-at when the grades came from two runs', () => {
+    const gb = gradebook({ a: FULL, b: MID });
+    const live = reconcileRecorded(gb, {});
+    const [a, b] = live.rows;
+    const r = reconcileRecorded(gb, {
+      a: stored(a!.recomputed!, '2026-08-20T09:00:00Z'),
+      b: stored(b!.recomputed!, '2026-08-22T10:00:00Z'),
+    });
+    expect(r.computedAt).toBeNull();
+    expect(r.recordedCount).toBe(2);
+  });
+
+  it('is incomplete when a learner joined after the grades were computed', () => {
+    const gb = gradebook({ a: FULL, b: MID });
+    const r = reconcileRecorded(gb, { a: stored(100) });
+    expect(r.complete).toBe(false);
+    expect(r.recordedCount).toBe(1);
+    // The new learner is present, with nothing on file — not omitted.
+    expect(r.rows).toHaveLength(2);
+    expect(r.rows[1]!.recorded).toBeNull();
+  });
+});
+
+describe('the running/final gap is reported, not hidden', () => {
+  const stored = (grade: number): PersistedGrade => ({
+    initialGrade: grade, periodGrade: grade, descriptor: null, remark: null,
+    passed: grade >= 75, computedAt: '2026-08-22T10:00:00Z',
+    computedMode: 'final', version: 1, componentBreakdown: null,
+  });
+
+  it('flags the gap when work is still unscored', () => {
+    // The Summary table shows the running grade; the Filed column shows
+    // the recorded one. With an unscored exam those are two different
+    // numbers on the same row, which reads as a bug unless it is
+    // explained.
+    const gb = gradebook({ a: { ww1: 20, ww2: 30, pt1: 40, pt2: 60 } });
+    const final = reconcileRecorded(gb, {}).rows[0]!.recomputed!;
+    const r = reconcileRecorded(gb, { a: stored(final) });
+    expect(r.runningDiffers).toBe(true);
+    expect(r.staleCount).toBe(0);   // still not stale — just two modes
+  });
+
+  it('does not flag a gap once every assessment is scored', () => {
+    const gb = gradebook({ a: FULL });
+    const final = reconcileRecorded(gb, {}).rows[0]!.recomputed!;
+    expect(reconcileRecorded(gb, { a: stored(final) }).runningDiffers).toBe(false);
+  });
+
+  it('reports no gap when nothing has been filed', () => {
+    expect(reconcileRecorded(gradebook({ a: {} }), {}).runningDiffers).toBe(false);
   });
 });

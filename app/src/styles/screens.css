@@ -143,7 +143,14 @@
   border-radius: var(--r-panel); padding: 14px 16px; margin-bottom: 16px;
   background: var(--panel);
 }
-.callout[data-tone="warn"] { border-left-color: var(--warning); }
+.callout[data-tone="warn"] { border-left-color: var(--warning); background: var(--warning-tint); }
+.callout[data-tone="info"] { border-left-color: var(--info); background: var(--info-tint); }
+.callout[data-tone="ok"]   { border-left-color: var(--success); background: var(--success-tint); }
+/* A one-line provenance banner, not a boxed warning: same colour
+   language as the callouts, a fraction of the weight. */
+.callout[data-inline="true"] {
+  padding: 9px 12px; font-size: 12.5px; line-height: 1.5; margin-bottom: 12px;
+}
 .callout b { font-size: 13.5px; }
 .callout ul { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
 .callout li { display: flex; align-items: center; gap: 10px; font-size: 13px; }

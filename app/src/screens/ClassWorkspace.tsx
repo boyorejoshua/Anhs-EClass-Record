@@ -1,7 +1,7 @@
-import { useCallback, useState } from 'react';
+import { Fragment, useCallback, useState } from 'react';
 import type {
   AcademicYear, AttendanceDay, AttendanceMark, ClassStudent, ClassSummary,
-  GradebookData, ValidationReport,
+  GradebookData, PersistedGrade, ValidationReport,
 } from '../data/types';
 import type { ScoreEdit } from '../data/source';
 import { StatusBadge } from '../components/StatusBadge';
@@ -29,6 +29,8 @@ interface Props {
   onPeriodChange: (id: string) => void;
   gradebook: AsyncState<GradebookData>;
   retryGradebook: () => void;
+  /** What the server recorded at submission; empty until one has run. */
+  recorded: AsyncState<Record<string, PersistedGrade>>;
   onSaveScores: (edits: ScoreEdit[]) => Promise<{ written: number }>;
   onBack: () => void;
   /* data-layer calls, passed in so this screen never imports a source */
@@ -55,7 +57,7 @@ interface Props {
 export function ClassWorkspace(props: Props) {
   const {
     cls, year, periodId, tab, onTabChange, onPeriodChange, gradebook, retryGradebook,
-    onSaveScores, onBack, validateSubmission, submitGrades, loadStudents,
+    recorded, onSaveScores, onBack, validateSubmission, submitGrades, loadStudents,
     loadAttendance, saveAttendance, onWorkflowChange, saveAssessments,
   } = props;
 
@@ -156,7 +158,11 @@ export function ClassWorkspace(props: Props) {
 
           <div className="tabs" role="tablist">
             {CLASS_TABS.map((t, i) => (
-              <>
+              // The key belongs on the FRAGMENT, which is the element
+              // this map returns. It used to sit on the <button> inside,
+              // which React does not see as the list item — so every tab
+              // re-keyed on each render.
+              <Fragment key={t.key}>
                 {/* A visual seam around the Record Book group, so the six
                     legacy sub-tabs read as one workflow rather than ten
                     peers. */}
@@ -164,7 +170,6 @@ export function ClassWorkspace(props: Props) {
                   <span className="tab-group-label" aria-hidden="true">Record book</span>
                 )}
                 <button
-                  key={t.key}
                   role="tab"
                   id={`tab-${t.key}`}
                   data-group={t.group}
@@ -177,7 +182,7 @@ export function ClassWorkspace(props: Props) {
                     <span className="tab-count" title={`${missing} missing scores`}>{missing}</span>
                   )}
                 </button>
-              </>
+              </Fragment>
             ))}
           </div>
         </div>
@@ -217,6 +222,7 @@ export function ClassWorkspace(props: Props) {
             ) : (
               <RecordBookSummary
                 cls={cls} period={period} yearLabel={year.label} data={g}
+                recorded={recorded.status === 'ready' ? recorded.data : {}}
                 onOpenStudent={setDetail}
                 onGoGradebook={() => onTabChange('setup')}
               />
