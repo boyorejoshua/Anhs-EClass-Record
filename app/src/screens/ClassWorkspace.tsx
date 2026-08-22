@@ -1,12 +1,18 @@
-import { useCallback, useState } from 'react';
+import { Fragment, useCallback, useState } from 'react';
 import type {
-  AcademicYear, AttendanceDay, AttendanceMark, ClassStudent, ClassSummary,
-  GradebookData, ValidationReport,
+  AcademicPeriod, AcademicYear, AttendanceDay, AttendanceMark, ClassStudent, ClassSummary,
+  GradebookData, PersistedGrade, ValidationReport,
 } from '../data/types';
 import type { ScoreEdit } from '../data/source';
 import { StatusBadge } from '../components/StatusBadge';
-import { Async, ErrorState, Loading } from '../components/Async';
+import { Async, ErrorState, Loading, useAsync } from '../components/Async';
 import { Gradebook } from './Gradebook';
+import { RecordBookSummary, RecordBookAnalytics, RecordBookLoa } from './RecordBook';
+import { RecordBookSetup } from './RecordBookSetup';
+import { StudentDetail } from './StudentDetail';
+import type { SummaryRow } from '../lib/recordbook';
+import type { CohortSection } from '../lib/loa';
+import type { AssessmentDraft } from '../data/source';
 import { ClassSubmission } from './ClassSubmission';
 import { ClassAttendance } from './ClassAttendance';
 import { ClassStudents } from './ClassStudents';
@@ -24,15 +30,51 @@ interface Props {
   onPeriodChange: (id: string) => void;
   gradebook: AsyncState<GradebookData>;
   retryGradebook: () => void;
+  /** What the server recorded at submission; empty until one has run. */
+  recorded: AsyncState<Record<string, PersistedGrade>>;
   onSaveScores: (edits: ScoreEdit[]) => Promise<{ written: number }>;
   onBack: () => void;
   /* data-layer calls, passed in so this screen never imports a source */
   validateSubmission: (classId: string, periodId: string) => Promise<ValidationReport>;
   submitGrades: (classId: string, periodId: string, ack: boolean) => Promise<void>;
   loadStudents: (classId: string) => Promise<ClassStudent[]>;
+  saveAssessments: (
+    classId: string, periodId: string, items: AssessmentDraft[],
+  ) => Promise<{ written: number; removed: number }>;
   loadAttendance: (classId: string, date: string) => Promise<AttendanceDay>;
   saveAttendance: (classId: string, date: string, marks: AttendanceMark[]) => Promise<{ written: number }>;
   onWorkflowChange: () => void;
+  loadLoaCohort: (
+    academicYearId: string, classId: string, periodId: string,
+  ) => Promise<CohortSection[]>;
+}
+
+/**
+ * The LOA report spans every section of this subject the teacher
+ * carries, so it needs its own fetch — the workspace's gradebook is one
+ * class. Loaded only when the tab is open: on a teacher with ten
+ * sections this is ten round trips, and paying them to render a tab
+ * nobody clicked would be rude.
+ */
+function LoaTab({ cls, period, yearLabel, yearId, load, onGoGradebook }: {
+  cls: ClassSummary; period: AcademicPeriod; yearLabel: string; yearId: string;
+  load: (y: string, c: string, p: string) => Promise<CohortSection[]>;
+  onGoGradebook: () => void;
+}) {
+  const [state, retry] = useAsync(
+    () => load(yearId, cls.id, period.id),
+    [load, yearId, cls.id, period.id],
+  );
+  return (
+    <Async state={state} retry={retry} rows={6}>
+      {(cohort) => (
+        <RecordBookLoa
+          cls={cls} period={period} yearLabel={yearLabel} cohort={cohort}
+          onGoGradebook={onGoGradebook}
+        />
+      )}
+    </Async>
+  );
 }
 
 /**
@@ -47,11 +89,16 @@ interface Props {
 export function ClassWorkspace(props: Props) {
   const {
     cls, year, periodId, tab, onTabChange, onPeriodChange, gradebook, retryGradebook,
-    onSaveScores, onBack, validateSubmission, submitGrades, loadStudents,
-    loadAttendance, saveAttendance, onWorkflowChange,
+    recorded, onSaveScores, onBack, validateSubmission, submitGrades, loadStudents,
+    loadLoaCohort,
+    loadAttendance, saveAttendance, onWorkflowChange, saveAssessments,
   } = props;
 
   const [exportOpen, setExportOpen] = useState(false);
+  // Which learner the Summary drilled into. Cleared whenever the tab or
+  // the period changes, so it can never show one period's breakdown under
+  // another period's heading.
+  const [detail, setDetail] = useState<SummaryRow | null>(null);
   const status = displayStatus(cls, periodId);
   const period = year.periods.find((p) => p.id === periodId);
   const done = cls.completeness[periodId];
@@ -143,20 +190,32 @@ export function ClassWorkspace(props: Props) {
           </div>
 
           <div className="tabs" role="tablist">
-            {CLASS_TABS.map((t) => (
-              <button
-                key={t.key}
-                role="tab"
-                id={`tab-${t.key}`}
-                aria-selected={tab === t.key}
-                aria-controls={`panel-${t.key}`}
-                onClick={() => onTabChange(t.key)}
-              >
-                {t.label}
-                {t.key === 'submission' && missing > 0 && (
-                  <span className="tab-count" title={`${missing} missing scores`}>{missing}</span>
+            {CLASS_TABS.map((t, i) => (
+              // The key belongs on the FRAGMENT, which is the element
+              // this map returns. It used to sit on the <button> inside,
+              // which React does not see as the list item — so every tab
+              // re-keyed on each render.
+              <Fragment key={t.key}>
+                {/* A visual seam around the Record Book group, so the six
+                    legacy sub-tabs read as one workflow rather than ten
+                    peers. */}
+                {t.group === 'record-book' && CLASS_TABS[i - 1]?.group !== 'record-book' && (
+                  <span className="tab-group-label" aria-hidden="true">Record book</span>
                 )}
-              </button>
+                <button
+                  role="tab"
+                  id={`tab-${t.key}`}
+                  data-group={t.group}
+                  aria-selected={tab === t.key}
+                  aria-controls={`panel-${t.key}`}
+                  onClick={() => { setDetail(null); onTabChange(t.key); }}
+                >
+                  {t.label}
+                  {t.key === 'submission' && missing > 0 && (
+                    <span className="tab-count" title={`${missing} missing scores`}>{missing}</span>
+                  )}
+                </button>
+              </Fragment>
             ))}
           </div>
         </div>
@@ -167,10 +226,60 @@ export function ClassWorkspace(props: Props) {
           <Overview cls={cls} periodId={periodId} periodName={period?.name ?? ''} onGo={onTabChange} />
         )}
 
+        {tab === 'setup' && period && (
+          <Async state={gradebook} retry={retryGradebook} rows={6}>
+            {(g) => (
+              <RecordBookSetup
+                cls={cls} period={period} yearLabel={year.label} data={g} status={status}
+                save={(items) => saveAssessments(cls.id, periodId, items)}
+                onSaved={onWorkflowChange}
+              />
+            )}
+          </Async>
+        )}
+
         {tab === 'gradebook' && (
           <Async state={gradebook} retry={retryGradebook} rows={8}>
             {(g) => <Gradebook data={g} onSaveScores={onSaveScores} />}
           </Async>
+        )}
+
+        {tab === 'summary' && period && (
+          <Async state={gradebook} retry={retryGradebook} rows={8}>
+            {(g) => (detail ? (
+              <StudentDetail
+                cls={cls} period={period} yearLabel={year.label} data={g} row={detail}
+                onBack={() => setDetail(null)}
+                onGoGradebook={() => { setDetail(null); onTabChange('gradebook'); }}
+              />
+            ) : (
+              <RecordBookSummary
+                cls={cls} period={period} yearLabel={year.label} data={g}
+                recorded={recorded.status === 'ready' ? recorded.data : {}}
+                onOpenStudent={setDetail}
+                onGoGradebook={() => onTabChange('setup')}
+              />
+            ))}
+          </Async>
+        )}
+
+        {tab === 'analytics' && period && (
+          <Async state={gradebook} retry={retryGradebook} rows={6}>
+            {(g) => (
+              <RecordBookAnalytics
+                cls={cls} period={period} data={g}
+                onGoGradebook={() => onTabChange('setup')}
+              />
+            )}
+          </Async>
+        )}
+
+        {tab === 'loa' && period && (
+          <LoaTab
+            cls={cls} period={period} yearLabel={year.label} yearId={year.id}
+            load={loadLoaCohort}
+            onGoGradebook={() => onTabChange('setup')}
+          />
         )}
 
         {tab === 'attendance' && (

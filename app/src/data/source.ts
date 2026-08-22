@@ -13,10 +13,11 @@
  */
 import type {
   AttendanceDay, AttendanceMark, ClassStudent, ClassSummary, DirectoryStudent,
-  GradebookData, StudentGradeRow, StudentHistoryRow, StudentProfile, SubmissionRow,
-  ValidationReport,
+  GradebookData, PersistedGrade, StudentGradeRow, StudentHistoryRow, StudentProfile,
+  SubmissionRow, ValidationReport,
 } from './types';
 import type { Sf10Payload } from './sf10';
+import type { CohortSection } from '../lib/loa';
 
 export interface SessionUser {
   id: string;
@@ -63,6 +64,16 @@ export interface SessionContext {
   settings: Record<string, unknown>;
 }
 
+/** One assessment column as the Setup screen edits it. */
+export interface AssessmentDraft {
+  /** Absent for a newly added item; the server assigns one. */
+  id?: string;
+  componentId: string;
+  ordinal: number;
+  title: string | null;
+  highestPossibleScore: number;
+}
+
 export interface ScoreEdit {
   assessmentId: string;
   classEnrollmentId: string;
@@ -98,6 +109,34 @@ export interface DataSource {
    * refuses an illegal transition. None of them is a client-side status
    * change: a modified client cannot skip a state.
    * ------------------------------------------------------------------ */
+  /** Replaces the assessment configuration for one class and period. */
+  saveAssessments(
+    classId: string, periodId: string, items: AssessmentDraft[],
+  ): Promise<{ written: number; removed: number }>;
+
+  /**
+   * The grades the server has actually recorded for this class and
+   * period, keyed by class-enrolment id. Empty until a submission has
+   * run — a period whose grades were never computed genuinely has none,
+   * and the screens say so rather than quietly substituting a
+   * browser-side figure.
+   */
+  getPeriodGrades(classId: string, periodId: string): Promise<Record<string, PersistedGrade>>;
+
+  /**
+   * Every class section this user teaches with the same subject and
+   * grade level as `classId` — the sections one LOA report covers.
+   *
+   * The report is filed per subject across sections, not per class, so a
+   * teacher carrying four sections of Grade 7 English files one sheet.
+   * Row-level security decides the list: a teacher sees only their own
+   * sections, so the report cannot become a way to read a colleague's
+   * class by asking for a wider cohort.
+   */
+  getLoaCohort(
+    academicYearId: string, classId: string, periodId: string,
+  ): Promise<CohortSection[]>;
+
   validateSubmission(classId: string, periodId: string): Promise<ValidationReport>;
   submitGrades(classId: string, periodId: string, acknowledgeWarnings: boolean): Promise<void>;
   getSubmissionQueue(academicYearId: string): Promise<SubmissionRow[]>;

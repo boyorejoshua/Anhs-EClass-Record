@@ -11,13 +11,31 @@
  * a way around the policies.
  */
 import { requireSupabase } from '../lib/supabase';
-import type { DataSource, ScoreEdit, SessionContext } from './source';
+import type { AssessmentDraft, DataSource, ScoreEdit, SessionContext } from './source';
 import type {
   AttendanceDay, ClassStudent, ClassSummary, DirectoryStudent,
-  GradebookData, StudentGradeRow, StudentHistoryRow, StudentProfile, SubmissionRow,
-  ValidationReport,
+  GradebookData, PersistedGrade, StudentGradeRow, StudentHistoryRow, StudentProfile,
+  SubmissionRow, ValidationReport,
 } from './types';
 import type { Sf10Payload } from './sf10';
+
+/**
+ * `functions.invoke` throws away the response body on a non-2xx and
+ * hands back only "Edge Function returned a non-2xx status code". The
+ * function puts a teacher-readable sentence in that body, so dig it out
+ * rather than showing the wrapper's text.
+ */
+async function readFunctionError(error: unknown): Promise<string | null> {
+  const ctx = (error as { context?: unknown })?.context;
+  if (ctx instanceof Response) {
+    try {
+      const body = await ctx.clone().json();
+      if (typeof body?.error === 'string') return body.error;
+    } catch { /* body was not JSON; fall through */ }
+  }
+  const message = error instanceof Error ? error.message : null;
+  return message && !/non-2xx/i.test(message) ? message : null;
+}
 
 /** Supabase surfaces Postgres errors verbatim; make them readable first. */
 function fail(where: string, error: { message: string; code?: string } | null): never {
@@ -26,7 +44,9 @@ function fail(where: string, error: { message: string; code?: string } | null): 
 }
 
 export function createSupabaseSource(): DataSource {
-  return {
+  // Named so methods can call each other. A method reached as
+  // `source.getLoaCohort` and then invoked detached has no `this`.
+  const src: DataSource = {
     kind: 'supabase',
 
     async getSession() {
@@ -155,6 +175,14 @@ export function createSupabaseSource(): DataSource {
 
     /* ---- the grade workflow ---------------------------------------- */
 
+    async saveAssessments(classId, periodId, items: AssessmentDraft[]) {
+      const { data, error } = await requireSupabase().rpc('save_assessments', {
+        p_class_id: classId, p_period_id: periodId, p_items: items,
+      });
+      if (error) fail('Saving the record book setup', error);
+      return (data ?? { written: 0, removed: 0 }) as { written: number; removed: number };
+    },
+
     async validateSubmission(classId, periodId) {
       const { data, error } = await requireSupabase()
         .rpc('validate_submission', { p_class_id: classId, p_period_id: periodId });
@@ -162,13 +190,69 @@ export function createSupabaseSource(): DataSource {
       return data as ValidationReport;
     },
 
+    /**
+     * Submission goes through the Edge Function, not straight to
+     * `submit_grades`.
+     *
+     * The browser has been computing grades all along for immediate
+     * feedback, but a number that only ever existed in a React state
+     * tree is not a record. `compute-period-grades` reads the scores
+     * back out of the database under this teacher's own RLS,
+     * recomputes with the same engine module this file's screens use,
+     * writes the result to `period_grades` as service_role — the only
+     * role with that privilege — and then calls `submit_grades` as the
+     * caller so the state machine, the permission check and the audit
+     * row all stay real.
+     *
+     * Nothing computed here is sent. The payload is two ids.
+     */
     async submitGrades(classId, periodId, acknowledgeWarnings) {
-      const { error } = await requireSupabase().rpc('submit_grades', {
-        p_class_id: classId,
-        p_period_id: periodId,
-        p_acknowledge_warnings: acknowledgeWarnings,
-      });
-      if (error) fail('Submitting grades', error);
+      const { data, error } = await requireSupabase().functions.invoke(
+        'compute-period-grades',
+        { body: { classId, periodId, submit: true, acknowledgeWarnings } },
+      );
+
+      // functions.invoke reports a non-2xx as a generic FunctionsHttpError
+      // and puts the real explanation in the response body. Reading it is
+      // the difference between "This period has been finalized" and
+      // "Edge Function returned a non-2xx status code".
+      if (error) {
+        const detail = await readFunctionError(error);
+        throw new Error(detail ?? 'Submitting grades failed. Please try again.');
+      }
+      const result = data as { ok?: boolean; error?: string } | null;
+      if (!result?.ok) throw new Error(result?.error ?? 'Submitting grades failed.');
+    },
+
+    /**
+     * N+1 by design, and deliberately so: it reuses `classes` and
+     * `gradebook`, both already RLS-checked contracts, instead of adding
+     * a wider SQL function that would need its own isolation proof. N is
+     * the number of sections one teacher carries of one subject — four
+     * or five, occasionally ten. A dedicated contract is worth writing
+     * when that stops being true, not before.
+     */
+    async getLoaCohort(academicYearId, classId, periodId) {
+      const all = await src.getClasses(academicYearId);
+      const self = all.find((c) => c.id === classId);
+      if (!self) return [];
+
+      const peers = all
+        .filter((c) => c.subjectCode === self.subjectCode && c.gradeLevel === self.gradeLevel)
+        .sort((a, b) => a.section.localeCompare(b.section));
+
+      return Promise.all(peers.map(async (c) => ({
+        classId: c.id,
+        label: `${c.gradeLevel} – ${c.section}`,
+        data: await src.getGradebook(c.id, periodId),
+      })));
+    },
+
+    async getPeriodGrades(classId, periodId) {
+      const { data, error } = await requireSupabase()
+        .rpc('period_grades_for', { p_class_id: classId, p_period_id: periodId });
+      if (error) fail('Loading the recorded grades', error);
+      return (data ?? {}) as Record<string, PersistedGrade>;
     },
 
     async getSubmissionQueue(academicYearId) {
@@ -226,6 +310,8 @@ export function createSupabaseSource(): DataSource {
       return (data ?? []) as StudentHistoryRow[];
     },
   };
+
+  return src;
 }
 
 // Local helper so onAuthChange can no-op when unconfigured.

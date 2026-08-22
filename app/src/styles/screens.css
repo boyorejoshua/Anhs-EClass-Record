@@ -143,7 +143,14 @@
   border-radius: var(--r-panel); padding: 14px 16px; margin-bottom: 16px;
   background: var(--panel);
 }
-.callout[data-tone="warn"] { border-left-color: var(--warning); }
+.callout[data-tone="warn"] { border-left-color: var(--warning); background: var(--warning-tint); }
+.callout[data-tone="info"] { border-left-color: var(--info); background: var(--info-tint); }
+.callout[data-tone="ok"]   { border-left-color: var(--success); background: var(--success-tint); }
+/* A one-line provenance banner, not a boxed warning: same colour
+   language as the callouts, a fraction of the weight. */
+.callout[data-inline="true"] {
+  padding: 9px 12px; font-size: 12.5px; line-height: 1.5; margin-bottom: 12px;
+}
 .callout b { font-size: 13.5px; }
 .callout ul { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
 .callout li { display: flex; align-items: center; gap: 10px; font-size: 13px; }
@@ -314,4 +321,96 @@
   .row-actions { justify-content: flex-start; flex-wrap: wrap; }
   .sub-grid { grid-template-columns: 1fr; }
   .menu { right: auto; left: 0; min-width: 240px; }
+}
+
+/* --- record book ---------------------------------------------------------- */
+
+.tab-group-label {
+  align-self: center; margin: 0 2px 0 10px; padding-left: 10px;
+  border-left: 1px solid var(--border);
+  font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--faint); white-space: nowrap;
+}
+.tabs [role="tab"][data-group="record-book"] { font-weight: 600; }
+
+.sub-th { font-size: 10px !important; color: var(--faint) !important; }
+
+.setup-totals {
+  display: flex; flex-wrap: wrap; gap: 14px;
+  font-size: 12px; color: var(--muted);
+}
+.save-ok { color: var(--success); font-size: 13px; align-self: center; }
+
+/* --- distribution chart ----------------------------------------------------
+   A bar per band. Deliberately CSS rather than a charting library: it is
+   seven rows, it must print, and it must respond to the theme tokens. */
+
+.dist { display: grid; gap: 8px; }
+.dist-row { display: flex; align-items: center; gap: 10px; }
+.dist-label { font-size: 12px; color: var(--muted); min-width: 62px; }
+.dist-track {
+  flex: 1; height: 18px; border-radius: var(--r-sm);
+  background: var(--panel-alt); overflow: hidden;
+}
+.dist-track > span {
+  display: block; height: 100%; background: var(--accent);
+  border-radius: var(--r-sm);
+  transition: width var(--dur-base) var(--ease);
+}
+.dist-track > span[data-low="true"] { background: var(--error); }
+.dist-count { font-size: 12px; min-width: 24px; text-align: right; }
+@media (prefers-reduced-motion: reduce) { .dist-track > span { transition: none; } }
+
+/* Printing an LOA report is the point of it — it is filed on paper. */
+@media print {
+  .sidebar, .topbar, .tabs, .seg, .menu-wrap, .link-back,
+  .btn, .tab-group-label { display: none !important; }
+  .panel { border: 1px solid #999; break-inside: avoid; }
+  .page { padding: 0; }
+}
+
+/* --- LOA summary tables ---------------------------------------------- *
+ * Five wide tables stacked on one page. They are read by scanning down a
+ * column for the section that is behind, so the section label has to
+ * stay put while the bands scroll.
+ * --------------------------------------------------------------------- */
+
+.loa-table { margin-top: 22px; }
+.loa-table:first-of-type { margin-top: 8px; }
+
+.loa-title {
+  font-size: 12px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--muted);
+  margin: 0 0 8px; padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tbl.loa { font-size: 12px; }
+/* Five bands x (No., %) plus five statistics columns is a lot of
+   columns. Tighten the cells so a whole table fits a laptop without
+   horizontal scrolling; the wrap still scrolls when it cannot. */
+.tbl.loa th, .tbl.loa td { padding: 6px 9px; }
+.tbl.loa td.num { font-size: 11.5px; }
+/* "Number of Learners" is the widest heading and needs none of it. */
+.tbl.loa thead th[rowspan] { white-space: normal; max-width: 74px; line-height: 1.25; }
+.tbl.loa thead th[colspan] { white-space: normal; line-height: 1.25; }
+.tbl.loa th[colspan] {
+  text-align: center; border-left: 1px solid var(--border);
+}
+.tbl.loa .sub-th { font-weight: 500; color: var(--muted); }
+.tbl.loa th[scope="row"] {
+  position: sticky; left: 0; z-index: 1;
+  background: var(--panel); white-space: nowrap;
+}
+.tbl.loa tr[data-total] {
+  border-top: 2px solid var(--border);
+  font-weight: 600;
+}
+.tbl.loa tr[data-total] th[scope="row"] { background: var(--panel-alt-2); }
+.tbl.loa td[data-warn="true"] { color: var(--warning); font-weight: 600; }
+
+.loa-foot {
+  margin: 20px 0 0; padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 12px; color: var(--muted);
 }

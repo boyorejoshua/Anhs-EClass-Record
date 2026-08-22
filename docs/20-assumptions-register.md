@@ -95,7 +95,18 @@ This is the document to take to the first discovery meeting. Each row names an a
 | F13 | Are `Technical drawing` and `ICF` (seen on the sample) standing learning areas or one learner's electives? | Subject catalogue seeding | ⬜ |
 | F14 | SF10 page-2 continuation rules — how many scholastic blocks per page before overflow? | Template pagination | ⬜ |
 | F15 | Is a document number required on SF10, and in what format? ⚖️ | Numbering configuration | ⬜ |
+| F16 | **LOA proficiency bands** (0-24 / 25-49 / 50-74 / 75-89 / 90-100) | Rebanding every LOA report | ✅ **Confirmed** from the school's `CLASSRECORD_Template.xlsx`, and identical to the legacy JS |
+| F17 | **LOA seven-band descriptor scale** (≤74 / 75-79 / 80-84 / 85-89 / 90-94 / 95-97 / 98-100) used for Performance Tasks and Quarterly Grades | Rebanding two of the five LOA tables | 🟨 Taken from the same workbook, **but the school flagged that it may not be the current issuance**. Most likely of the two scales to have been revised. Ask the department coordinator. |
+| F18 | Is the supplied `CLASSRECORD_Template.xlsx` the version currently in use? | LOA layout, band scales, and the pre-test table | 🟨 The school supplied it "not totally sure if this is updated". Everything in `lib/loa.ts` derives from it. |
+| F19 | **The LOA pre-test / diagnostic table is not implemented** — a diagnostic sits outside the grading scheme and the data model has nowhere to put one | One of five LOA tables missing at filing time | ⬜ Ask whether the diagnostic is required on the filed sheet, and where its scores come from |
 
+> **F16–F19 came from a real artifact, not an inference.** The school
+> supplied its own `CLASSRECORD_Template.xlsx` (encrypted; password held
+> by the school). That settled the band thresholds and the transmutation
+> table outright — and confirmed the name is *Learning Outcomes
+> Assessment*, correcting two earlier readings. What it cannot settle is
+> whether the file itself is current.
+>
 > **F8 is quietly one of the most important rows in this register.** If a division office insists on the official Excel templates rather than system-generated equivalents, the document engine's value drops sharply and the product's pitch changes. Ask early.
 
 ## G · Data & migration
