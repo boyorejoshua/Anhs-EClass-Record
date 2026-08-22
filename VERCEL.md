@@ -62,8 +62,18 @@ now paused and has none of the V1 schema. The build succeeded, the
 bundle was the right size, and only the embedded URL was wrong. It was
 caught by grepping the deployed JavaScript, not by anything failing.
 
-Those variables have since been deleted, so `.env.production` is the
-single source again and `buildCommand` is a plain npm run.
+⚠️ **They are still set as of the last deploy.** They were reported
+deleted, but the very next production build embedded
+`aylaiatvrrownsqzlntc` again — so something still defines them, most
+likely a **Production**-scoped copy (Vercel scopes variables separately
+per Production / Preview / Development, and deleting one scope leaves
+the others). `app/scripts/vercel-build.sh` sources `.env.production`
+with `set -a` to override them until they are gone.
+
+The script now also **asserts** the built bundle contains the expected
+host and fails the build if not. That check is the one that was missing:
+a wrong backend produced a successful build of the right size, and only
+the embedded URL differed.
 
 **If a deploy ever behaves as though it is talking to the wrong
 database, check the built bundle before anything else:**
