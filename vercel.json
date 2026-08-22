@@ -1,11 +1,14 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "cd app && npm ci && VITE_DEMO_MODE=true npm run build && mkdir -p dist/legacy && cp -r ../index.html ../assets ../CHEATSHEET.html dist/legacy/",
+  "buildCommand": "cd app && npm ci && VITE_SUPABASE_URL=https://wxkxdqwhefezjfmysypa.supabase.co VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4a3hkcXdoZWZlempmbXlzeXBhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczODg3MDcsImV4cCI6MjEwMjk2NDcwN30.LhrSqzFbaHoj_ObN3h8A6yqpG41Lu6vO_YlgeqcgDss npm run build && mkdir -p dist/legacy && cp -r ../index.html ../assets ../CHEATSHEET.html dist/legacy/",
   "outputDirectory": "app/dist",
   "installCommand": "echo 'install runs inside buildCommand (no root package.json)'",
   "framework": null,
+  "redirects": [
+    { "source": "/legacy", "destination": "/legacy/", "permanent": false }
+  ],
   "rewrites": [
-    { "source": "/legacy", "destination": "/legacy/index.html" },
+    { "source": "/legacy/", "destination": "/legacy/index.html" },
     { "source": "/((?!legacy/).*)", "destination": "/index.html" }
   ]
 }
