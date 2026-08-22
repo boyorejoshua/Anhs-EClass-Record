@@ -108,6 +108,6 @@
  * surfaces and slightly larger radii.
  *
  * Alternative appearances (Comfortable, Dark) live in themes.css as
- * token overrides under [data-theme]. Every colour is painted
+ * token overrides under [data-appearance]. Every colour is painted
  * explicitly; nothing is left to inherit.
  */

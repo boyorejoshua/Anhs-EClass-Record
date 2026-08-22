@@ -63,6 +63,24 @@ a drop-in replacement returning the same types.
 Not built yet: attendance, submission workflow UI, registrar queue,
 student portal, document generation.
 
+## Staging build
+
+```bash
+npm run build:staging      # -> staging/index.html
+```
+
+Inlines the whole app into one self-contained HTML file — openable from
+disk, attachable to an email, publishable as a preview. Possible only
+because the app is currently client-side end to end; once it talks to
+Supabase this becomes a real deployment instead.
+
+Demo affordances are **on** in this build, because a reviewer needs the
+role switcher and the tenant toggle to reach every screen. It is not the
+build a school gets — `npm run build` is.
+
+The script fails loudly if the bundle ever contains a literal
+`</script>`, which would close the tag early and silently break the page.
+
 ## Verifying the app runs
 
 `npm run build && npm run preview`. Open a class from the dashboard to

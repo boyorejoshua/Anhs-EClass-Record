@@ -11,6 +11,13 @@
  *
  * "System" is not a third block: it resolves at runtime to either the
  * default or `dark` by reading prefers-color-scheme. See useAppearance.
+ *
+ * The attribute is `data-appearance`, NOT `data-appearance`, deliberately.
+ * Embedding hosts (preview frames, docs sites, artifact viewers) commonly
+ * stamp `data-appearance` on the root to express THEIR theme. Sharing that
+ * attribute means the host and the app fight over one value, and the app
+ * clearing its own preference would strip the host's. A distinct name
+ * removes the whole class of bug.
  */
 
 /* ══════════════════════════════════════════════════════════════════
@@ -19,7 +26,7 @@
  * as a preference because some users genuinely prefer it, but Refined
  * stays the default because density is what the grid is for.
  * ══════════════════════════════════════════════════════════════════ */
-:root[data-theme='comfortable'] {
+:root[data-appearance='comfortable'] {
   --app-bg:        #fbfbfc;
   --panel-alt:     #f8f9fb;
   --panel-alt-2:   #f6f7f9;
@@ -41,25 +48,25 @@
 
   --r-panel: 12px;
 }
-:root[data-theme='comfortable'] .sidebar { border-right: 1px solid var(--border); }
-:root[data-theme='comfortable'] .side-name,
-:root[data-theme='comfortable'] .side-user-name { color: var(--ink); }
-:root[data-theme='comfortable'] .side-link[aria-current='page'] {
+:root[data-appearance='comfortable'] .sidebar { border-right: 1px solid var(--border); }
+:root[data-appearance='comfortable'] .side-name,
+:root[data-appearance='comfortable'] .side-user-name { color: var(--ink); }
+:root[data-appearance='comfortable'] .side-link[aria-current='page'] {
   background: var(--accent-tint); color: var(--accent);
 }
-:root[data-theme='comfortable'] .side-link:hover { background: var(--panel-alt); }
-:root[data-theme='comfortable'] .side-avatar { background: var(--accent-tint); color: var(--accent); }
-:root[data-theme='comfortable'] .gb-name { height: 42px; }
-:root[data-theme='comfortable'] .gb-input { padding: 12px 6px; }
-:root[data-theme='comfortable'] .panel-head,
-:root[data-theme='comfortable'] .panel-body { padding: 18px 20px; }
+:root[data-appearance='comfortable'] .side-link:hover { background: var(--panel-alt); }
+:root[data-appearance='comfortable'] .side-avatar { background: var(--accent-tint); color: var(--accent); }
+:root[data-appearance='comfortable'] .gb-name { height: 42px; }
+:root[data-appearance='comfortable'] .gb-input { padding: 12px 6px; }
+:root[data-appearance='comfortable'] .panel-head,
+:root[data-appearance='comfortable'] .panel-body { padding: 18px 20px; }
 
 /* ══════════════════════════════════════════════════════════════════
  * DARK — full dark chrome
  * Genuinely useful for evening encoding and for projector demos in a
  * bright room, where a white grid glares.
  * ══════════════════════════════════════════════════════════════════ */
-:root[data-theme='dark'] {
+:root[data-appearance='dark'] {
   --ink:    #e8eaf0;
   --body:   #b6bcc9;
   --muted:  #8b93a3;
@@ -97,18 +104,18 @@
   --shadow-menu:   0 8px 28px rgba(0, 0, 0, .55);
   --shadow-dialog: 0 18px 48px rgba(0, 0, 0, .6);
 }
-:root[data-theme='dark'] .badge-finalized,
-:root[data-theme='dark'] .badge-published { color: #0f1116; }
+:root[data-appearance='dark'] .badge-finalized,
+:root[data-appearance='dark'] .badge-published { color: #0f1116; }
 
 /* A warm tint that reads correctly as a small badge becomes muddy olive
    when it fills a whole grid cell on a dark ground. Mark a missing score
    with an edge and a dimmed field instead of a wash — still fill plus
    text, never colour alone. */
-:root[data-theme='dark'] .gb td[data-state='missing'] .gb-input {
+:root[data-appearance='dark'] .gb td[data-state='missing'] .gb-input {
   background: rgba(224, 170, 90, .07);
   box-shadow: inset 2px 0 0 rgba(224, 170, 90, .55);
 }
-:root[data-theme='dark'] .gb td[data-state='over'] .gb-input {
+:root[data-appearance='dark'] .gb td[data-state='over'] .gb-input {
   background: rgba(232, 139, 146, .10);
   box-shadow: inset 2px 0 0 var(--error);
 }
@@ -116,7 +123,7 @@
 /* Print templates stay on white in every appearance — they are paper,
    not screen, and an SF10 must look the same however the operator has
    set their preference. */
-:root[data-theme='dark'] .sf10 {
+:root[data-appearance='dark'] .sf10 {
   --ink: #171a21; --body: #3c4250; --muted: #667085; --faint: #98a0af;
   --panel: #ffffff; --panel-alt: #fbfbfc; --border: #e3e6ec;
   --border-strong: #d7dbe3; --border-row: #f2f4f7;

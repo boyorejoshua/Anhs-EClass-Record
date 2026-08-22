@@ -40,8 +40,12 @@ export function useAppearance(): [Appearance, (a: Appearance) => void] {
 
       // Refined is the :root default, so it is the ABSENCE of the
       // attribute rather than a value.
-      if (resolved === 'refined') root.removeAttribute('data-theme');
-      else root.setAttribute('data-theme', resolved);
+      //
+      // `data-appearance`, not `data-theme`: embedding hosts stamp
+      // `data-theme` on the root for their own theme, and sharing the
+      // attribute would have the app and its host overwrite each other.
+      if (resolved === 'refined') root.removeAttribute('data-appearance');
+      else root.setAttribute('data-appearance', resolved);
     };
 
     // Transition colours only while the theme is actually changing.
