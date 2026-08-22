@@ -20,8 +20,8 @@ new app.
 
 V0 is kept deliberately. It is the most accurate record of how the
 school actually works, and it is still usable as a demo asset. Delete
-the `mkdir -p dist/legacy && cp ...` clause from `buildCommand` when it
-is no longer wanted.
+the `mkdir -p dist/legacy && cp ...` clause from the build script when
+it is no longer wanted.
 
 ### The trailing slash on `/legacy/` is load-bearing
 
@@ -44,11 +44,32 @@ The app is connected to Supabase project `wxkxdqwhefezjfmysypa`
 automatically for `vite build`.
 
 They are **not** in `buildCommand`: Vercel caps that field at 256
-characters and rejects the whole deployment if it is longer — the
-build never starts and the logs are empty, which is a confusing failure
-to diagnose. Keeping them in a file also means a local `npm run build`
-produces the same artifact as a deploy. Real environment variables set
-in the Vercel dashboard still take precedence over the file.
+characters and rejects the whole deployment if it is longer — the build
+never starts and the log is empty, which is a miserable failure to
+diagnose. Keeping them in a file also means a local `npm run build`
+produces the same artifact as a deploy.
+
+### ⚠️ Delete the stale dashboard variables
+
+The Vercel project has `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
+set in **Project → Settings → Environment Variables**, pointing at
+`aylaiatvrrownsqzlntc` — V0's old project, which is now **paused** and
+has none of the V1 schema.
+
+Vite gives real environment variables precedence over `.env` files, so
+those dashboard values silently won: the first Supabase-connected deploy
+shipped pointing at a dead backend. It was caught by grepping the
+deployed bundle, which contained that project's URL instead of ours —
+not by anything failing loudly.
+
+`app/scripts/vercel-build.sh` now sources `.env.production` with
+`set -a`, which makes the repo authoritative and beats the injected
+values. That is a workaround, not the destination.
+
+**Please delete those two dashboard variables.** Once they are gone,
+`buildCommand` can go back to a plain `cd app && npm ci && npm run build
+&& …` and dashboard precedence works the way it should — which is what
+you want the day this points at a production project.
 
 **The anon key belongs in the client.** It carries no authority: every
 table has `FORCE ROW LEVEL SECURITY`, and every policy derives the
