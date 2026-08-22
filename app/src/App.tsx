@@ -311,6 +311,7 @@ export default function App() {
             validateSubmission={source.validateSubmission}
             submitGrades={source.submitGrades}
             loadStudents={source.getClassStudents}
+            saveAssessments={source.saveAssessments}
             loadAttendance={source.getAttendance}
             saveAttendance={source.saveAttendance}
             onWorkflowChange={bumpRevision}

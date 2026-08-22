@@ -36,7 +36,8 @@ export type RouteId =
   | 'profile' | 'history';
 
 export type ClassTab =
-  | 'overview' | 'gradebook' | 'attendance' | 'students' | 'reports' | 'submission';
+  | 'overview' | 'setup' | 'gradebook' | 'summary' | 'analytics' | 'loa'
+  | 'attendance' | 'students' | 'reports' | 'submission';
 
 /**
  * Where the user is. `classId` and `tab` belong to the route rather than
@@ -168,10 +169,25 @@ export const ROLE_LABEL: Record<Role, string> = {
   student: 'Student',
 };
 
-/** The class workspace tabs, and whether each is built. */
-export const CLASS_TABS: Array<{ key: ClassTab; label: string; readiness: Readiness }> = [
+/**
+ * The class workspace tabs.
+ *
+ * `group` reproduces the legacy Record Book, which is one screen with
+ * its own sub-tabs (Setup · Grade Entry · Bulk Entry · Summary ·
+ * Analytics · LOA). Bulk Entry is absent on purpose: it was a separate
+ * legacy page, and here it is a MODE of the gradebook — paste a block
+ * from Excel and it fills the grid. A second page for it would be a
+ * worse version of a feature that already exists.
+ */
+export const CLASS_TABS: Array<{
+  key: ClassTab; label: string; readiness: Readiness; group?: 'record-book';
+}> = [
   { key: 'overview',   label: 'Overview',   readiness: 'ready' },
-  { key: 'gradebook',  label: 'Gradebook',  readiness: 'ready' },
+  { key: 'setup',      label: 'Setup',      readiness: 'ready', group: 'record-book' },
+  { key: 'gradebook',  label: 'Grade Entry', readiness: 'ready', group: 'record-book' },
+  { key: 'summary',    label: 'Summary',    readiness: 'ready', group: 'record-book' },
+  { key: 'analytics',  label: 'Analytics',  readiness: 'ready', group: 'record-book' },
+  { key: 'loa',        label: 'LOA',        readiness: 'ready', group: 'record-book' },
   { key: 'attendance', label: 'Attendance', readiness: 'ready' },
   { key: 'students',   label: 'Students',   readiness: 'ready' },
   { key: 'reports',    label: 'Reports',    readiness: 'ready' },

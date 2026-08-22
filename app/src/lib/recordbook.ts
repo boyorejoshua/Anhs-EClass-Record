@@ -1,0 +1,378 @@
+/**
+ * Record Book computations — Summary, Analytics and LOA.
+ *
+ * Business rules extracted from the legacy system
+ * (boyorejoshua/anhsgradingsystem, assets/js/main.js) and re-expressed
+ * against the new architecture. Nothing here is a copy: the legacy code
+ * reads a `cd.grades[q][studentName]` object and hard-codes
+ * `{ww:.30, pt:.50, qa:.20}`, whereas everything below runs on the
+ * configured grading scheme through the shared engine.
+ *
+ * Three things deliberately NOT carried across:
+ *
+ *   • **The weights.** Legacy `calcQ` hard-codes 30/50/20, which DO 015
+ *     s.2026 superseded (core 20/50/30, MAPEH/EPP-TLE 20/60/20). The
+ *     scheme decides.
+ *   • **The ten-item cap.** `Array(10).fill(null)` is a UI limit encoded
+ *     as a data structure.
+ *   • **`qa` as a scalar.** One quarterly assessment cannot express the
+ *     ST1 / ST2 / Term Exam split that DO 015 requires.
+ *
+ * And one thing that IS carried across exactly: the *shape* of the
+ * calculation — component percentage score, weighted score, initial
+ * grade, transmutation, period grade — which the new engine already
+ * implements identically. See docs/grading-calculation-validation.md.
+ */
+import { compute, flattenComponents } from './grading';
+import type { GradingScheme } from './grading';
+import type { GradebookData } from '../data/types';
+
+/* ------------------------------------------------------------------ *
+ * Per-student summary
+ * ------------------------------------------------------------------ */
+
+export interface ComponentCell {
+  componentId: string;
+  code: string;
+  name: string;
+  weight: number;
+  /** Percentage score, 0–100. Null when the component has nothing scored. */
+  percentageScore: number | null;
+  weightedScore: number | null;
+  scored: number;
+  total: number;
+}
+
+export interface SummaryRow {
+  classEnrollmentId: string;
+  studentId: string;
+  displayName: string;
+  components: ComponentCell[];
+  initialGrade: number | null;
+  periodGrade: number | null;
+  descriptor: string | null;
+  remark: string | null;
+  passed: boolean | null;
+  missingCount: number;
+  /** True when this learner has no score at all in the period. */
+  untouched: boolean;
+}
+
+/**
+ * One row per learner: the legacy Grade Summary table, computed from the
+ * scheme rather than from three fixed columns.
+ *
+ * Top-level components only. A scheme with a component tree (Exams →
+ * ST1/ST2/TE) is summarised at the parent, because that is the line the
+ * DepEd form carries — the children remain visible in the gradebook and
+ * in Student Detail.
+ */
+export function summaryRows(data: GradebookData): SummaryRow[] {
+  const { scheme, assessments, roster, scores } = data;
+  const parents = scheme.components
+    .filter((c) => c.parentId === null)
+    .sort((a, b) => a.ordinal - b.ordinal);
+  const leaves = flattenComponents(scheme.components);
+
+  // leaf -> the top-level ancestor it rolls up into
+  const rollup = new Map<string, string>();
+  for (const leaf of leaves) {
+    let node = scheme.components.find((c) => c.id === leaf.id);
+    while (node?.parentId) node = scheme.components.find((c) => c.id === node!.parentId);
+    rollup.set(leaf.id, node?.id ?? leaf.id);
+  }
+
+  return roster.map((s) => {
+    const row = scores[s.classEnrollmentId] ?? {};
+    const scoreList = assessments.map((a) => ({
+      assessmentId: a.id,
+      raw: row[a.id]?.raw ?? null,
+      isExcused: row[a.id]?.isExcused ?? false,
+    }));
+    const result = compute(scheme, assessments, scoreList);
+
+    const components: ComponentCell[] = parents.map((parent) => {
+      // Sum the engine's leaf results back up to the parent line.
+      const own = result.components.filter((c) => rollup.get(c.componentId) === parent.id);
+      const totalRaw = own.reduce((n, c) => n + c.totalRaw, 0);
+      const totalPossible = own.reduce((n, c) => n + c.totalPossible, 0);
+      const weighted = own.reduce<number | null>(
+        (n, c) => (c.weightedScore == null ? n : (n ?? 0) + c.weightedScore), null);
+      return {
+        componentId: parent.id,
+        code: parent.code,
+        name: parent.name,
+        weight: parent.weight,
+        percentageScore: totalPossible > 0 && own.some((c) => c.included)
+          ? round2((totalRaw / totalPossible) * 100)
+          : null,
+        weightedScore: weighted == null ? null : round2(weighted),
+        scored: own.reduce((n, c) => n + c.scoredCount, 0),
+        total: own.reduce((n, c) => n + c.assessmentCount, 0),
+      };
+    });
+
+    let missing = 0;
+    for (const a of assessments) {
+      const cell = row[a.id];
+      if (!cell || (cell.raw == null && !cell.isExcused)) missing += 1;
+    }
+
+    const band = result.periodGrade == null ? null
+      : scheme.descriptors.find(
+          (d) => result.periodGrade! >= d.minGrade && result.periodGrade! <= d.maxGrade) ?? null;
+
+    return {
+      classEnrollmentId: s.classEnrollmentId,
+      studentId: s.studentId,
+      displayName: s.displayName,
+      components,
+      initialGrade: result.initialGrade,
+      periodGrade: result.periodGrade,
+      descriptor: band?.label ?? null,
+      remark: band?.remark ?? null,
+      passed: result.periodGrade == null ? null : result.periodGrade >= scheme.passMark,
+      missingCount: missing,
+      untouched: missing === assessments.length && assessments.length > 0,
+    };
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ * Analytics
+ * ------------------------------------------------------------------ */
+
+export interface DistributionBand {
+  label: string;
+  min: number;
+  max: number;
+  count: number;
+  names: string[];
+}
+
+export interface Analytics {
+  classSize: number;
+  graded: number;
+  /** Learners with no computable grade yet. */
+  ungraded: number;
+  average: number | null;
+  highest: number | null;
+  lowest: number | null;
+  passing: number;
+  failing: number;
+  missingScores: number;
+  /** Percentage of score cells filled, 0–100. */
+  completion: number;
+  distribution: DistributionBand[];
+  /** Mean percentage score per top-level component. */
+  componentAverages: Array<{ code: string; name: string; average: number | null }>;
+  /** Below the pass mark, or with gaps — the intervention list. */
+  needsAttention: Array<{ name: string; grade: number | null; missing: number; reason: string }>;
+}
+
+/**
+ * Grade distribution bands.
+ *
+ * Transcribed from the legacy Analytics module, which uses
+ * 96–100 / 91–95 / 86–90 / 81–85 / 76–80 / 75 / below 75. The single-value
+ * "75" band is not a rounding artefact — 75 is the pass mark, and a
+ * teacher wants to see who is sitting exactly on it.
+ *
+ * ⚠️ These are the LEGACY system's reporting bands, not a DepEd mandate
+ * found in either repository. A school that groups differently needs
+ * this configurable. Recorded in the assumptions register.
+ */
+const DISTRIBUTION: Array<[string, number, number]> = [
+  ['96–100', 96, 100],
+  ['91–95', 91, 95],
+  ['86–90', 86, 90],
+  ['81–85', 81, 85],
+  ['76–80', 76, 80],
+  ['75', 75, 75],
+  ['Below 75', 0, 74],
+];
+
+export function analytics(rows: SummaryRow[], scheme: GradingScheme, assessmentCount: number): Analytics {
+  const graded = rows.filter((r) => r.periodGrade != null);
+  const grades = graded.map((r) => r.periodGrade!);
+
+  const parents = scheme.components
+    .filter((c) => c.parentId === null)
+    .sort((a, b) => a.ordinal - b.ordinal);
+
+  const componentAverages = parents.map((p) => {
+    const vals = rows
+      .map((r) => r.components.find((c) => c.componentId === p.id)?.percentageScore)
+      .filter((v): v is number => v != null);
+    return {
+      code: p.code,
+      name: p.name,
+      average: vals.length ? round2(vals.reduce((a, b) => a + b, 0) / vals.length) : null,
+    };
+  });
+
+  const missingScores = rows.reduce((n, r) => n + r.missingCount, 0);
+  const cells = rows.length * assessmentCount;
+
+  const needsAttention = rows
+    .filter((r) => (r.periodGrade != null && r.periodGrade < scheme.passMark) || r.missingCount > 0)
+    .map((r) => ({
+      name: r.displayName,
+      grade: r.periodGrade,
+      missing: r.missingCount,
+      reason: r.periodGrade != null && r.periodGrade < scheme.passMark
+        ? `Below the pass mark of ${scheme.passMark}`
+        : r.untouched ? 'No scores entered at all'
+        : `${r.missingCount} missing score${r.missingCount === 1 ? '' : 's'}`,
+    }))
+    .sort((a, b) => (a.grade ?? 999) - (b.grade ?? 999));
+
+  return {
+    classSize: rows.length,
+    graded: graded.length,
+    ungraded: rows.length - graded.length,
+    average: grades.length ? round2(grades.reduce((a, b) => a + b, 0) / grades.length) : null,
+    highest: grades.length ? Math.max(...grades) : null,
+    lowest: grades.length ? Math.min(...grades) : null,
+    passing: grades.filter((g) => g >= scheme.passMark).length,
+    failing: grades.filter((g) => g < scheme.passMark).length,
+    missingScores,
+    completion: cells > 0 ? Math.round(((cells - missingScores) / cells) * 100) : 0,
+    distribution: DISTRIBUTION.map(([label, min, max]) => {
+      const names = graded.filter((r) => r.periodGrade! >= min && r.periodGrade! <= max)
+        .map((r) => r.displayName);
+      return { label, min, max, count: names.length, names };
+    }),
+    componentAverages,
+    needsAttention,
+  };
+}
+
+/* ------------------------------------------------------------------ *
+ * LOA — Level of Achievement
+ * ------------------------------------------------------------------ */
+
+/**
+ * ⚠️ LOA means **Level of Achievement**, not Leave of Absence.
+ *
+ * The legacy module (`renderLOAContent`, `excelLOA`) computes proficiency
+ * bands from grade entries and contains no attendance logic whatsoever —
+ * a grep for absent/attendance across the entire module returns zero
+ * matches, and the in-app help calls it "Level of Achievement reports
+ * automatically computed from your grade entries".
+ *
+ * This is recorded prominently because the migration brief described LOA
+ * as attendance-based (absences, attendance status, reasons). Building it
+ * that way would have replaced the report the school actually files with
+ * a different report of the same name.
+ */
+
+export interface BandCount {
+  key: string;
+  label: string;
+  range: string;
+  count: number;
+  percent: number;
+}
+
+export interface LoaSection {
+  code: string;
+  name: string;
+  weight: number | null;
+  /** Mean percentage score across learners with a value. */
+  mean: number | null;
+  bands: BandCount[];
+  scored: number;
+  missing: number;
+}
+
+export interface LoaReport {
+  learners: number;
+  sections: LoaSection[];
+  /** Distribution of the final period grade, by the scheme's own descriptors. */
+  gradeBands: BandCount[];
+  meanPeriodGrade: number | null;
+}
+
+/**
+ * Proficiency bands applied to a component's percentage score.
+ *
+ * Transcribed from legacy `profBands` / `pBands`, whose thresholds are
+ * ≥90 / ≥75 / ≥50 / ≥25 / else. The legacy UI and the legacy Excel export
+ * label these differently for the same numbers — the on-screen table says
+ * "Exceptional / Exceeds Expectations / Meets Expectations / Needs
+ * Improvement / Unsatisfactory" while the workbook says "Highly
+ * Proficient / Proficient / Nearly Proficient / Low Proficient / Not
+ * Proficient".
+ *
+ * The proficiency wording is used here because it is what the exported
+ * file — the artifact that leaves the school — carries.
+ *
+ * ⚠️ Requires validation. These thresholds come from the legacy
+ * implementation, not from a DepEd order found in either repository. A
+ * division office may mandate different cut-offs. Do not treat as
+ * confirmed.
+ */
+export const PROFICIENCY_BANDS: Array<[string, string, string, number, number]> = [
+  ['hp',  'Highly Proficient',  '90–100%', 90, 100],
+  ['p',   'Proficient',         '75–89%',  75, 89.99],
+  ['np2', 'Nearly Proficient',  '50–74%',  50, 74.99],
+  ['lp',  'Low Proficient',     '25–49%',  25, 49.99],
+  ['np',  'Not Proficient',     '0–24%',    0, 24.99],
+];
+
+export function loaReport(rows: SummaryRow[], scheme: GradingScheme): LoaReport {
+  const n = rows.length;
+  const parents = scheme.components
+    .filter((c) => c.parentId === null)
+    .sort((a, b) => a.ordinal - b.ordinal);
+
+  const sections: LoaSection[] = parents.map((p) => {
+    const values = rows
+      .map((r) => r.components.find((c) => c.componentId === p.id)?.percentageScore ?? null);
+    const present = values.filter((v): v is number => v != null);
+    return {
+      code: p.code,
+      name: p.name,
+      weight: p.weight,
+      mean: present.length ? round2(present.reduce((a, b) => a + b, 0) / present.length) : null,
+      scored: present.length,
+      missing: values.length - present.length,
+      bands: PROFICIENCY_BANDS.map(([key, label, range, min, max]) => {
+        const count = present.filter((v) => v >= min && v <= max).length;
+        return { key, label, range, count, percent: n ? round2((count / n) * 100) : 0 };
+      }),
+    };
+  });
+
+  // The final-grade distribution uses the SCHEME's descriptor bands, not
+  // a second hard-coded scale — those are already configuration, and a
+  // school that changes them should see the change here too.
+  const grades = rows.map((r) => r.periodGrade).filter((g): g is number => g != null);
+  const gradeBands: BandCount[] = [...scheme.descriptors]
+    .sort((a, b) => b.minGrade - a.minGrade)
+    .map((d) => {
+      const count = grades.filter((g) => g >= d.minGrade && g <= d.maxGrade).length;
+      return {
+        key: d.label,
+        label: d.label,
+        range: `${d.minGrade}–${d.maxGrade}`,
+        count,
+        percent: n ? round2((count / n) * 100) : 0,
+      };
+    });
+
+  return {
+    learners: n,
+    sections,
+    gradeBands,
+    meanPeriodGrade: grades.length
+      ? round2(grades.reduce((a, b) => a + b, 0) / grades.length) : null,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}

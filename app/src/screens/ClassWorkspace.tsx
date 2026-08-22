@@ -7,6 +7,11 @@ import type { ScoreEdit } from '../data/source';
 import { StatusBadge } from '../components/StatusBadge';
 import { Async, ErrorState, Loading } from '../components/Async';
 import { Gradebook } from './Gradebook';
+import { RecordBookSummary, RecordBookAnalytics, RecordBookLoa } from './RecordBook';
+import { RecordBookSetup } from './RecordBookSetup';
+import { StudentDetail } from './StudentDetail';
+import type { SummaryRow } from '../lib/recordbook';
+import type { AssessmentDraft } from '../data/source';
 import { ClassSubmission } from './ClassSubmission';
 import { ClassAttendance } from './ClassAttendance';
 import { ClassStudents } from './ClassStudents';
@@ -30,6 +35,9 @@ interface Props {
   validateSubmission: (classId: string, periodId: string) => Promise<ValidationReport>;
   submitGrades: (classId: string, periodId: string, ack: boolean) => Promise<void>;
   loadStudents: (classId: string) => Promise<ClassStudent[]>;
+  saveAssessments: (
+    classId: string, periodId: string, items: AssessmentDraft[],
+  ) => Promise<{ written: number; removed: number }>;
   loadAttendance: (classId: string, date: string) => Promise<AttendanceDay>;
   saveAttendance: (classId: string, date: string, marks: AttendanceMark[]) => Promise<{ written: number }>;
   onWorkflowChange: () => void;
@@ -48,10 +56,14 @@ export function ClassWorkspace(props: Props) {
   const {
     cls, year, periodId, tab, onTabChange, onPeriodChange, gradebook, retryGradebook,
     onSaveScores, onBack, validateSubmission, submitGrades, loadStudents,
-    loadAttendance, saveAttendance, onWorkflowChange,
+    loadAttendance, saveAttendance, onWorkflowChange, saveAssessments,
   } = props;
 
   const [exportOpen, setExportOpen] = useState(false);
+  // Which learner the Summary drilled into. Cleared whenever the tab or
+  // the period changes, so it can never show one period's breakdown under
+  // another period's heading.
+  const [detail, setDetail] = useState<SummaryRow | null>(null);
   const status = displayStatus(cls, periodId);
   const period = year.periods.find((p) => p.id === periodId);
   const done = cls.completeness[periodId];
@@ -143,20 +155,29 @@ export function ClassWorkspace(props: Props) {
           </div>
 
           <div className="tabs" role="tablist">
-            {CLASS_TABS.map((t) => (
-              <button
-                key={t.key}
-                role="tab"
-                id={`tab-${t.key}`}
-                aria-selected={tab === t.key}
-                aria-controls={`panel-${t.key}`}
-                onClick={() => onTabChange(t.key)}
-              >
-                {t.label}
-                {t.key === 'submission' && missing > 0 && (
-                  <span className="tab-count" title={`${missing} missing scores`}>{missing}</span>
+            {CLASS_TABS.map((t, i) => (
+              <>
+                {/* A visual seam around the Record Book group, so the six
+                    legacy sub-tabs read as one workflow rather than ten
+                    peers. */}
+                {t.group === 'record-book' && CLASS_TABS[i - 1]?.group !== 'record-book' && (
+                  <span className="tab-group-label" aria-hidden="true">Record book</span>
                 )}
-              </button>
+                <button
+                  key={t.key}
+                  role="tab"
+                  id={`tab-${t.key}`}
+                  data-group={t.group}
+                  aria-selected={tab === t.key}
+                  aria-controls={`panel-${t.key}`}
+                  onClick={() => { setDetail(null); onTabChange(t.key); }}
+                >
+                  {t.label}
+                  {t.key === 'submission' && missing > 0 && (
+                    <span className="tab-count" title={`${missing} missing scores`}>{missing}</span>
+                  )}
+                </button>
+              </>
             ))}
           </div>
         </div>
@@ -167,9 +188,61 @@ export function ClassWorkspace(props: Props) {
           <Overview cls={cls} periodId={periodId} periodName={period?.name ?? ''} onGo={onTabChange} />
         )}
 
+        {tab === 'setup' && period && (
+          <Async state={gradebook} retry={retryGradebook} rows={6}>
+            {(g) => (
+              <RecordBookSetup
+                cls={cls} period={period} yearLabel={year.label} data={g} status={status}
+                save={(items) => saveAssessments(cls.id, periodId, items)}
+                onSaved={onWorkflowChange}
+              />
+            )}
+          </Async>
+        )}
+
         {tab === 'gradebook' && (
           <Async state={gradebook} retry={retryGradebook} rows={8}>
             {(g) => <Gradebook data={g} onSaveScores={onSaveScores} />}
+          </Async>
+        )}
+
+        {tab === 'summary' && period && (
+          <Async state={gradebook} retry={retryGradebook} rows={8}>
+            {(g) => (detail ? (
+              <StudentDetail
+                cls={cls} period={period} yearLabel={year.label} data={g} row={detail}
+                onBack={() => setDetail(null)}
+                onGoGradebook={() => { setDetail(null); onTabChange('gradebook'); }}
+              />
+            ) : (
+              <RecordBookSummary
+                cls={cls} period={period} yearLabel={year.label} data={g}
+                onOpenStudent={setDetail}
+                onGoGradebook={() => onTabChange('setup')}
+              />
+            ))}
+          </Async>
+        )}
+
+        {tab === 'analytics' && period && (
+          <Async state={gradebook} retry={retryGradebook} rows={6}>
+            {(g) => (
+              <RecordBookAnalytics
+                cls={cls} period={period} data={g}
+                onGoGradebook={() => onTabChange('setup')}
+              />
+            )}
+          </Async>
+        )}
+
+        {tab === 'loa' && period && (
+          <Async state={gradebook} retry={retryGradebook} rows={6}>
+            {(g) => (
+              <RecordBookLoa
+                cls={cls} period={period} yearLabel={year.label} data={g}
+                onGoGradebook={() => onTabChange('setup')}
+              />
+            )}
           </Async>
         )}
 

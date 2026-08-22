@@ -11,7 +11,7 @@
  * a way around the policies.
  */
 import { requireSupabase } from '../lib/supabase';
-import type { DataSource, ScoreEdit, SessionContext } from './source';
+import type { AssessmentDraft, DataSource, ScoreEdit, SessionContext } from './source';
 import type {
   AttendanceDay, ClassStudent, ClassSummary, DirectoryStudent,
   GradebookData, StudentGradeRow, StudentHistoryRow, StudentProfile, SubmissionRow,
@@ -154,6 +154,14 @@ export function createSupabaseSource(): DataSource {
     },
 
     /* ---- the grade workflow ---------------------------------------- */
+
+    async saveAssessments(classId, periodId, items: AssessmentDraft[]) {
+      const { data, error } = await requireSupabase().rpc('save_assessments', {
+        p_class_id: classId, p_period_id: periodId, p_items: items,
+      });
+      if (error) fail('Saving the record book setup', error);
+      return (data ?? { written: 0, removed: 0 }) as { written: number; removed: number };
+    },
 
     async validateSubmission(classId, periodId) {
       const { data, error } = await requireSupabase()

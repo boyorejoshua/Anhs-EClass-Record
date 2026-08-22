@@ -90,11 +90,28 @@ describe('navigation model', () => {
   });
 
   it('builds every class workspace tab', () => {
-    // Five of these six rendered "Not built yet" before this work.
     expect(CLASS_TABS.every((t) => t.readiness === 'ready')).toBe(true);
     expect(CLASS_TABS.map((t) => t.key)).toEqual([
-      'overview', 'gradebook', 'attendance', 'students', 'reports', 'submission',
+      'overview', 'setup', 'gradebook', 'summary', 'analytics', 'loa',
+      'attendance', 'students', 'reports', 'submission',
     ]);
+  });
+
+  it('carries the whole legacy Record Book', () => {
+    // Legacy sub-tabs: Setup · Grade Entry · Bulk Entry · Summary ·
+    // Analytics · LOA. Bulk Entry is intentionally absent — it is a MODE
+    // of the gradebook here (paste a block from Excel), not a page.
+    const rb = CLASS_TABS.filter((t) => t.group === 'record-book').map((t) => t.key);
+    expect(rb).toEqual(['setup', 'gradebook', 'summary', 'analytics', 'loa']);
+  });
+
+  it('keeps the Record Book tabs contiguous', () => {
+    // The group renders one seam label before the first member. A gap
+    // would draw the label mid-run and split the workflow visually.
+    const idx = CLASS_TABS
+      .map((t, i) => (t.group === 'record-book' ? i : -1))
+      .filter((i) => i >= 0);
+    expect(idx).toEqual(Array.from({ length: idx.length }, (_, k) => idx[0]! + k));
   });
 });
 

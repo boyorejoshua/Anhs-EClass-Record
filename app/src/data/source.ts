@@ -63,6 +63,16 @@ export interface SessionContext {
   settings: Record<string, unknown>;
 }
 
+/** One assessment column as the Setup screen edits it. */
+export interface AssessmentDraft {
+  /** Absent for a newly added item; the server assigns one. */
+  id?: string;
+  componentId: string;
+  ordinal: number;
+  title: string | null;
+  highestPossibleScore: number;
+}
+
 export interface ScoreEdit {
   assessmentId: string;
   classEnrollmentId: string;
@@ -98,6 +108,11 @@ export interface DataSource {
    * refuses an illegal transition. None of them is a client-side status
    * change: a modified client cannot skip a state.
    * ------------------------------------------------------------------ */
+  /** Replaces the assessment configuration for one class and period. */
+  saveAssessments(
+    classId: string, periodId: string, items: AssessmentDraft[],
+  ): Promise<{ written: number; removed: number }>;
+
   validateSubmission(classId: string, periodId: string): Promise<ValidationReport>;
   submitGrades(classId: string, periodId: string, acknowledgeWarnings: boolean): Promise<void>;
   getSubmissionQueue(academicYearId: string): Promise<SubmissionRow[]>;

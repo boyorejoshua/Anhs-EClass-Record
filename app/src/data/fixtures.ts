@@ -307,6 +307,23 @@ export function createFixtureSource(): DataSource {
      * the difference would surface only in production.
      * ------------------------------------------------------------------ */
 
+    async saveAssessments(classId, periodId, items) {
+      const cls = CLASSES.find((c) => c.id === classId);
+      if (!cls) throw new Error('Class not found.');
+      if (!['draft', 'returned', 'reopened'].includes(cls.status[periodId] ?? 'draft')) {
+        throw new Error('this period has been submitted and can no longer be reconfigured');
+      }
+      // Mirror the server's totals so the UI is developed against the
+      // same numbers: the completeness denominator moves when the shape
+      // of the record book changes.
+      const before = cls.completeness[periodId]?.total ?? 0;
+      cls.completeness[periodId] = {
+        scored: Math.min(cls.completeness[periodId]?.scored ?? 0, items.length * cls.studentCount),
+        total: items.length * cls.studentCount,
+      };
+      return { written: items.length, removed: before > items.length * cls.studentCount ? 1 : 0 };
+    },
+
     async validateSubmission(classId, periodId) {
       const cls = CLASSES.find((c) => c.id === classId) ?? CLASSES[0]!;
       const c = cls.completeness[periodId] ?? { scored: 0, total: 0 };
