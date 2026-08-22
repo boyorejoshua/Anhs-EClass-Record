@@ -8,7 +8,13 @@ import type { SubmissionStatus } from '../data/types';
 const MAP: Record<SubmissionStatus, { glyph: string; label: string; cls: string; title?: string }> = {
   draft:       { glyph: '○', label: 'Draft',        cls: 'badge-draft',     title: 'Not yet started' },
   in_progress: { glyph: '◐', label: 'In progress',  cls: 'badge-progress',  title: 'Partly entered, not submitted' },
-  submitted:   { glyph: '↑', label: 'Submitted',    cls: 'badge-submitted', title: 'Awaiting registrar review' },
+  submitted:   { glyph: '↑', label: 'Submitted',    cls: 'badge-submitted', title: 'Sent to the class adviser, not yet received' },
+  // A signed-for record reads differently from one still in transit, so
+  // the glyph changes with it: ↑ in flight, ✎ signed for, ⇥ handed on.
+  received:    { glyph: '✎', label: 'With adviser',  cls: 'badge-submitted', title: 'The class adviser has received it' },
+  forwarded:   { glyph: '⇥', label: 'Forwarded',     cls: 'badge-submitted', title: 'Sent to the registrar, not yet received' },
+  registrar_received:
+               { glyph: '✎', label: 'With registrar', cls: 'badge-submitted', title: 'The registrar has received it and is reviewing' },
   returned:    { glyph: '↺', label: 'Returned',     cls: 'badge-returned',  title: 'Sent back for revision' },
   approved:    { glyph: '✓', label: 'Approved',     cls: 'badge-approved' },
   finalized:   { glyph: '✓', label: 'Finalized',    cls: 'badge-finalized', title: 'Locked; not yet visible to learners' },

@@ -262,6 +262,53 @@ export function createSupabaseSource(): DataSource {
       return (data ?? []) as SubmissionRow[];
     },
 
+    /**
+     * RECALL — the teacher takes their own submission back.
+     *
+     * The database refuses this the moment the adviser has signed for
+     * the record, and says so in a sentence a teacher can act on
+     * ("ask for it to be returned instead"). Surface that verbatim
+     * rather than replacing it with a generic failure.
+     */
+    async recallSubmission(classId, periodId, reason) {
+      const { error } = await requireSupabase()
+        .rpc('recall_grades', {
+          p_class_id: classId, p_period_id: periodId, p_reason: reason ?? null,
+        });
+      if (error) throw new Error(error.message);
+    },
+
+    async receiveSubmission(submissionId) {
+      const { error } = await requireSupabase()
+        .rpc('receive_grades', { p_submission_id: submissionId });
+      if (error) throw new Error(error.message);
+    },
+
+    async forwardSubmission(submissionId) {
+      const { error } = await requireSupabase()
+        .rpc('forward_grades', { p_submission_id: submissionId });
+      if (error) throw new Error(error.message);
+    },
+
+    async unforwardSubmission(submissionId) {
+      const { error } = await requireSupabase()
+        .rpc('unforward_grades', { p_submission_id: submissionId });
+      if (error) throw new Error(error.message);
+    },
+
+    async registrarReceiveSubmission(submissionId) {
+      const { error } = await requireSupabase()
+        .rpc('registrar_receive_grades', { p_submission_id: submissionId });
+      if (error) throw new Error(error.message);
+    },
+
+    async getAdviserQueue(academicYearId) {
+      const { data, error } = await requireSupabase()
+        .rpc('adviser_queue', { p_year_id: academicYearId });
+      if (error) fail('Loading the adviser queue', error);
+      return (data ?? []) as SubmissionRow[];
+    },
+
     async returnSubmission(submissionId, reason) {
       const { error } = await requireSupabase()
         .rpc('return_grades', { p_submission_id: submissionId, p_reason: reason });

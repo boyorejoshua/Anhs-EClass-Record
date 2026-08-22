@@ -25,7 +25,7 @@ const ROLES: Role[] = ['teacher', 'adviser', 'registrar', 'school_admin', 'stude
  */
 const HANDLED = new Set([
   'dashboard', 'classes', 'attendance', 'submissions', 'reports', 'help',
-  'class', 'queue', 'students', 'records', 'profile', 'history',
+  'class', 'queue', 'incoming', 'students', 'records', 'profile', 'history',
 ]);
 
 describe('navigation model', () => {

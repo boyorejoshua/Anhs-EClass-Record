@@ -37,6 +37,7 @@ interface Props {
   /* data-layer calls, passed in so this screen never imports a source */
   validateSubmission: (classId: string, periodId: string) => Promise<ValidationReport>;
   submitGrades: (classId: string, periodId: string, ack: boolean) => Promise<void>;
+  recallSubmission: (classId: string, periodId: string, reason?: string) => Promise<void>;
   loadStudents: (classId: string) => Promise<ClassStudent[]>;
   saveAssessments: (
     classId: string, periodId: string, items: AssessmentDraft[],
@@ -89,8 +90,8 @@ function LoaTab({ cls, period, yearLabel, yearId, load, onGoGradebook }: {
 export function ClassWorkspace(props: Props) {
   const {
     cls, year, periodId, tab, onTabChange, onPeriodChange, gradebook, retryGradebook,
-    recorded, onSaveScores, onBack, validateSubmission, submitGrades, loadStudents,
-    loadLoaCohort,
+    recorded, onSaveScores, onBack, validateSubmission, submitGrades, recallSubmission,
+    loadStudents, loadLoaCohort,
     loadAttendance, saveAttendance, onWorkflowChange, saveAssessments,
   } = props;
 
@@ -301,6 +302,9 @@ export function ClassWorkspace(props: Props) {
             status={status}
             validate={() => validateSubmission(cls.id, periodId)}
             submit={(ack) => submitGrades(cls.id, periodId, ack)}
+            recall={(reason) => recallSubmission(cls.id, periodId, reason)}
+            receivedAt={cls.receipts[periodId]?.receivedAt}
+            registrarReceivedAt={cls.receipts[periodId]?.registrarReceivedAt}
             onSubmitted={onWorkflowChange}
             onReviewMissing={() => onTabChange('gradebook')}
           />

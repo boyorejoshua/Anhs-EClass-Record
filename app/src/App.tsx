@@ -15,6 +15,7 @@ import { TeacherDashboard, RegistrarDashboard, AdminDashboard } from './screens/
 import { MyClasses } from './screens/MyClasses';
 import { ClassWorkspace } from './screens/ClassWorkspace';
 import { RegistrarQueue } from './screens/RegistrarQueue';
+import { AdviserQueue } from './screens/AdviserQueue';
 import { RegistrarStudents } from './screens/RegistrarStudents';
 import { StudentGrades, StudentProfileScreen, StudentHistory } from './screens/StudentPortal';
 import { Sf10Preview } from './screens/Sf10Preview';
@@ -103,9 +104,19 @@ export default function App() {
   }, [year, periodId]);
 
   /* ---- classes ---------------------------------------------------- */
+  /**
+   * Re-read the class list on every navigation, not just on `revision`.
+   *
+   * The workflow is now several people long: an adviser receiving a
+   * record changes what the teacher's Submission tab should say, and
+   * nothing in the teacher's own session bumps `revision` when that
+   * happens. Keying on the route means walking back into a class always
+   * shows the current state. It is one RPC returning a small payload —
+   * cheaper than a teacher acting on a stale screen.
+   */
   const [classesState, retryClasses] = useAsync(
     () => (year ? source.getClasses(year.id) : Promise.resolve([])),
-    [source, year?.id, revision],
+    [source, year?.id, revision, route.id],
   );
   const classes = classesState.status === 'ready' ? classesState.data : [];
 
@@ -328,6 +339,7 @@ export default function App() {
             onBack={() => go('classes')}
             validateSubmission={source.validateSubmission}
             submitGrades={source.submitGrades}
+            recallSubmission={source.recallSubmission}
             loadStudents={source.getClassStudents}
             saveAssessments={source.saveAssessments}
             loadAttendance={source.getAttendance}
@@ -337,12 +349,27 @@ export default function App() {
           />
         );
 
+      case 'incoming':
+        return (
+          <AdviserQueue
+            yearId={year.id}
+            load={source.getAdviserQueue}
+            actions={{
+              receiveSubmission: source.receiveSubmission,
+              forwardSubmission: source.forwardSubmission,
+              unforwardSubmission: source.unforwardSubmission,
+            }}
+            onOpenClass={(classId, pid) => { setPeriodId(pid); openClass(classId, 'summary'); }}
+          />
+        );
+
       case 'queue':
         return (
           <RegistrarQueue
             yearId={year.id}
             load={source.getSubmissionQueue}
             actions={{
+              registrarReceiveSubmission: source.registrarReceiveSubmission,
               returnSubmission: source.returnSubmission,
               approveSubmission: source.approveSubmission,
               finalizeSubmission: source.finalizeSubmission,

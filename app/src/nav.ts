@@ -27,7 +27,7 @@ export type RouteId =
   | 'dashboard'
   // teaching
   | 'classes' | 'class' | 'attendance' | 'reports' | 'submissions' | 'help'
-  | 'consolidated'
+  | 'consolidated' | 'incoming'
   // registrar
   | 'students' | 'enrollments' | 'queue' | 'records' | 'documents'
   // administration
@@ -87,6 +87,10 @@ export const NAV: Record<Role, NavItem[]> = {
 
   adviser: [
     ...TEACHING.slice(0, 4),
+    // The adviser's half of the chain of custody. Subject teachers hand
+    // their section's grades here; the adviser signs for each one and
+    // passes the section on to the registrar.
+    { key: 'incoming', label: 'Incoming Grades', glyph: '⇤', readiness: 'ready' },
     {
       key: 'consolidated', label: 'Consolidated Grades', glyph: '◍', readiness: 'planned',
       note:

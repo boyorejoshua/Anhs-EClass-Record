@@ -1,9 +1,13 @@
 /**
  * Submission status: what the database stores vs. what a person needs.
  *
- * The database has seven statuses (migration 0007's CHECK):
+ * The database has ten statuses (migration 0022's CHECK):
  *
- *   draft · submitted · returned · approved · finalized · published · reopened
+ *   draft · submitted · received · forwarded · registrar_received ·
+ *   returned · approved · finalized · published · reopened
+ *
+ * Three of them exist because a record now has a chain of custody:
+ * somebody signs for it at each hand-off, the way they would on paper.
  *
  * `in_progress` is NOT one of them, though the TypeScript union and the
  * old fixtures both carried it. It cannot arrive from a query, so
@@ -64,11 +68,39 @@ export const TRANSITIONS: Record<SubmissionStatus, readonly SubmissionStatus[]> 
   in_progress: ['submitted'],   // derived alias of draft
   returned:    ['submitted'],
   reopened:    ['submitted'],
-  submitted:   ['returned', 'approved'],
-  approved:    ['finalized', 'returned'],
-  finalized:   ['published', 'reopened'],
-  published:   ['reopened'],
+  // 'draft' here is the RECALL. It is legal from `submitted` and from
+  // nowhere else, which is exactly the window in which nobody has taken
+  // responsibility for the record.
+  submitted:          ['draft', 'received', 'returned'],
+  received:           ['forwarded', 'returned'],
+  forwarded:          ['received', 'registrar_received', 'returned'],
+  registrar_received: ['approved', 'returned'],
+  approved:           ['finalized', 'returned'],
+  finalized:          ['published', 'reopened'],
+  published:          ['reopened'],
 };
+
+/**
+ * Can the teacher still pull this back themselves?
+ *
+ * The single question the Submission tab has to answer, and the reason
+ * the receipt is worth showing at all. Once the adviser has signed, the
+ * answer is no and the route is a return request instead.
+ */
+export function canRecall(status: SubmissionStatus): boolean {
+  return status === 'submitted';
+}
+
+/** Who is holding the record right now, in words a teacher would use. */
+export function custodian(status: SubmissionStatus): string | null {
+  switch (status) {
+    case 'submitted':          return 'Waiting for the class adviser to receive it';
+    case 'received':           return 'With the class adviser';
+    case 'forwarded':          return 'Sent to the registrar, not yet received';
+    case 'registrar_received': return 'With the registrar';
+    default:                   return null;
+  }
+}
 
 export function canTransition(from: SubmissionStatus, to: SubmissionStatus): boolean {
   return TRANSITIONS[from]?.includes(to) ?? false;
@@ -78,7 +110,14 @@ export function canTransition(from: SubmissionStatus, to: SubmissionStatus): boo
 export const STATUS_MEANING: Record<SubmissionStatus, string> = {
   draft:       'Not started. Nothing has been entered for this period yet.',
   in_progress: 'Being entered. Not yet sent to the registrar.',
-  submitted:   'Sent to the registrar and awaiting review. Editing is locked.',
+  submitted:   'Sent to the class adviser, who has not yet received it. '
+             + 'You can still recall it.',
+  received:    'The class adviser has received it. Editing is locked and it '
+             + 'can no longer be recalled — ask the adviser to return it.',
+  forwarded:   'The adviser has passed it to the registrar, who has not yet '
+             + 'received it.',
+  registrar_received:
+               'The registrar has received it and is reviewing.',
   returned:    'Sent back for correction. Editing is open again.',
   approved:    'Reviewed and accepted by the registrar. Not yet final.',
   finalized:   'Closed for the period. Awaiting release to learners.',

@@ -83,32 +83,58 @@ describe('the registrar queue', () => {
     expect(returned!.returnReason).toBeTruthy();
   });
 
+  it('shows the registrar nothing until the adviser has forwarded it', async () => {
+    // The strict chain, from the registrar's side. A submitted or
+    // received record belongs to the teacher and the adviser; the
+    // registrar's queue must not invite them to act on it.
+    const q = await source.getSubmissionQueue('year-anhs');
+    for (const st of ['draft', 'submitted', 'received']) {
+      expect(q.some((r) => r.status === st), `${st} must not reach the registrar`).toBe(false);
+    }
+  });
+
+  /** Walk a class from draft to the registrar's desk, the way people do. */
+  async function handToRegistrar(classId: string, periodId: string) {
+    await source.submitGrades(classId, periodId, true);
+    const id = `sub-${classId}-${periodId}`;
+    await source.receiveSubmission(id);
+    await source.forwardSubmission(id);
+    await source.registrarReceiveSubmission(id);
+    return id;
+  }
+
   it('refuses to return a submission without a reason', async () => {
     // The database rejects it too. A teacher cannot act on "returned"
     // with nothing to act on.
-    const q = await source.getSubmissionQueue('year-anhs');
-    const submitted = q.find((r) => r.status === 'submitted')!;
-    await expect(source.returnSubmission(submitted.submissionId, '   '))
+    const id = await handToRegistrar('c-math10-pearl', 'p2');
+    await expect(source.returnSubmission(id, '   '))
       .rejects.toThrow(/reason is required/i);
   });
 
   it('walks approve → finalize → publish in order', async () => {
-    const q = await source.getSubmissionQueue('year-anhs');
-    const submitted = q.find((r) => r.status === 'submitted')!;
+    const id = await handToRegistrar('c-math10-pearl', 'p2');
 
-    await source.approveSubmission(submitted.submissionId);
-    await source.finalizeSubmission(submitted.submissionId);
-    await source.publishSubmission(submitted.submissionId);
+    await source.approveSubmission(id);
+    await source.finalizeSubmission(id);
+    await source.publishSubmission(id);
 
     const after = await source.getSubmissionQueue('year-anhs');
-    expect(after.find((r) => r.submissionId === submitted.submissionId)!.status).toBe('published');
+    expect(after.find((r) => r.submissionId === id)!.status).toBe('published');
   });
 
   it('refuses to publish something that was never finalized', async () => {
-    const q = await source.getSubmissionQueue('year-anhs');
-    const submitted = q.find((r) => r.status === 'submitted')!;
-    await expect(source.publishSubmission(submitted.submissionId))
-      .rejects.toThrow(/illegal transition/i);
+    const id = await handToRegistrar('c-math10-pearl', 'p2');
+    await expect(source.publishSubmission(id)).rejects.toThrow(/illegal transition/i);
+  });
+
+  it('refuses to approve a record the registrar has not signed for', async () => {
+    await source.submitGrades('c-math10-pearl', 'p2', true);
+    const id = 'sub-c-math10-pearl-p2';
+    await source.receiveSubmission(id);
+    await source.forwardSubmission(id);
+    // Forwarded, but not yet received. Approving now would skip the
+    // signature that makes the hand-off a hand-off.
+    await expect(source.approveSubmission(id)).rejects.toThrow(/illegal transition/i);
   });
 });
 

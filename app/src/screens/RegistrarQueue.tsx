@@ -5,6 +5,8 @@ import { Async, EmptyState, useAsync } from '../components/Async';
 import { canTransition, pct } from '../lib/status';
 
 export interface QueueActions {
+  /** Sign for it. The chain's first registrar step, before any review. */
+  registrarReceiveSubmission: (id: string) => Promise<void>;
   returnSubmission: (id: string, reason: string) => Promise<void>;
   approveSubmission: (id: string) => Promise<void>;
   finalizeSubmission: (id: string) => Promise<void>;
@@ -19,15 +21,26 @@ interface Props {
 }
 
 /** Which action a registrar may take, from the state machine — never guessed. */
-type ActionKey = 'return' | 'approve' | 'finalize' | 'publish';
+type ActionKey = 'receive' | 'return' | 'approve' | 'finalize' | 'publish';
 
 const ACTION_TARGET: Record<ActionKey, SubmissionStatus> = {
+  receive: 'registrar_received',
   return: 'returned', approve: 'approved', finalize: 'finalized', publish: 'published',
 };
 
 const ACTION_LABEL: Record<ActionKey, string> = {
+  // "Receive" is a signature, not a judgement — it says the record
+  // arrived, which is what the adviser is waiting to see. Approval is a
+  // separate act and stays a separate button.
+  receive: 'Receive',
   return: 'Return', approve: 'Approve', finalize: 'Finalize', publish: 'Publish',
 };
+
+/** Is there anything the registrar can do to this row right now? */
+function actionable(r: SubmissionRow): boolean {
+  return (Object.keys(ACTION_TARGET) as ActionKey[])
+    .some((k) => canTransition(r.status, ACTION_TARGET[k]));
+}
 
 /**
  * The grade submission queue.
@@ -72,10 +85,11 @@ export function RegistrarQueue({ yearId, load, actions, onOpenClass }: Props) {
 
   const rows = useMemo(() => {
     if (state.status !== 'ready') return [];
-    // "Needs attention" is anything the registrar can act on right now.
-    return filter === 'all'
-      ? state.data
-      : state.data.filter((r) => r.status === 'submitted' || r.status === 'approved' || r.status === 'finalized');
+    // "Needs attention" is DERIVED: a row needs attention when there is a
+    // button on it. It used to be a hard-coded list of three statuses,
+    // which quietly emptied the whole queue when migration 0022 put the
+    // adviser in the chain and `submitted` stopped arriving here.
+    return filter === 'all' ? state.data : state.data.filter(actionable);
   }, [state, filter]);
 
   const counts = useMemo(() => {
@@ -185,7 +199,8 @@ export function RegistrarQueue({ yearId, load, actions, onOpenClass }: Props) {
                                   k === 'return'
                                     ? setReturning(r)
                                     : void run(r.submissionId, () =>
-                                        k === 'approve' ? actions.approveSubmission(r.submissionId)
+                                        k === 'receive' ? actions.registrarReceiveSubmission(r.submissionId)
+                                        : k === 'approve' ? actions.approveSubmission(r.submissionId)
                                         : k === 'finalize' ? actions.finalizeSubmission(r.submissionId)
                                         : actions.publishSubmission(r.submissionId))
                                 }

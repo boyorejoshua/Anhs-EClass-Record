@@ -11,11 +11,12 @@
 import type {
   AcademicYear, AttendanceDay, AttendanceMark, ClassStudent, ClassSummary, CurrentUser,
   DirectoryStudent, GradebookData, PersistedGrade, RosterStudent, StudentGradeRow,
-  StudentHistoryRow, StudentProfile, SubmissionRow, ValidationReport,
+  StudentHistoryRow, StudentProfile, SubmissionRow, SubmissionStatus, ValidationReport,
 } from './types';
 import { DO015_CORE, DO015_MAPEH } from '../lib/grading/fixtures';
 import type { Assessment } from '../lib/grading';
 import { compute } from '../lib/grading';
+import { TRANSITIONS } from '../lib/status';
 
 export const YEAR_TRIMESTER: AcademicYear = {
   id: 'year-anhs',
@@ -116,6 +117,7 @@ export const CLASSES: ClassSummary[] = [
     subject: 'Mathematics 10', subjectCode: 'MATH10', studentCount: ROSTER.length,
     scheduleNote: 'MWF 8:00-9:00', room: 'Room 204',
     status: { p1: 'published', p2: 'draft', p3: 'draft' },
+    receipts: {},
     completeness: { p1: { scored: 200, total: 200 }, p2: { scored: 142, total: 200 }, p3: { scored: 0, total: 200 } },
   },
   {
@@ -123,6 +125,7 @@ export const CLASSES: ClassSummary[] = [
     subject: 'Mathematics 10', subjectCode: 'MATH10', studentCount: 18,
     scheduleNote: 'MWF 9:00-10:00', room: 'Room 204',
     status: { p1: 'published', p2: 'submitted', p3: 'draft' },
+    receipts: {},
     completeness: { p1: { scored: 180, total: 180 }, p2: { scored: 180, total: 180 }, p3: { scored: 0, total: 180 } },
   },
   {
@@ -130,6 +133,7 @@ export const CLASSES: ClassSummary[] = [
     subject: 'Mathematics 9', subjectCode: 'MATH9', studentCount: 19,
     scheduleNote: 'TTh 10:00-11:30', room: 'Room 201',
     status: { p1: 'published', p2: 'returned', p3: 'draft' },
+    receipts: {},
     completeness: { p1: { scored: 190, total: 190 }, p2: { scored: 165, total: 190 }, p3: { scored: 0, total: 190 } },
   },
   {
@@ -137,6 +141,7 @@ export const CLASSES: ClassSummary[] = [
     subject: 'MAPEH 10', subjectCode: 'MAPEH10', studentCount: ROSTER.length,
     scheduleNote: 'TTh 13:00-14:00', room: 'Gym',
     status: { p1: 'published', p2: 'draft', p3: 'draft' },
+    receipts: {},
     completeness: { p1: { scored: 200, total: 200 }, p2: { scored: 0, total: 200 }, p3: { scored: 0, total: 200 } },
   },
 ];
@@ -204,6 +209,27 @@ const FIXTURE_SESSION: SessionContext = {
 /** Mutable in-memory scores, so edits persist for the length of a session. */
 const editedScores = new Map<string, { raw: number | null; isExcused: boolean }>();
 
+/**
+ * The chain of custody, per `classId|periodId`.
+ *
+ * Kept beside the status rather than derived from it, because a receipt
+ * is a fact about the past: once the adviser has signed for a record,
+ * that stays true through a later return and resubmission. The status
+ * says where the record IS; these say where it has BEEN.
+ */
+const receipts = new Map<string, {
+  receivedAt: string | null;
+  forwardedAt: string | null;
+  registrarReceivedAt: string | null;
+}>();
+
+function receiptsFor(classId: string, periodId: string) {
+  const key = `${classId}|${periodId}`;
+  let r = receipts.get(key);
+  if (!r) { r = { receivedAt: null, forwardedAt: null, registrarReceivedAt: null }; receipts.set(key, r); }
+  return r;
+}
+
 /** `classId|periodId` -> classEnrollmentId -> the grade as recorded at submission. */
 const persistedGrades = new Map<string, Record<string, PersistedGrade>>();
 
@@ -252,7 +278,30 @@ function recordPeriodGrades(gb: GradebookData): void {
   persistedGrades.set(`${gb.classId}|${gb.periodId}`, rows);
 }
 
+/** Every period's status as the fixture ships, so a reset is exact. */
+const INITIAL_STATUS: Array<Record<string, SubmissionStatus>> =
+  CLASSES.map((c) => ({ ...c.status }));
+
+/**
+ * Put the mutable fixture state back where it started.
+ *
+ * CLASSES, `receipts`, `editedScores` and `persistedGrades` are all
+ * module-level, so without this a test that submits a period leaves it
+ * submitted for every test after it — which is exactly what happened:
+ * `beforeEach(() => source = createFixtureSource())` looked like
+ * isolation and provided none. The app builds the source once
+ * (data/index.ts memoises it), so resetting here costs nothing there.
+ */
+function resetFixtureState(): void {
+  CLASSES.forEach((c, i) => { c.status = { ...INITIAL_STATUS[i]! }; });
+  receipts.clear();
+  editedScores.clear();
+  persistedGrades.clear();
+}
+
 export function createFixtureSource(): DataSource {
+  resetFixtureState();
+
   // Named, not returned inline, so the methods below can call each other
   // by name. They used to use `this` — which broke the moment App passed
   // a method to a screen as a bare reference (`submitGrades={source.submitGrades}`),
@@ -267,7 +316,30 @@ export function createFixtureSource(): DataSource {
     async signOut() { /* no-op */ },
     onAuthChange() { return () => {}; },
 
-    async getClasses() { return CLASSES; },
+    /**
+     * Receipts are stamped into their own map by the transitions below,
+     * then merged in here — the same shape `rds.classes` returns. If they
+     * were only stored on CLASSES the demo would show a chain of custody
+     * that never moved.
+     */
+    async getClasses() {
+      // A DEEP copy, deliberately. A shallow spread leaves `status`
+      // pointing at the same mutable object every caller shares, so a
+      // stale cached list appears to track live status changes while its
+      // other fields quietly do not — which is exactly the bug that hid
+      // a stale receipts map behind a correct-looking badge. A real
+      // fetch returns a snapshot; so does this.
+      return CLASSES.map((c) => ({
+        ...c,
+        status: { ...c.status },
+        completeness: { ...c.completeness },
+        receipts: Object.fromEntries(
+          Object.keys(c.status)
+            .filter((pid) => receipts.has(`${c.id}|${pid}`))
+            .map((pid) => [pid, { ...receiptsFor(c.id, pid), recalledAt: null }]),
+        ),
+      }));
+    },
 
     async getGradebook(classId, periodId) {
       const base = getGradebook(classId, periodId);
@@ -434,7 +506,42 @@ export function createFixtureSource(): DataSource {
       return persistedGrades.get(`${classId}|${periodId}`) ?? {};
     },
 
+    /**
+     * The REGISTRAR's queue. Strict chain: nothing appears here until the
+     * adviser has forwarded it, because until then it is not the
+     * registrar's to act on.
+     */
     async getSubmissionQueue(_yearId) {
+      return CLASSES.flatMap((c) =>
+        Object.entries(c.status)
+          .filter(([, st]) => !['draft', 'submitted', 'received'].includes(st))
+          .map(([periodId, st]) => ({
+            submissionId: `sub-${c.id}-${periodId}`,
+            classId: c.id,
+            periodId,
+            periodName: YEAR_TRIMESTER.periods.find((p) => p.id === periodId)?.name ?? periodId,
+            gradeLevel: c.gradeLevel,
+            section: c.section,
+            subject: c.subject,
+            teacher: CURRENT_USER.name,
+            status: st,
+            submittedAt: '2026-09-16T08:00:00Z',
+            ...receiptsFor(c.id, periodId),
+            returnedAt: st === 'returned' ? '2026-09-17T09:00:00Z' : null,
+            returnReason: st === 'returned' ? '5 missing scores in Written Works' : null,
+            studentCount: c.studentCount,
+            completeness: c.completeness[periodId] ?? { scored: 0, total: 0 },
+          })),
+      ) satisfies SubmissionRow[];
+    },
+
+    /**
+     * The ADVISER's queue: everything submitted in their sections,
+     * including what the registrar now holds, so they can see their
+     * hand-off landed. No marks and no completeness — see the note on
+     * SubmissionRow.
+     */
+    async getAdviserQueue(_yearId) {
       return CLASSES.flatMap((c) =>
         Object.entries(c.status)
           .filter(([, st]) => st !== 'draft')
@@ -449,12 +556,70 @@ export function createFixtureSource(): DataSource {
             teacher: CURRENT_USER.name,
             status: st,
             submittedAt: '2026-09-16T08:00:00Z',
+            ...receiptsFor(c.id, periodId),
             returnedAt: st === 'returned' ? '2026-09-17T09:00:00Z' : null,
             returnReason: st === 'returned' ? '5 missing scores in Written Works' : null,
-            studentCount: c.studentCount,
-            completeness: c.completeness[periodId] ?? { scored: 0, total: 0 },
           })),
       ) satisfies SubmissionRow[];
+    },
+
+    async recallSubmission(classId, periodId) {
+      const cls = CLASSES.find((c) => c.id === classId);
+      if (!cls) throw new Error('Class not found.');
+      const from = cls.status[periodId] ?? 'draft';
+      // The same refusal the database gives, in the same words, so the
+      // demo teaches the real rule rather than a friendlier fiction.
+      if (from !== 'submitted') {
+        const holder = from === 'received' ? 'class adviser'
+          : from === 'forwarded' || from === 'registrar_received' ? 'registrar'
+          : from;
+        throw new Error(
+          `This period is already with the ${holder} and can no longer be recalled; `
+          + 'ask for it to be returned instead.',
+        );
+      }
+      assertTransition(from, 'draft');
+      cls.status[periodId] = 'draft';
+    },
+
+    async receiveSubmission(submissionId) {
+      const { cls, periodId } = locate(submissionId);
+      assertTransition(cls.status[periodId] ?? 'draft', 'received');
+      cls.status[periodId] = 'received';
+      receiptsFor(cls.id, periodId).receivedAt = new Date().toISOString();
+    },
+
+    async forwardSubmission(submissionId) {
+      const { cls, periodId } = locate(submissionId);
+      assertTransition(cls.status[periodId] ?? 'draft', 'forwarded');
+      cls.status[periodId] = 'forwarded';
+      receiptsFor(cls.id, periodId).forwardedAt = new Date().toISOString();
+    },
+
+    async unforwardSubmission(submissionId) {
+      const { cls, periodId } = locate(submissionId);
+      if ((cls.status[periodId] ?? 'draft') !== 'forwarded') {
+        throw new Error(
+          'The registrar has already received this; ask for it to be returned instead.',
+        );
+      }
+      cls.status[periodId] = 'received';
+      receiptsFor(cls.id, periodId).forwardedAt = null;
+    },
+
+    async registrarReceiveSubmission(submissionId) {
+      const { cls, periodId } = locate(submissionId);
+      const from = cls.status[periodId] ?? 'draft';
+      if (from !== 'forwarded') {
+        throw new Error(
+          'This record has not been forwarded yet — it is still '
+          + (from === 'submitted' ? 'waiting for the class adviser to receive it'
+             : from === 'received' ? 'with the class adviser, who has not forwarded it'
+             : `at ${from}`) + '.',
+        );
+      }
+      cls.status[periodId] = 'registrar_received';
+      receiptsFor(cls.id, periodId).registrarReceivedAt = new Date().toISOString();
     },
 
     async returnSubmission(submissionId, reason) {
@@ -543,20 +708,30 @@ const attendanceMarks = new Map<string, string>();
  * The legal transitions, mirroring app.assert_transition in migration
  * 0010. Exported so the test suite can assert the two agree.
  */
-export const TRANSITIONS: Record<string, readonly string[]> = {
-  draft:     ['submitted'],
-  returned:  ['submitted'],
-  reopened:  ['submitted'],
-  submitted: ['returned', 'approved'],
-  approved:  ['finalized', 'returned'],
-  finalized: ['published', 'reopened'],
-  published: ['reopened'],
-};
+/**
+ * Re-exported, not redefined.
+ *
+ * This file used to keep its own copy of the table so offline
+ * development exercised real constraints. It kept a test honest right up
+ * until migration 0022 added three states, at which point the copy was
+ * simply wrong and the fixtures accepted transitions the server refuses.
+ * One table, imported.
+ */
+export { TRANSITIONS } from '../lib/status';
 
 export function assertTransition(from: string, to: string): void {
-  if (!TRANSITIONS[from]?.includes(to)) {
+  const legal = (TRANSITIONS as Record<string, readonly string[]>)[from];
+  if (!legal?.includes(to)) {
     throw new Error(`Illegal transition: ${from} → ${to}`);
   }
+}
+
+/** id shape: sub-<classId>-<periodId> */
+function locate(submissionId: string): { cls: ClassSummary; periodId: string } {
+  const rest = submissionId.replace(/^sub-/, '');
+  const cls = CLASSES.find((c) => rest.startsWith(`${c.id}-`));
+  if (!cls) throw new Error('Submission not found.');
+  return { cls, periodId: rest.slice(cls.id.length + 1) };
 }
 
 function moveSubmission(submissionId: string, to: SubmissionRow['status']): void {
