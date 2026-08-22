@@ -1,24 +1,34 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import './styles/app.css';
 import './styles/gradebook.css';
 import './styles/sf10.css';
 import './styles/themes.css';
 import './styles/motion.css';
+import './styles/screens.css';
 
 import { Sidebar } from './components/Sidebar';
 import { AppearanceMenu, useAppearance } from './components/AppearanceMenu';
-import { TeacherDashboard } from './screens/TeacherDashboard';
+import { NotAvailable } from './components/NotAvailable';
+import { Async, useAsync } from './components/Async';
+
+import { TeacherDashboard, RegistrarDashboard, AdminDashboard } from './screens/Dashboards';
+import { MyClasses } from './screens/MyClasses';
 import { ClassWorkspace } from './screens/ClassWorkspace';
+import { RegistrarQueue } from './screens/RegistrarQueue';
+import { RegistrarStudents } from './screens/RegistrarStudents';
+import { StudentGrades, StudentProfileScreen, StudentHistory } from './screens/StudentPortal';
 import { Sf10Preview } from './screens/Sf10Preview';
 import { SignIn } from './screens/SignIn';
+import { Help } from './screens/Help';
 
 import { getDataSource, type SessionContext } from './data';
-import type { AcademicYear, ClassSummary, CurrentUser, GradebookData, Role } from './data/types';
-import type { Sf10Payload } from './data/sf10';
+import type { AcademicYear, CurrentUser, Role } from './data/types';
 import { DEMO_MODE } from './config';
 import { getSupabase } from './lib/supabase';
-
-const SF10_DEMO_STUDENT = 'a8000000-0000-0000-0000-000000000005';
+import {
+  HOME, ROLE_LABEL, defaultRole, isReady, navItem, rolesFromSession,
+  type ClassTab, type Route, type RouteId,
+} from './nav';
 
 export default function App() {
   const source = getDataSource();
@@ -29,18 +39,24 @@ export default function App() {
   const [booting, setBooting] = useState(true);
   const [fatal, setFatal] = useState<string | null>(null);
 
-  const [role, setRole] = useState<Role>('teacher');
-  const [navKey, setNavKey] = useState('dashboard');
-  const [classId, setClassId] = useState<string | null>(null);
+  /**
+   * The role comes from the session, not from a literal.
+   *
+   * It used to be `useState<Role>('teacher')`, and `user.roles` was then
+   * built as `[role]` — so a registrar signing in was shown the teacher
+   * menu, and their real roles were discarded on the way to the UI.
+   *
+   * `roleOverride` is the demo switcher and nothing else. It is only
+   * ever consulted when DEMO_MODE is on, and it changes which menu is
+   * drawn — never what the database will return, which is decided by
+   * the JWT and the user's `user_roles` rows.
+   */
+  const [roleOverride, setRoleOverride] = useState<Role | null>(null);
+  const [route, setRoute] = useState<Route>(HOME);
   const [yearId, setYearId] = useState<string | null>(null);
   const [periodId, setPeriodId] = useState<string | null>(null);
-
-  const [classes, setClasses] = useState<ClassSummary[]>([]);
-  const [gradebook, setGradebook] = useState<GradebookData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const [sf10, setSf10] = useState<Sf10Payload | null>(null);
+  /** Bumped after a workflow action so dependent reads refetch. */
+  const [revision, setRevision] = useState(0);
 
   /* ---- session ---------------------------------------------------- */
   const loadSession = useCallback(async () => {
@@ -53,8 +69,7 @@ export default function App() {
         const active = s.academicYears.find((y) => y.status === 'active') ?? s.academicYears[0];
         if (active) {
           setYearId(active.id);
-          const p = active.periods.find((x) => x.status === 'active') ?? active.periods[0];
-          setPeriodId(p?.id ?? null);
+          setPeriodId((active.periods.find((x) => x.status === 'active') ?? active.periods[0])?.id ?? null);
         }
       }
     } catch (e) {
@@ -67,13 +82,19 @@ export default function App() {
   useEffect(() => { void loadSession(); }, [loadSession]);
   useEffect(() => source.onAuthChange(() => { void loadSession(); }), [source, loadSession]);
 
+  const heldRoles = useMemo(
+    () => rolesFromSession(session?.user.roles ?? []),
+    [session],
+  );
+  const sessionRole = useMemo(
+    () => defaultRole(session?.user.roles ?? []),
+    [session],
+  );
+  const role: Role = (DEMO_MODE ? roleOverride : null) ?? sessionRole ?? 'teacher';
+
   const year: AcademicYear | null = useMemo(() => {
     const y = session?.academicYears.find((x) => x.id === yearId) ?? session?.academicYears[0];
-    if (!y) return null;
-    return {
-      id: y.id, label: y.label, periodStructure: y.periodStructure,
-      periods: y.periods,
-    };
+    return y ? { id: y.id, label: y.label, periodStructure: y.periodStructure, periods: y.periods } : null;
   }, [session, yearId]);
 
   const activePeriod = useMemo(() => {
@@ -82,41 +103,50 @@ export default function App() {
   }, [year, periodId]);
 
   /* ---- classes ---------------------------------------------------- */
-  useEffect(() => {
-    if (!session || !year) return;
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    source.getClasses(year.id)
-      .then((c) => { if (!cancelled) setClasses(c); })
-      .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : String(e)); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [source, session, year]);
+  const [classesState, retryClasses] = useAsync(
+    () => (year ? source.getClasses(year.id) : Promise.resolve([])),
+    [source, year?.id, revision],
+  );
+  const classes = classesState.status === 'ready' ? classesState.data : [];
 
-  /* ---- gradebook -------------------------------------------------- */
-  useEffect(() => {
-    if (!classId || !activePeriod) { setGradebook(null); return; }
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    source.getGradebook(classId, activePeriod)
-      .then((g) => { if (!cancelled) setGradebook(g); })
-      .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : String(e)); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [source, classId, activePeriod]);
+  /* ---- gradebook, only when a class is open ----------------------- */
+  const [gradebookState, retryGradebook] = useAsync(
+    () => (route.classId && activePeriod
+      ? source.getGradebook(route.classId, activePeriod)
+      : Promise.reject(new Error('No class selected.'))),
+    [source, route.classId, activePeriod, revision],
+  );
 
-  /* ---- SF10 ------------------------------------------------------- */
-  const showSf10 = navKey === 'records' || navKey === 'history';
-  useEffect(() => {
-    if (!showSf10 || sf10) return;
-    source.getSf10(SF10_DEMO_STUDENT)
-      .then(setSf10)
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-  }, [showSf10, sf10, source]);
+  /* ---- navigation -------------------------------------------------- */
+  const go = useCallback((id: RouteId, extra?: Partial<Route>) => {
+    setRoute({ id, ...extra });
+  }, []);
 
-  /* ---- render ----------------------------------------------------- */
+  const openClass = useCallback((classId: string, tab: ClassTab = 'gradebook') => {
+    setRoute({ id: 'class', classId, tab });
+  }, []);
+
+  // Switching role changes which menu exists, so a route from the old
+  // menu may not be reachable from the new one. Land on that role's home.
+  //
+  // This keys on the ROLE changing, not on the route changing. Keying on
+  // the route looks equivalent and is not: the class workspace is not a
+  // menu entry, so a "is this route in the menu" test run on every route
+  // change bounces every attempt to open a class straight back to the
+  // dashboard. The browser smoke test caught both halves of this — first
+  // a registrar left sitting inside a teacher's gradebook, then, after
+  // the naive fix, classes that would not open at all.
+  const prevRole = useRef(role);
+  useEffect(() => {
+    if (prevRole.current !== role) {
+      prevRole.current = role;
+      setRoute(HOME);
+    }
+  }, [role]);
+
+  const bumpRevision = useCallback(() => setRevision((r) => r + 1), []);
+
+  /* ---- boot states -------------------------------------------------- */
   if (booting) {
     return (
       <div className="app-state"><div className="app-state-card">
@@ -135,47 +165,237 @@ export default function App() {
     );
   }
 
-  // No session and a backend configured means: sign in. With fixtures
-  // there is always a session, so this never shows.
   if (!session) {
     return <SignIn schoolName="Angono National High School" onSignIn={source.signIn} />;
+  }
+
+  // A signed-in account with no role can reach nothing, and saying so is
+  // better than an empty shell that looks broken.
+  if (heldRoles.length === 0 && !DEMO_MODE) {
+    return (
+      <div className="app-state"><div className="app-state-card panel" style={{ padding: 24 }}>
+        <h2>No role assigned</h2>
+        <p>
+          This account exists but has not been given a role at {session.school.name}, so
+          there is nothing it can open yet. An administrator assigns roles.
+        </p>
+        <button className="btn" onClick={() => void source.signOut()}>Sign out</button>
+      </div></div>
+    );
   }
 
   const user: CurrentUser = {
     id: session.user.id,
     name: session.user.name,
     initials: session.user.initials,
-    roles: [role],
+    roles: heldRoles,
     schoolId: session.school.id,
     schoolName: session.school.name,
     schoolCode: session.school.code,
   };
 
-  const cls = classes.find((c) => c.id === classId) ?? null;
+  const cls = classes.find((c) => c.id === route.classId) ?? null;
+  const item = navItem(role, route.id);
+  const title = route.id === 'class' && cls
+    ? `${cls.gradeLevel} – ${cls.section} · ${cls.subject}`
+    : item?.label ?? 'Dashboard';
+
+  /* ---- the screen ---------------------------------------------------
+   * One switch. Every route resolves here, and a route with no screen
+   * resolves to NotAvailable — never to some other screen.
+   * ------------------------------------------------------------------ */
+  function screen() {
+    if (!year || !activePeriod) {
+      return (
+        <div className="page"><div className="panel"><div className="empty">
+          <strong>No academic year is set up</strong>
+          An administrator needs to create a school year and its grading periods.
+        </div></div></div>
+      );
+    }
+
+    // A menu entry marked `planned` always renders the honest dead end.
+    if (route.id !== 'class' && !isReady(role, route.id)) {
+      return <NotAvailable title={item?.label ?? 'Not available'} note={item?.note} />;
+    }
+
+    switch (route.id) {
+      case 'dashboard':
+        if (role === 'registrar') {
+          return (
+            <RegistrarDashboard
+              year={year} yearId={year.id}
+              loadQueue={source.getSubmissionQueue}
+              onGoQueue={() => go('queue')}
+              onGoStudents={() => go('students')}
+            />
+          );
+        }
+        if (role === 'school_admin') {
+          return <AdminDashboard year={year} schoolName={user.schoolName} periodId={activePeriod} />;
+        }
+        if (role === 'student') {
+          return <StudentGrades load={() => source.getMyGrades()} />;
+        }
+        return (
+          <Async state={classesState} retry={retryClasses} rows={6}>
+            {(list) => (
+              <TeacherDashboard
+                teacherName={user.name} year={year!} periodId={activePeriod!}
+                classes={list}
+                onOpenClass={openClass}
+                onGoClasses={() => go('classes')}
+              />
+            )}
+          </Async>
+        );
+
+      case 'classes':
+      case 'attendance':
+      case 'submissions': {
+        const purpose =
+          route.id === 'attendance' ? { label: 'Attendance — pick a class', tab: 'attendance' as const }
+          : route.id === 'submissions' ? { label: 'Submissions — pick a class', tab: 'submission' as const }
+          : undefined;
+        return (
+          <Async state={classesState} retry={retryClasses} rows={6}>
+            {(list) => (
+              <MyClasses
+                classes={list} year={year!} periodId={activePeriod!}
+                onOpenClass={openClass} purpose={purpose}
+              />
+            )}
+          </Async>
+        );
+      }
+
+      case 'reports':
+        return (
+          <Async state={classesState} retry={retryClasses} rows={6}>
+            {(list) => (
+              <MyClasses
+                classes={list} year={year!} periodId={activePeriod!}
+                onOpenClass={(id) => openClass(id, 'reports')}
+                purpose={{ label: 'Reports — pick a class', tab: 'reports' as unknown as 'gradebook' }}
+              />
+            )}
+          </Async>
+        );
+
+      case 'help':
+        return <Help />;
+
+      case 'class':
+        if (!cls) {
+          return (
+            <Async state={classesState} retry={retryClasses} rows={4}>
+              {() => (
+                <NotAvailable
+                  title="Class not found"
+                  note="This class is not in your current teaching load for this school year."
+                />
+              )}
+            </Async>
+          );
+        }
+        return (
+          <ClassWorkspace
+            cls={cls} year={year} periodId={activePeriod}
+            tab={route.tab ?? 'gradebook'}
+            onTabChange={(t) => setRoute((r) => ({ ...r, tab: t }))}
+            onPeriodChange={setPeriodId}
+            gradebook={gradebookState}
+            retryGradebook={retryGradebook}
+            onSaveScores={source.saveScores}
+            onBack={() => go('classes')}
+            validateSubmission={source.validateSubmission}
+            submitGrades={source.submitGrades}
+            loadStudents={source.getClassStudents}
+            loadAttendance={source.getAttendance}
+            saveAttendance={source.saveAttendance}
+            onWorkflowChange={bumpRevision}
+          />
+        );
+
+      case 'queue':
+        return (
+          <RegistrarQueue
+            yearId={year.id}
+            load={source.getSubmissionQueue}
+            actions={{
+              returnSubmission: source.returnSubmission,
+              approveSubmission: source.approveSubmission,
+              finalizeSubmission: source.finalizeSubmission,
+              publishSubmission: source.publishSubmission,
+            }}
+            onOpenClass={(classId, pid) => { setPeriodId(pid); openClass(classId, 'gradebook'); }}
+          />
+        );
+
+      case 'students':
+        return (
+          <RegistrarStudents
+            yearId={year.id}
+            load={source.getStudents}
+            onOpenRecord={(studentId) => setRoute({ id: 'records', studentId })}
+          />
+        );
+
+      case 'records':
+        // No hard-coded student. The registrar picks one; the SF10 is
+        // then fetched for that id and the server decides whether this
+        // caller may read it.
+        if (!route.studentId) {
+          return (
+            <RegistrarStudents
+              yearId={year.id}
+              load={source.getStudents}
+              purpose="Academic records"
+              onOpenRecord={(studentId) => setRoute({ id: 'records', studentId })}
+            />
+          );
+        }
+        return <Sf10Screen studentId={route.studentId} onBack={() => go('records')} />;
+
+      case 'profile':
+        return <StudentProfileScreen load={source.getMyProfile} />;
+
+      case 'history':
+        return (
+          <StudentHistory
+            load={source.getMyHistory}
+            loadGrades={(yid) => source.getMyGrades(yid)}
+          />
+        );
+
+      default:
+        return <NotAvailable title={item?.label ?? 'Not available'} note={item?.note} />;
+    }
+  }
 
   return (
     <div className="shell">
       <Sidebar
         user={user}
         activeRole={role}
-        activeKey={navKey}
-        onNavigate={(k) => { setNavKey(k); if (k === 'dashboard') setClassId(null); }}
-        onRoleChange={setRole}
+        heldRoles={heldRoles}
+        activeKey={route.id}
+        onNavigate={(k) => go(k)}
+        onRoleChange={setRoleOverride}
       />
 
       <div className="main">
         <header className="topbar">
           <div className="crumbs">
-            <span>Teaching</span><span>My Classes</span>
-            {cls && <span>{cls.gradeLevel} – {cls.section}</span>}
+            <span>{ROLE_LABEL[role]}</span>
+            {route.id === 'class' && <span>My Classes</span>}
+            {route.id === 'class' && cls && <span>{cls.gradeLevel} – {cls.section}</span>}
           </div>
-          <h1>
-            {showSf10 ? 'Learner Permanent Record'
-              : cls ? `${cls.gradeLevel} – ${cls.section} · ${cls.subject}` : 'Dashboard'}
-          </h1>
+          <h1>{title}</h1>
           <div className="topbar-row">
-            <span className="topbar-label">Academic year</span>
+            <label className="topbar-label" htmlFor="period-select">Grading period</label>
             <select
+              id="period-select"
               className="select"
               value={activePeriod ?? ''}
               onChange={(e) => setPeriodId(e.target.value)}
@@ -187,8 +407,6 @@ export default function App() {
 
             <div className="spacer" />
 
-            {/* Says plainly when the numbers are not real. Nobody should
-                demo fixture data believing it is live. */}
             {source.kind === 'fixtures' && (
               <span className="source-chip" title="No backend configured — showing fixture data">
                 <span aria-hidden="true">◈</span> Sample data
@@ -209,44 +427,25 @@ export default function App() {
           </div>
         </header>
 
-        {loading && (
-          <div className="load-banner" role="status" aria-live="polite">
-            <span className="save-dot" aria-hidden="true" /> Loading…
-          </div>
-        )}
-        {error && (
-          <div className="err-banner" role="alert">
-            <span>{error}</span>
-            <button className="btn btn-sm" onClick={() => setError(null)}>Dismiss</button>
-          </div>
-        )}
-
-        {showSf10 && sf10 ? (
-          <Sf10Preview data={sf10} />
-        ) : cls && gradebook && year && activePeriod ? (
-          <ClassWorkspace
-            cls={cls}
-            year={year}
-            periodId={activePeriod}
-            onPeriodChange={setPeriodId}
-            gradebook={gradebook}
-            onSaveScores={source.saveScores}
-          />
-        ) : year && activePeriod ? (
-          <TeacherDashboard
-            teacherName={user.name}
-            year={year}
-            periodId={activePeriod}
-            classes={classes}
-            onOpenClass={(id) => { setClassId(id); setNavKey('gradebook'); }}
-          />
-        ) : (
-          <div className="page"><div className="panel"><div className="empty">
-            <strong>No academic year is set up</strong>
-            An administrator needs to create a school year and its grading periods.
-          </div></div></div>
-        )}
+        {screen()}
       </div>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+
+function Sf10Screen({ studentId, onBack }: { studentId: string; onBack: () => void }) {
+  const source = getDataSource();
+  const [state, retry] = useAsync(() => source.getSf10(studentId), [source, studentId]);
+  return (
+    <>
+      <div className="page" style={{ paddingBottom: 0 }}>
+        <button className="link-back" onClick={onBack}>← All learners</button>
+      </div>
+      <Async state={state} retry={retry} rows={10}>
+        {(data) => <Sf10Preview data={data} />}
+      </Async>
+    </>
   );
 }

@@ -1,45 +1,85 @@
-import { useState } from 'react';
-import type { AcademicYear, ClassSummary, GradebookData } from '../data/types';
+import { useCallback, useState } from 'react';
+import type {
+  AcademicYear, AttendanceDay, AttendanceMark, ClassStudent, ClassSummary,
+  GradebookData, ValidationReport,
+} from '../data/types';
 import type { ScoreEdit } from '../data/source';
 import { StatusBadge } from '../components/StatusBadge';
+import { Async, ErrorState, Loading } from '../components/Async';
 import { Gradebook } from './Gradebook';
-
-type Tab = 'overview' | 'gradebook' | 'attendance' | 'students' | 'reports' | 'submission';
+import { ClassSubmission } from './ClassSubmission';
+import { ClassAttendance } from './ClassAttendance';
+import { ClassStudents } from './ClassStudents';
+import { CLASS_TABS, type ClassTab } from '../nav';
+import { displayStatus, isEditable, missingCount, pct } from '../lib/status';
+import { downloadCsv, gradebookCsv, slug, summaryCsv } from '../lib/export';
+import type { AsyncState } from '../components/Async';
 
 interface Props {
   cls: ClassSummary;
   year: AcademicYear;
   periodId: string;
+  tab: ClassTab;
+  onTabChange: (tab: ClassTab) => void;
   onPeriodChange: (id: string) => void;
-  gradebook: GradebookData;
+  gradebook: AsyncState<GradebookData>;
+  retryGradebook: () => void;
   onSaveScores: (edits: ScoreEdit[]) => Promise<{ written: number }>;
+  onBack: () => void;
+  /* data-layer calls, passed in so this screen never imports a source */
+  validateSubmission: (classId: string, periodId: string) => Promise<ValidationReport>;
+  submitGrades: (classId: string, periodId: string, ack: boolean) => Promise<void>;
+  loadStudents: (classId: string) => Promise<ClassStudent[]>;
+  loadAttendance: (classId: string, date: string) => Promise<AttendanceDay>;
+  saveAttendance: (classId: string, date: string, marks: AttendanceMark[]) => Promise<{ written: number }>;
+  onWorkflowChange: () => void;
 }
 
 /**
  * The class is the unit of work.
  *
- * V0 keeps the active class in one global bar and the term in a second
- * global bar, so every page is "the current page for whatever class is
- * loaded" — and six screens show a "Select a class first" empty state.
- * Here the class is a route you open and the period is a property of the
- * gradebook inside it. That removes ~150px of permanent chrome and the
- * empty state entirely.
+ * Every tab here previously rendered "Not built yet" except the
+ * gradebook, and the two header buttons — Export and Submit — had no
+ * handlers at all. Now the tab is part of the route, so opening a class
+ * from the dashboard, from My Classes, or from a registrar queue row can
+ * each land on the tab that makes sense for the journey.
  */
-export function ClassWorkspace({ cls, year, periodId, onPeriodChange, gradebook, onSaveScores }: Props) {
-  const [tab, setTab] = useState<Tab>('gradebook');
-  const status = cls.status[periodId] ?? 'draft';
-  const period = year.periods.find((p) => p.id === periodId);
+export function ClassWorkspace(props: Props) {
+  const {
+    cls, year, periodId, tab, onTabChange, onPeriodChange, gradebook, retryGradebook,
+    onSaveScores, onBack, validateSubmission, submitGrades, loadStudents,
+    loadAttendance, saveAttendance, onWorkflowChange,
+  } = props;
 
-  const tabs: Array<[Tab, string]> = [
-    ['overview', 'Overview'], ['gradebook', 'Gradebook'], ['attendance', 'Attendance'],
-    ['students', 'Students'], ['reports', 'Reports'], ['submission', 'Submission'],
-  ];
+  const [exportOpen, setExportOpen] = useState(false);
+  const status = displayStatus(cls, periodId);
+  const period = year.periods.find((p) => p.id === periodId);
+  const done = cls.completeness[periodId];
+  const missing = missingCount(done);
+
+  const doExport = useCallback((kind: 'grid' | 'summary' | 'print') => {
+    setExportOpen(false);
+    if (kind === 'print') { window.print(); return; }
+    if (gradebook.status !== 'ready' || !period) return;
+    const ctx = {
+      className: `${cls.gradeLevel} – ${cls.section}`,
+      subject: cls.subject,
+      period: period.name,
+      year: year.label,
+    };
+    const name = slug(cls.gradeLevel, cls.section, cls.subjectCode, period.shortName, kind);
+    downloadCsv(
+      `${name}.csv`,
+      kind === 'grid' ? gradebookCsv(gradebook.data, ctx) : summaryCsv(gradebook.data, ctx),
+    );
+  }, [gradebook, cls, period, year.label]);
 
   return (
     <div className="page">
       <div className="panel">
         <div className="panel-head" style={{ borderBottom: 0, paddingBottom: 4 }}>
           <div>
+            <button className="link-back" onClick={onBack}>← My classes</button>
             <div className="row" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20 }}>
                 {cls.gradeLevel} – {cls.section} · {cls.subject}
@@ -52,16 +92,48 @@ export function ClassWorkspace({ cls, year, periodId, onPeriodChange, gradebook,
             </div>
           </div>
           <div className="spacer" />
-          <button className="btn btn-sm">Export</button>
-          <button className="btn btn-primary btn-sm" disabled={!gradebook.editable}>
-            Submit {period?.name}
+
+          <div className="menu-wrap">
+            <button
+              className="btn btn-sm"
+              aria-haspopup="menu"
+              aria-expanded={exportOpen}
+              disabled={gradebook.status !== 'ready'}
+              onClick={() => setExportOpen((v) => !v)}
+            >
+              Export ▾
+            </button>
+            {exportOpen && (
+              <div className="menu" role="menu">
+                <button role="menuitem" onClick={() => doExport('grid')}>
+                  Gradebook (CSV)
+                  <span>Every score, plus the calculated columns</span>
+                </button>
+                <button role="menuitem" onClick={() => doExport('summary')}>
+                  Grade summary (CSV)
+                  <span>One row per learner with the descriptor</span>
+                </button>
+                <button role="menuitem" onClick={() => doExport('print')}>
+                  Print
+                  <span>Uses the browser print dialog</span>
+                </button>
+                <p className="menu-note">
+                  Official, numbered documents come from the registrar once the
+                  document engine is built — see docs/11.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() => onTabChange('submission')}
+          >
+            {isEditable(status) ? `Submit ${period?.shortName ?? ''}`.trim() : 'View submission'}
           </button>
         </div>
 
         <div style={{ padding: '10px 16px 0' }}>
-          {/* Period is scoped to the class, not global — and the tabs
-              come from the school year's structure, so a four-quarter
-              school renders four without a code change. */}
           <div className="seg" role="group" aria-label="Grading period" style={{ marginBottom: 10 }}>
             {year.periods.map((p) => (
               <button key={p.id} aria-pressed={p.id === periodId} onClick={() => onPeriodChange(p.id)}>
@@ -71,25 +143,154 @@ export function ClassWorkspace({ cls, year, periodId, onPeriodChange, gradebook,
           </div>
 
           <div className="tabs" role="tablist">
-            {tabs.map(([key, label]) => (
-              <button key={key} role="tab" aria-selected={tab === key} onClick={() => setTab(key)}>
-                {label}
+            {CLASS_TABS.map((t) => (
+              <button
+                key={t.key}
+                role="tab"
+                id={`tab-${t.key}`}
+                aria-selected={tab === t.key}
+                aria-controls={`panel-${t.key}`}
+                onClick={() => onTabChange(t.key)}
+              >
+                {t.label}
+                {t.key === 'submission' && missing > 0 && (
+                  <span className="tab-count" title={`${missing} missing scores`}>{missing}</span>
+                )}
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      {tab === 'gradebook' ? (
-        <Gradebook data={gradebook} onSaveScores={onSaveScores} />
-      ) : (
-        <div className="panel">
-          <div className="empty">
-            <strong>{tabs.find(([k]) => k === tab)?.[1]}</strong>
-            Not built yet — this milestone covers the gradebook.
-          </div>
-        </div>
-      )}
+      <div id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`}>
+        {tab === 'overview' && (
+          <Overview cls={cls} periodId={periodId} periodName={period?.name ?? ''} onGo={onTabChange} />
+        )}
+
+        {tab === 'gradebook' && (
+          <Async state={gradebook} retry={retryGradebook} rows={8}>
+            {(g) => <Gradebook data={g} onSaveScores={onSaveScores} />}
+          </Async>
+        )}
+
+        {tab === 'attendance' && (
+          <ClassAttendance classId={cls.id} load={loadAttendance} save={saveAttendance} />
+        )}
+
+        {tab === 'students' && (
+          <ClassStudents classId={cls.id} load={loadStudents} />
+        )}
+
+        {tab === 'reports' && (
+          <Reports onExport={doExport} disabled={gradebook.status !== 'ready'} />
+        )}
+
+        {tab === 'submission' && period && (
+          <ClassSubmission
+            cls={cls}
+            period={period}
+            status={status}
+            validate={() => validateSubmission(cls.id, periodId)}
+            submit={(ack) => submitGrades(cls.id, periodId, ack)}
+            onSubmitted={onWorkflowChange}
+            onReviewMissing={() => onTabChange('gradebook')}
+          />
+        )}
+      </div>
     </div>
   );
 }
+
+/* ------------------------------------------------------------------ */
+
+function Overview({ cls, periodId, periodName, onGo }: {
+  cls: ClassSummary; periodId: string; periodName: string;
+  onGo: (t: ClassTab) => void;
+}) {
+  const done = cls.completeness[periodId];
+  const progress = pct(done);
+  const missing = missingCount(done);
+
+  return (
+    <div className="panel">
+      <div className="panel-head"><h2>{periodName} at a glance</h2></div>
+      <div className="panel-body">
+        <div className="stat-row">
+          <button className="stat stat-btn" onClick={() => onGo('students')}>
+            <b>{cls.studentCount}</b><span>Learners</span>
+          </button>
+          <button className="stat stat-btn" onClick={() => onGo('gradebook')}>
+            <b>{progress}%</b><span>Scores entered</span>
+          </button>
+          <button className="stat stat-btn" onClick={() => onGo('gradebook')}>
+            <b data-warn={missing > 0}>{missing}</b><span>Missing scores</span>
+          </button>
+          <button className="stat stat-btn" onClick={() => onGo('submission')}>
+            <b style={{ fontSize: 15 }}>{displayStatus(cls, periodId).replace('_', ' ')}</b>
+            <span>Submission</span>
+          </button>
+        </div>
+        <p className="page-sub" style={{ marginTop: 14 }}>
+          Every tile opens the screen it summarises. Nothing here is decorative.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function Reports({ onExport, disabled }: {
+  onExport: (k: 'grid' | 'summary' | 'print') => void; disabled: boolean;
+}) {
+  return (
+    <div className="panel">
+      <div className="panel-head"><h2>Reports</h2></div>
+      <div className="panel-body">
+        <div className="rep-grid">
+          <ReportCard
+            title="Class record (CSV)"
+            body="Every score in this period with the calculated Initial and Grade columns. Opens in Excel."
+            action={<button className="btn btn-sm" disabled={disabled} onClick={() => onExport('grid')}>Download</button>}
+          />
+          <ReportCard
+            title="Grade summary (CSV)"
+            body="One row per learner: initial grade, transmuted grade, descriptor and remark."
+            action={<button className="btn btn-sm" disabled={disabled} onClick={() => onExport('summary')}>Download</button>}
+          />
+          <ReportCard
+            title="Print the gradebook"
+            body="Uses the browser's print dialog against the on-screen grid."
+            action={<button className="btn btn-sm" disabled={disabled} onClick={() => onExport('print')}>Print</button>}
+          />
+          <ReportCard
+            title="Report card (SF9)"
+            planned
+            body="An official report card is a numbered, signed, archived document. It comes from the registrar through the pipeline in docs/11-document-engine.md, not from a browser print."
+          />
+          <ReportCard
+            title="DepEd E-Class Record (XLSX)"
+            planned
+            body="V0 already emits the exact DepEd workbook shape teachers expect (main.js:1176-1322). docs/10 says that layout knowledge ports across rather than being re-derived here."
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReportCard({ title, body, action, planned }: {
+  title: string; body: string; action?: React.ReactNode; planned?: boolean;
+}) {
+  return (
+    <div className="rep-card" data-planned={planned || undefined}>
+      <div className="row">
+        <h3>{title}</h3>
+        <div className="spacer" />
+        {planned && <span className="na-tag">Not yet</span>}
+      </div>
+      <p>{body}</p>
+      {action}
+    </div>
+  );
+}
+
+export { ErrorState, Loading };
