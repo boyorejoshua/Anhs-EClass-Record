@@ -12,7 +12,11 @@
  */
 import { requireSupabase } from '../lib/supabase';
 import type { DataSource, ScoreEdit, SessionContext } from './source';
-import type { ClassSummary, GradebookData } from './types';
+import type {
+  AttendanceDay, ClassStudent, ClassSummary, DirectoryStudent,
+  GradebookData, StudentGradeRow, StudentHistoryRow, StudentProfile, SubmissionRow,
+  ValidationReport,
+} from './types';
 import type { Sf10Payload } from './sf10';
 
 /** Supabase surfaces Postgres errors verbatim; make them readable first. */
@@ -105,6 +109,121 @@ export function createSupabaseSource(): DataSource {
         .rpc('sf10_jhs', { p_student_id: studentId });
       if (error) fail('Loading the permanent record', error);
       return data as Sf10Payload;
+    },
+
+    /* ---- roster & directory --------------------------------------- */
+
+    async getClassStudents(classId) {
+      const { data, error } = await requireSupabase()
+        .rpc('class_students', { p_class_id: classId });
+      if (error) fail('Loading the class list', error);
+      return (data ?? []) as ClassStudent[];
+    },
+
+    async getStudents(academicYearId, search) {
+      const { data, error } = await requireSupabase()
+        .rpc('students_directory', { p_year_id: academicYearId, p_search: search ?? null });
+      if (error) fail('Searching learners', error);
+      return (data ?? []) as DirectoryStudent[];
+    },
+
+    /* ---- attendance ------------------------------------------------ */
+
+    async getAttendance(classId, date) {
+      const { data, error } = await requireSupabase()
+        .rpc('attendance', { p_class_id: classId, p_date: date });
+      if (error) fail('Loading attendance', error);
+      return data as AttendanceDay;
+    },
+
+    async saveAttendance(classId, date, marks) {
+      if (marks.length === 0) return { written: 0 };
+      const { data, error } = await requireSupabase()
+        .rpc('save_attendance', { p_class_id: classId, p_date: date, p_marks: marks });
+      if (error) fail('Saving attendance', error);
+      const written = (data as { written: number } | null)?.written ?? 0;
+      // Same reasoning as saveScores: RLS filters rather than raises, so
+      // a short write is silent unless we look for it.
+      if (written < marks.length) {
+        throw new Error(
+          `Only ${written} of ${marks.length} marks were saved. Reload to see the ` +
+          'current state of this day.',
+        );
+      }
+      return { written };
+    },
+
+    /* ---- the grade workflow ---------------------------------------- */
+
+    async validateSubmission(classId, periodId) {
+      const { data, error } = await requireSupabase()
+        .rpc('validate_submission', { p_class_id: classId, p_period_id: periodId });
+      if (error) fail('Checking the submission', error);
+      return data as ValidationReport;
+    },
+
+    async submitGrades(classId, periodId, acknowledgeWarnings) {
+      const { error } = await requireSupabase().rpc('submit_grades', {
+        p_class_id: classId,
+        p_period_id: periodId,
+        p_acknowledge_warnings: acknowledgeWarnings,
+      });
+      if (error) fail('Submitting grades', error);
+    },
+
+    async getSubmissionQueue(academicYearId) {
+      const { data, error } = await requireSupabase()
+        .rpc('submission_queue', { p_year_id: academicYearId });
+      if (error) fail('Loading the submission queue', error);
+      return (data ?? []) as SubmissionRow[];
+    },
+
+    async returnSubmission(submissionId, reason) {
+      const { error } = await requireSupabase()
+        .rpc('return_grades', { p_submission_id: submissionId, p_reason: reason });
+      if (error) fail('Returning the submission', error);
+    },
+
+    async approveSubmission(submissionId) {
+      const { error } = await requireSupabase()
+        .rpc('approve_grades', { p_submission_id: submissionId });
+      if (error) fail('Approving the submission', error);
+    },
+
+    async finalizeSubmission(submissionId) {
+      const { error } = await requireSupabase()
+        .rpc('finalize_grades', { p_submission_id: submissionId });
+      if (error) fail('Finalizing the submission', error);
+    },
+
+    async publishSubmission(submissionId) {
+      const { error } = await requireSupabase()
+        .rpc('publish_grades', { p_submission_id: submissionId });
+      if (error) fail('Publishing grades', error);
+    },
+
+    /* ---- student portal --------------------------------------------
+     * None of these takes a student id. The learner comes from
+     * app.current_student_id(), which reads the verified JWT.
+     * ---------------------------------------------------------------- */
+
+    async getMyProfile() {
+      const { data, error } = await requireSupabase().rpc('my_profile');
+      if (error) fail('Loading your profile', error);
+      return data as StudentProfile;
+    },
+
+    async getMyGrades(academicYearId) {
+      const { data, error } = await requireSupabase()
+        .rpc('my_grades', { p_year_id: academicYearId ?? null });
+      if (error) fail('Loading your grades', error);
+      return (data ?? []) as StudentGradeRow[];
+    },
+
+    async getMyHistory() {
+      const { data, error } = await requireSupabase().rpc('my_academic_history');
+      if (error) fail('Loading your academic history', error);
+      return (data ?? []) as StudentHistoryRow[];
     },
   };
 }

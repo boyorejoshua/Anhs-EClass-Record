@@ -11,7 +11,11 @@
  * unwritten, and they would then be discovered by a school on a bad
  * connection rather than by us.
  */
-import type { ClassSummary, GradebookData } from './types';
+import type {
+  AttendanceDay, AttendanceMark, ClassStudent, ClassSummary, DirectoryStudent,
+  GradebookData, StudentGradeRow, StudentHistoryRow, StudentProfile, SubmissionRow,
+  ValidationReport,
+} from './types';
 import type { Sf10Payload } from './sf10';
 
 export interface SessionUser {
@@ -80,4 +84,34 @@ export interface DataSource {
   /** Returns how many rows the server actually wrote. */
   saveScores(edits: ScoreEdit[]): Promise<{ written: number }>;
   getSf10(studentId: string): Promise<Sf10Payload>;
+
+  /* ---- roster & directory ---------------------------------------- */
+  getClassStudents(classId: string): Promise<ClassStudent[]>;
+  getStudents(academicYearId: string, search?: string): Promise<DirectoryStudent[]>;
+
+  /* ---- attendance ------------------------------------------------- */
+  getAttendance(classId: string, date: string): Promise<AttendanceDay>;
+  saveAttendance(classId: string, date: string, marks: AttendanceMark[]): Promise<{ written: number }>;
+
+  /* ---- the grade workflow ----------------------------------------- *
+   * Every one of these is a database RPC that writes an audit row and
+   * refuses an illegal transition. None of them is a client-side status
+   * change: a modified client cannot skip a state.
+   * ------------------------------------------------------------------ */
+  validateSubmission(classId: string, periodId: string): Promise<ValidationReport>;
+  submitGrades(classId: string, periodId: string, acknowledgeWarnings: boolean): Promise<void>;
+  getSubmissionQueue(academicYearId: string): Promise<SubmissionRow[]>;
+  returnSubmission(submissionId: string, reason: string): Promise<void>;
+  approveSubmission(submissionId: string): Promise<void>;
+  finalizeSubmission(submissionId: string): Promise<void>;
+  publishSubmission(submissionId: string): Promise<void>;
+
+  /* ---- student portal --------------------------------------------- *
+   * No student id parameter anywhere. The learner is resolved
+   * server-side from the verified JWT (app.current_student_id()); a
+   * student id accepted from the client is an IDOR waiting to happen.
+   * ------------------------------------------------------------------ */
+  getMyProfile(): Promise<StudentProfile>;
+  getMyGrades(academicYearId?: string): Promise<StudentGradeRow[]>;
+  getMyHistory(): Promise<StudentHistoryRow[]>;
 }

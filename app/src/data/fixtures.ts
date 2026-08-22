@@ -9,7 +9,9 @@
  * These are FIXTURES, not defaults. Nothing here ships to a school.
  */
 import type {
-  AcademicYear, ClassSummary, CurrentUser, GradebookData, RosterStudent,
+  AcademicYear, AttendanceDay, AttendanceMark, ClassStudent, ClassSummary, CurrentUser,
+  DirectoryStudent, GradebookData, RosterStudent, StudentGradeRow, StudentHistoryRow,
+  StudentProfile, SubmissionRow, ValidationReport,
 } from './types';
 import { DO015_CORE, DO015_MAPEH } from '../lib/grading/fixtures';
 import type { Assessment } from '../lib/grading';
@@ -112,7 +114,7 @@ export const CLASSES: ClassSummary[] = [
     id: 'c-math10-pearl', gradeLevel: 'Grade 10', section: 'Pearl',
     subject: 'Mathematics 10', subjectCode: 'MATH10', studentCount: ROSTER.length,
     scheduleNote: 'MWF 8:00-9:00', room: 'Room 204',
-    status: { p1: 'published', p2: 'in_progress', p3: 'draft' },
+    status: { p1: 'published', p2: 'draft', p3: 'draft' },
     completeness: { p1: { scored: 200, total: 200 }, p2: { scored: 142, total: 200 }, p3: { scored: 0, total: 200 } },
   },
   {
@@ -239,5 +241,228 @@ export function createFixtureSource(): DataSource {
       // 404s at runtime. The fixture is a couple of kilobytes.
       return SF10_FIXTURE;
     },
+
+    async getClassStudents(classId) {
+      const cls = CLASSES.find((c) => c.id === classId) ?? CLASSES[0]!;
+      return ROSTER.slice(0, cls.studentCount).map((r, i) => ({
+        classEnrollmentId: r.classEnrollmentId,
+        enrollmentId: `en-${i + 1}`,
+        studentId: r.studentId,
+        displayName: r.displayName,
+        studentNumber: `2026-${String(i + 1).padStart(4, '0')}`,
+        lrn: `1367890100${String(i + 1).padStart(2, '0')}`,
+        sex: i % 2 === 0 ? 'male' : 'female',
+        enrollmentStatus: 'enrolled',
+        classStatus: 'active',
+        finalGrade: null,
+      })) satisfies ClassStudent[];
+    },
+
+    async getStudents(_yearId, search) {
+      const all: DirectoryStudent[] = ROSTER.map((r, i) => ({
+        studentId: r.studentId,
+        displayName: r.displayName,
+        studentNumber: `2026-${String(i + 1).padStart(4, '0')}`,
+        lrn: `1367890100${String(i + 1).padStart(2, '0')}`,
+        sex: i % 2 === 0 ? 'male' : 'female',
+        gradeLevel: 'Grade 10',
+        section: 'Pearl',
+        enrollmentStatus: 'enrolled',
+        generalAverage: null,
+      }));
+      const q = (search ?? '').trim().toLowerCase();
+      return q ? all.filter((s) => s.displayName.toLowerCase().includes(q)
+        || (s.lrn ?? '').includes(q) || (s.studentNumber ?? '').includes(q)) : all;
+    },
+
+    async getAttendance(classId, date) {
+      const cls = CLASSES.find((c) => c.id === classId) ?? CLASSES[0]!;
+      const weekend = [0, 6].includes(new Date(date + 'T00:00:00').getDay());
+      return {
+        classId, date,
+        calendarDayId: weekend ? null : `cd-${date}`,
+        dayType: weekend ? 'non_teaching' : 'class_day',
+        dayNote: null,
+        isClassDay: !weekend,
+        statuses: ATTENDANCE_STATUSES,
+        roster: ROSTER.slice(0, cls.studentCount).map((r, i) => ({
+          enrollmentId: `en-${i + 1}`,
+          studentId: r.studentId,
+          displayName: r.displayName,
+          statusId: attendanceMarks.get(`${date}|en-${i + 1}`) ?? null,
+          note: null,
+        })),
+      } satisfies AttendanceDay;
+    },
+
+    async saveAttendance(_classId, date, marks: AttendanceMark[]) {
+      for (const m of marks) attendanceMarks.set(`${date}|${m.enrollmentId}`, m.statusId);
+      return { written: marks.length };
+    },
+
+    /* ---- workflow ---------------------------------------------------
+     * The fixture runs the SAME state machine as the database, from the
+     * same table of legal transitions. If it were more permissive the
+     * UI would be developed against rules the server does not have, and
+     * the difference would surface only in production.
+     * ------------------------------------------------------------------ */
+
+    async validateSubmission(classId, periodId) {
+      const cls = CLASSES.find((c) => c.id === classId) ?? CLASSES[0]!;
+      const c = cls.completeness[periodId] ?? { scored: 0, total: 0 };
+      const missing = Math.max(0, c.total - c.scored);
+      return {
+        ok: c.total > 0,
+        errors: c.total === 0
+          ? [{ code: 'no_assessments', message: 'No assessments have been defined for this period' }]
+          : [],
+        warnings: missing > 0
+          ? [{ code: 'missing_scores', message: `${missing} score(s) not yet entered` }]
+          : [],
+      } satisfies ValidationReport;
+    },
+
+    async submitGrades(classId, periodId, acknowledgeWarnings) {
+      const cls = CLASSES.find((c) => c.id === classId);
+      if (!cls) throw new Error('Class not found.');
+      const report = await this.validateSubmission(classId, periodId);
+      if (!report.ok) throw new Error(report.errors.map((e) => e.message).join('; '));
+      if (report.warnings.length > 0 && !acknowledgeWarnings) {
+        throw new Error('This submission has warnings that need acknowledging.');
+      }
+      assertTransition(cls.status[periodId] ?? 'draft', 'submitted');
+      cls.status[periodId] = 'submitted';
+    },
+
+    async getSubmissionQueue(_yearId) {
+      return CLASSES.flatMap((c) =>
+        Object.entries(c.status)
+          .filter(([, st]) => st !== 'draft')
+          .map(([periodId, st]) => ({
+            submissionId: `sub-${c.id}-${periodId}`,
+            classId: c.id,
+            periodId,
+            periodName: YEAR_TRIMESTER.periods.find((p) => p.id === periodId)?.name ?? periodId,
+            gradeLevel: c.gradeLevel,
+            section: c.section,
+            subject: c.subject,
+            teacher: CURRENT_USER.name,
+            status: st,
+            submittedAt: '2026-09-16T08:00:00Z',
+            returnedAt: st === 'returned' ? '2026-09-17T09:00:00Z' : null,
+            returnReason: st === 'returned' ? '5 missing scores in Written Works' : null,
+            studentCount: c.studentCount,
+            completeness: c.completeness[periodId] ?? { scored: 0, total: 0 },
+          })),
+      ) satisfies SubmissionRow[];
+    },
+
+    async returnSubmission(submissionId, reason) {
+      if (!reason.trim()) throw new Error('A reason is required when returning a submission.');
+      moveSubmission(submissionId, 'returned');
+    },
+    async approveSubmission(submissionId)  { moveSubmission(submissionId, 'approved'); },
+    async finalizeSubmission(submissionId) { moveSubmission(submissionId, 'finalized'); },
+    async publishSubmission(submissionId)  { moveSubmission(submissionId, 'published'); },
+
+    /* ---- student portal --------------------------------------------- */
+
+    async getMyProfile() {
+      return {
+        student: {
+          studentId: 'st-6', displayName: 'Boyore, Joshua Reyes',
+          firstName: 'Joshua', middleName: 'Reyes', lastName: 'Boyore', suffix: null,
+          lrn: '136789010005', studentNumber: '2026-0005', sex: 'Male',
+          birthDate: '2010-05-18', barangay: 'Mahabang Parang',
+          municipality: 'Angono', province: 'Rizal',
+        },
+        enrollment: {
+          academicYear: '2026-2027', gradeLevel: 'Grade 10', section: 'Pearl',
+          status: 'enrolled', dateEnrolled: '2026-06-08', adviser: 'Juan Dela Cruz',
+        },
+        settings: { student_can_view_attendance: false },
+      } satisfies StudentProfile;
+    },
+
+    async getMyGrades() {
+      // Only PUBLISHED periods carry a number. p2 and p3 are not
+      // published in the fixture, so they read as null — the same thing
+      // the RLS policies do on the real database, rather than a
+      // friendlier fiction.
+      return CLASSES.slice(0, 2).map((c) => ({
+        academicYear: '2026-2027',
+        academicYearId: YEAR_TRIMESTER.id,
+        gradeLevel: c.gradeLevel,
+        section: c.section,
+        subject: c.subject,
+        subjectCode: c.subjectCode,
+        periods: YEAR_TRIMESTER.periods.map((p) => ({
+          ordinal: p.ordinal, name: p.name, shortName: p.shortName,
+          grade: c.status[p.id] === 'published' ? 88 : null,
+        })),
+        finalGrade: null,
+        remark: null,
+      })) satisfies StudentGradeRow[];
+    },
+
+    async getMyHistory() {
+      return [
+        {
+          academicYearId: YEAR_TRIMESTER.id, academicYear: '2026-2027',
+          gradeLevel: 'Grade 10', section: 'Pearl', status: 'enrolled',
+          promotionStatus: null, generalAverage: null,
+          schoolName: 'Angono National High School',
+        },
+        {
+          academicYearId: 'year-2025', academicYear: '2025-2026',
+          gradeLevel: 'Grade 9', section: null, status: 'completed',
+          promotionStatus: 'promoted', generalAverage: 86,
+          schoolName: 'Taytay National High School',
+        },
+      ] satisfies StudentHistoryRow[];
+    },
   };
+}
+
+/* ------------------------------------------------------------------ *
+ * Fixture-side workflow support
+ * ------------------------------------------------------------------ */
+
+const ATTENDANCE_STATUSES: AttendanceDay['statuses'] = [
+  { id: 'as-p', code: 'P', label: 'Present', symbol: 'P', countsAs: 'present' },
+  { id: 'as-a', code: 'A', label: 'Absent',  symbol: 'A', countsAs: 'absent' },
+  { id: 'as-l', code: 'L', label: 'Late',    symbol: 'L', countsAs: 'present' },
+  { id: 'as-e', code: 'E', label: 'Excused', symbol: 'E', countsAs: 'neutral' },
+];
+
+const attendanceMarks = new Map<string, string>();
+
+/**
+ * The legal transitions, mirroring app.assert_transition in migration
+ * 0010. Exported so the test suite can assert the two agree.
+ */
+export const TRANSITIONS: Record<string, readonly string[]> = {
+  draft:     ['submitted'],
+  returned:  ['submitted'],
+  reopened:  ['submitted'],
+  submitted: ['returned', 'approved'],
+  approved:  ['finalized', 'returned'],
+  finalized: ['published', 'reopened'],
+  published: ['reopened'],
+};
+
+export function assertTransition(from: string, to: string): void {
+  if (!TRANSITIONS[from]?.includes(to)) {
+    throw new Error(`Illegal transition: ${from} → ${to}`);
+  }
+}
+
+function moveSubmission(submissionId: string, to: SubmissionRow['status']): void {
+  // id shape: sub-<classId>-<periodId>
+  const rest = submissionId.replace(/^sub-/, '');
+  const cls = CLASSES.find((c) => rest.startsWith(`${c.id}-`));
+  if (!cls) throw new Error('Submission not found.');
+  const periodId = rest.slice(cls.id.length + 1);
+  assertTransition(cls.status[periodId] ?? 'draft', to);
+  cls.status[periodId] = to;
 }
