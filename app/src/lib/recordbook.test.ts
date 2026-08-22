@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  analytics, loaReport, reconcileRecorded, summaryRows, PROFICIENCY_BANDS,
-} from './recordbook';
+import { analytics, reconcileRecorded, summaryRows } from './recordbook';
 import { compute } from './grading';
 import { DO015_CORE } from './grading/fixtures';
 import type { GradebookData, PersistedGrade } from '../data/types';
@@ -257,60 +255,6 @@ describe('analytics', () => {
     expect(a.needsAttention.map((s) => s.name)).toContain('Learner c');
     expect(a.needsAttention.map((s) => s.name)).not.toContain('Learner a');
     expect(a.needsAttention[0]!.grade).not.toBeNull();   // graded-but-failing first
-  });
-});
-
-describe('LOA — Level of Achievement', () => {
-  it('bands every component of the scheme', () => {
-    const rows = summaryRows(gradebook({ a: FULL, b: MID, c: FAIL }));
-    const loa = loaReport(rows, LEGACY_SCHEME);
-    expect(loa.sections.map((s) => s.code)).toEqual(['WW', 'PT', 'QA']);
-    expect(loa.sections[0]!.bands.map((b) => b.key))
-      .toEqual(['hp', 'p', 'np2', 'lp', 'np']);
-  });
-
-  it('assigns each scored learner to exactly one proficiency band', () => {
-    const rows = summaryRows(gradebook({ a: FULL, b: MID, c: FAIL }));
-    const loa = loaReport(rows, LEGACY_SCHEME);
-    for (const s of loa.sections) {
-      expect(s.bands.reduce((n, b) => n + b.count, 0)).toBe(s.scored);
-    }
-  });
-
-  it('leaves no gap or overlap between the proficiency thresholds', () => {
-    // Transcribed from legacy profBands: >=90 / >=75 / >=50 / >=25 / else.
-    for (let v = 0; v <= 100; v += 0.5) {
-      const hits = PROFICIENCY_BANDS.filter(([, , , min, max]) => v >= min && v <= max);
-      expect(hits, `percentage ${v} matched ${hits.length} bands`).toHaveLength(1);
-    }
-  });
-
-  it('excludes learners with no score from the bands but counts them', () => {
-    const rows = summaryRows(gradebook({ a: FULL, b: {} }));
-    const loa = loaReport(rows, LEGACY_SCHEME);
-    expect(loa.learners).toBe(2);
-    expect(loa.sections[0]!.scored).toBe(1);
-    expect(loa.sections[0]!.missing).toBe(1);
-    expect(loa.sections[0]!.bands.reduce((n, b) => n + b.count, 0)).toBe(1);
-  });
-
-  it('uses the scheme descriptors for the grade distribution', () => {
-    // Not a second hard-coded scale — a school that configures its
-    // descriptors differently must see its own bands here.
-    const rows = summaryRows(gradebook({ a: FULL }));
-    const loa = loaReport(rows, LEGACY_SCHEME);
-    expect(loa.gradeBands.map((b) => b.label))
-      .toEqual(LEGACY_SCHEME.descriptors.map((d) => d.label).sort(
-        (x, y) => LEGACY_SCHEME.descriptors.find((d) => d.label === y)!.minGrade
-                - LEGACY_SCHEME.descriptors.find((d) => d.label === x)!.minGrade));
-  });
-
-  it('reports percentages against the whole class, not just the scored', () => {
-    const rows = summaryRows(gradebook({ a: FULL, b: {} }));
-    const loa = loaReport(rows, LEGACY_SCHEME);
-    const hp = loa.sections[0]!.bands.find((b) => b.key === 'hp')!;
-    expect(hp.count).toBe(1);
-    expect(hp.percent).toBe(50);     // 1 of 2 learners, not 1 of 1 scored
   });
 });
 

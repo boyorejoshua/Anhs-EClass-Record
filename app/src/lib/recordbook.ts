@@ -58,6 +58,11 @@ export interface SummaryRow {
   untouched: boolean;
 }
 
+/** Two decimals, which is what every figure on these screens carries. */
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 /**
  * One row per learner: the legacy Grade Summary table, computed from the
  * scheme rather than from three fixed columns.
@@ -246,135 +251,6 @@ export function analytics(rows: SummaryRow[], scheme: GradingScheme, assessmentC
     componentAverages,
     needsAttention,
   };
-}
-
-/* ------------------------------------------------------------------ *
- * LOA — Level of Achievement
- * ------------------------------------------------------------------ */
-
-/**
- * ⚠️ LOA means **Level of Achievement**, not Leave of Absence.
- *
- * The legacy module (`renderLOAContent`, `excelLOA`) computes proficiency
- * bands from grade entries and contains no attendance logic whatsoever —
- * a grep for absent/attendance across the entire module returns zero
- * matches, and the in-app help calls it "Level of Achievement reports
- * automatically computed from your grade entries".
- *
- * This is recorded prominently because the migration brief described LOA
- * as attendance-based (absences, attendance status, reasons). Building it
- * that way would have replaced the report the school actually files with
- * a different report of the same name.
- */
-
-export interface BandCount {
-  key: string;
-  label: string;
-  range: string;
-  count: number;
-  percent: number;
-}
-
-export interface LoaSection {
-  code: string;
-  name: string;
-  weight: number | null;
-  /** Mean percentage score across learners with a value. */
-  mean: number | null;
-  bands: BandCount[];
-  scored: number;
-  missing: number;
-}
-
-export interface LoaReport {
-  learners: number;
-  sections: LoaSection[];
-  /** Distribution of the final period grade, by the scheme's own descriptors. */
-  gradeBands: BandCount[];
-  meanPeriodGrade: number | null;
-}
-
-/**
- * Proficiency bands applied to a component's percentage score.
- *
- * Transcribed from legacy `profBands` / `pBands`, whose thresholds are
- * ≥90 / ≥75 / ≥50 / ≥25 / else. The legacy UI and the legacy Excel export
- * label these differently for the same numbers — the on-screen table says
- * "Exceptional / Exceeds Expectations / Meets Expectations / Needs
- * Improvement / Unsatisfactory" while the workbook says "Highly
- * Proficient / Proficient / Nearly Proficient / Low Proficient / Not
- * Proficient".
- *
- * The proficiency wording is used here because it is what the exported
- * file — the artifact that leaves the school — carries.
- *
- * ⚠️ Requires validation. These thresholds come from the legacy
- * implementation, not from a DepEd order found in either repository. A
- * division office may mandate different cut-offs. Do not treat as
- * confirmed.
- */
-export const PROFICIENCY_BANDS: Array<[string, string, string, number, number]> = [
-  ['hp',  'Highly Proficient',  '90–100%', 90, 100],
-  ['p',   'Proficient',         '75–89%',  75, 89.99],
-  ['np2', 'Nearly Proficient',  '50–74%',  50, 74.99],
-  ['lp',  'Low Proficient',     '25–49%',  25, 49.99],
-  ['np',  'Not Proficient',     '0–24%',    0, 24.99],
-];
-
-export function loaReport(rows: SummaryRow[], scheme: GradingScheme): LoaReport {
-  const n = rows.length;
-  const parents = scheme.components
-    .filter((c) => c.parentId === null)
-    .sort((a, b) => a.ordinal - b.ordinal);
-
-  const sections: LoaSection[] = parents.map((p) => {
-    const values = rows
-      .map((r) => r.components.find((c) => c.componentId === p.id)?.percentageScore ?? null);
-    const present = values.filter((v): v is number => v != null);
-    return {
-      code: p.code,
-      name: p.name,
-      weight: p.weight,
-      mean: present.length ? round2(present.reduce((a, b) => a + b, 0) / present.length) : null,
-      scored: present.length,
-      missing: values.length - present.length,
-      bands: PROFICIENCY_BANDS.map(([key, label, range, min, max]) => {
-        const count = present.filter((v) => v >= min && v <= max).length;
-        return { key, label, range, count, percent: n ? round2((count / n) * 100) : 0 };
-      }),
-    };
-  });
-
-  // The final-grade distribution uses the SCHEME's descriptor bands, not
-  // a second hard-coded scale — those are already configuration, and a
-  // school that changes them should see the change here too.
-  const grades = rows.map((r) => r.periodGrade).filter((g): g is number => g != null);
-  const gradeBands: BandCount[] = [...scheme.descriptors]
-    .sort((a, b) => b.minGrade - a.minGrade)
-    .map((d) => {
-      const count = grades.filter((g) => g >= d.minGrade && g <= d.maxGrade).length;
-      return {
-        key: d.label,
-        label: d.label,
-        range: `${d.minGrade}–${d.maxGrade}`,
-        count,
-        percent: n ? round2((count / n) * 100) : 0,
-      };
-    });
-
-  return {
-    learners: n,
-    sections,
-    gradeBands,
-    meanPeriodGrade: grades.length
-      ? round2(grades.reduce((a, b) => a + b, 0) / grades.length) : null,
-  };
-}
-
-/* ------------------------------------------------------------------ */
-
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
 }
 
 /* ==================================================================== *

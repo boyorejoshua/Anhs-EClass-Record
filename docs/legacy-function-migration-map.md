@@ -67,7 +67,7 @@ Legend: ✅ implemented · ⏳ deferred (with reason) · ⛔ deliberately not mi
 | | |
 |---|---|
 | **Legacy** | `renderLOA`, `renderLOAContent`, `excelLOA` |
-| **⚠️ Meaning** | **Level of Achievement** — proficiency banding from grade entries. **Not** Leave of Absence, and not attendance-related in any way (0 attendance references in the module) |
+| **⚠️ Meaning** | **Learning Outcomes Assessment** — confirmed verbatim in the school's `CLASSRECORD_Template.xlsx`. Proficiency and descriptor banding from grade entries. **Not** Leave of Absence, and not "Level of Achievement" (an earlier inference from the legacy JS). No attendance component: 0 attendance references in the module |
 | **Business rule** | Band each component's percentage score: ≥90 Highly Proficient · ≥75 Proficient · ≥50 Nearly Proficient · ≥25 Low Proficient · else Not Proficient. Then band the final grade by descriptor |
 | **New screen** | Class → Record Book → **LOA** |
 | **New logic** | `lib/recordbook.ts` → `loaReport()`, `PROFICIENCY_BANDS` |

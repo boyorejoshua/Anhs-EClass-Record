@@ -44,7 +44,9 @@ function fail(where: string, error: { message: string; code?: string } | null): 
 }
 
 export function createSupabaseSource(): DataSource {
-  return {
+  // Named so methods can call each other. A method reached as
+  // `source.getLoaCohort` and then invoked detached has no `this`.
+  const src: DataSource = {
     kind: 'supabase',
 
     async getSession() {
@@ -222,6 +224,30 @@ export function createSupabaseSource(): DataSource {
       if (!result?.ok) throw new Error(result?.error ?? 'Submitting grades failed.');
     },
 
+    /**
+     * N+1 by design, and deliberately so: it reuses `classes` and
+     * `gradebook`, both already RLS-checked contracts, instead of adding
+     * a wider SQL function that would need its own isolation proof. N is
+     * the number of sections one teacher carries of one subject — four
+     * or five, occasionally ten. A dedicated contract is worth writing
+     * when that stops being true, not before.
+     */
+    async getLoaCohort(academicYearId, classId, periodId) {
+      const all = await src.getClasses(academicYearId);
+      const self = all.find((c) => c.id === classId);
+      if (!self) return [];
+
+      const peers = all
+        .filter((c) => c.subjectCode === self.subjectCode && c.gradeLevel === self.gradeLevel)
+        .sort((a, b) => a.section.localeCompare(b.section));
+
+      return Promise.all(peers.map(async (c) => ({
+        classId: c.id,
+        label: `${c.gradeLevel} – ${c.section}`,
+        data: await src.getGradebook(c.id, periodId),
+      })));
+    },
+
     async getPeriodGrades(classId, periodId) {
       const { data, error } = await requireSupabase()
         .rpc('period_grades_for', { p_class_id: classId, p_period_id: periodId });
@@ -284,6 +310,8 @@ export function createSupabaseSource(): DataSource {
       return (data ?? []) as StudentHistoryRow[];
     },
   };
+
+  return src;
 }
 
 // Local helper so onAuthChange can no-op when unconfigured.

@@ -333,6 +333,7 @@ export default function App() {
             loadAttendance={source.getAttendance}
             saveAttendance={source.saveAttendance}
             onWorkflowChange={bumpRevision}
+            loadLoaCohort={source.getLoaCohort}
           />
         );
 

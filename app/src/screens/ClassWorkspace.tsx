@@ -1,16 +1,17 @@
 import { Fragment, useCallback, useState } from 'react';
 import type {
-  AcademicYear, AttendanceDay, AttendanceMark, ClassStudent, ClassSummary,
+  AcademicPeriod, AcademicYear, AttendanceDay, AttendanceMark, ClassStudent, ClassSummary,
   GradebookData, PersistedGrade, ValidationReport,
 } from '../data/types';
 import type { ScoreEdit } from '../data/source';
 import { StatusBadge } from '../components/StatusBadge';
-import { Async, ErrorState, Loading } from '../components/Async';
+import { Async, ErrorState, Loading, useAsync } from '../components/Async';
 import { Gradebook } from './Gradebook';
 import { RecordBookSummary, RecordBookAnalytics, RecordBookLoa } from './RecordBook';
 import { RecordBookSetup } from './RecordBookSetup';
 import { StudentDetail } from './StudentDetail';
 import type { SummaryRow } from '../lib/recordbook';
+import type { CohortSection } from '../lib/loa';
 import type { AssessmentDraft } from '../data/source';
 import { ClassSubmission } from './ClassSubmission';
 import { ClassAttendance } from './ClassAttendance';
@@ -43,6 +44,37 @@ interface Props {
   loadAttendance: (classId: string, date: string) => Promise<AttendanceDay>;
   saveAttendance: (classId: string, date: string, marks: AttendanceMark[]) => Promise<{ written: number }>;
   onWorkflowChange: () => void;
+  loadLoaCohort: (
+    academicYearId: string, classId: string, periodId: string,
+  ) => Promise<CohortSection[]>;
+}
+
+/**
+ * The LOA report spans every section of this subject the teacher
+ * carries, so it needs its own fetch — the workspace's gradebook is one
+ * class. Loaded only when the tab is open: on a teacher with ten
+ * sections this is ten round trips, and paying them to render a tab
+ * nobody clicked would be rude.
+ */
+function LoaTab({ cls, period, yearLabel, yearId, load, onGoGradebook }: {
+  cls: ClassSummary; period: AcademicPeriod; yearLabel: string; yearId: string;
+  load: (y: string, c: string, p: string) => Promise<CohortSection[]>;
+  onGoGradebook: () => void;
+}) {
+  const [state, retry] = useAsync(
+    () => load(yearId, cls.id, period.id),
+    [load, yearId, cls.id, period.id],
+  );
+  return (
+    <Async state={state} retry={retry} rows={6}>
+      {(cohort) => (
+        <RecordBookLoa
+          cls={cls} period={period} yearLabel={yearLabel} cohort={cohort}
+          onGoGradebook={onGoGradebook}
+        />
+      )}
+    </Async>
+  );
 }
 
 /**
@@ -58,6 +90,7 @@ export function ClassWorkspace(props: Props) {
   const {
     cls, year, periodId, tab, onTabChange, onPeriodChange, gradebook, retryGradebook,
     recorded, onSaveScores, onBack, validateSubmission, submitGrades, loadStudents,
+    loadLoaCohort,
     loadAttendance, saveAttendance, onWorkflowChange, saveAssessments,
   } = props;
 
@@ -242,14 +275,11 @@ export function ClassWorkspace(props: Props) {
         )}
 
         {tab === 'loa' && period && (
-          <Async state={gradebook} retry={retryGradebook} rows={6}>
-            {(g) => (
-              <RecordBookLoa
-                cls={cls} period={period} yearLabel={year.label} data={g}
-                onGoGradebook={() => onTabChange('setup')}
-              />
-            )}
-          </Async>
+          <LoaTab
+            cls={cls} period={period} yearLabel={year.label} yearId={year.id}
+            load={loadLoaCohort}
+            onGoGradebook={() => onTabChange('setup')}
+          />
         )}
 
         {tab === 'attendance' && (

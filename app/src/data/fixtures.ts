@@ -417,6 +417,19 @@ export function createFixtureSource(): DataSource {
       cls.status[periodId] = 'submitted';
     },
 
+    async getLoaCohort(_yearId, classId, periodId) {
+      const self = CLASSES.find((c) => c.id === classId);
+      if (!self) return [];
+      const peers = CLASSES
+        .filter((c) => c.subjectCode === self.subjectCode && c.gradeLevel === self.gradeLevel)
+        .sort((a, b) => a.section.localeCompare(b.section));
+      return Promise.all(peers.map(async (c) => ({
+        classId: c.id,
+        label: `${c.gradeLevel} – ${c.section}`,
+        data: await src.getGradebook(c.id, periodId),
+      })));
+    },
+
     async getPeriodGrades(classId, periodId) {
       return persistedGrades.get(`${classId}|${periodId}`) ?? {};
     },

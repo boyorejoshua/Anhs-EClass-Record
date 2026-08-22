@@ -113,9 +113,14 @@ configurable.
 
 ---
 
-## LOA — Level of Achievement
+## LOA — Learning Outcomes Assessment
 
-> ⚠️ **LOA is Level of Achievement, not Leave of Absence.** It is
+> ⚠️ **LOA is Learning Outcomes Assessment**, confirmed against the
+> school's own `CLASSRECORD_Template.xlsx`. Not Leave of Absence, and not
+> "Level of Achievement" — an earlier reading of this repository's own,
+> inferred from the legacy JavaScript before the workbook was available.
+> See `legacy-vs-new-functional-audit.md` §2 for the full report layout,
+> both band scales, and what is still unimplemented. It is
 > computed from grade entries and has no attendance component. The
 > legacy module contains zero attendance references.
 

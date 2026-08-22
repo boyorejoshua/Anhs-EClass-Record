@@ -91,36 +91,98 @@ one already seeded in the new system. That port was faithful.
 
 ---
 
-## 2. ⚠️ LOA does not mean what the brief assumed
+## 2. ⚠️ LOA — twice corrected, now settled
 
-**LOA = Level of Achievement.** It is a proficiency-band report computed
-from grade entries. It has no attendance component whatsoever.
+**LOA = Learning Outcomes Assessment.** Confirmed against the school's own
+`CLASSRECORD_Template.xlsx`, sheet *LOA Summary Reports*, whose closing
+line reads verbatim:
 
-Evidence:
+> END OF YOUR LEARNING OUTCOMES ASSESSMENT (LOA) SUMMARY REPORTS.
 
-- The in-app help: *"Level of Achievement reports automatically computed
-  from your grade entries. Shows proficiency bands for Written Works,
-  Performance Tasks, Quarterly Assessment, and final Quarterly Grades."*
-- `grep -ci "absent|attendance|absence"` across the entire LOA module →
-  **0 matches**.
-- `excelLOA` sheet sections: Diagnostic Test Results, Written Works
-  Achievement, Performance Tasks Achievement, Quarterly Assessment
-  Achievement, Quarterly Grade distribution.
+Two earlier readings were wrong and are recorded here so neither is
+reintroduced:
 
-The migration brief (Phase 10) described LOA as attendance-based —
-"total absences", "attendance status", "reason where available" — and
-directed that it be rebuilt on the attendance model.
+| Reading | Source | Verdict |
+|---|---|---|
+| "Leave of Absence" — an attendance report | the migration brief, Phase 10 | ❌ Wrong. `grep -ci "absent\|attendance\|absence"` across the whole legacy LOA module → **0 matches** |
+| "Level of Achievement" | inferred from the legacy JavaScript | ❌ Close in spirit, wrong in name |
+| **"Learning Outcomes Assessment"** | the school's workbook | ✅ Authoritative |
 
-**Building it that way would have replaced the report the school
-actually files with a different report of the same name**, and lost the
-real one. LOA has therefore been implemented as achievement banding,
-matching the legacy reference, per the brief's own governing rule:
-*extract the business rules from the legacy system*.
+It has no attendance component whatsoever. Attendance reporting is a
+separate, real need — SF2 and SF4 — tracked in `docs/12-mvp-and-roadmap.md`.
 
-Attendance reporting is a separate, real need — SF2 and SF4 — and is
-tracked as such in `docs/12-mvp-and-roadmap.md`.
+### What the report actually is
 
----
+Five tables. Each carries **one row per class section**, not per learner:
+it is filed per subject across sections, so a teacher with four sections
+of Grade 7 English files one sheet and the department coordinator reads
+down the column for the section that is behind.
+
+| # | Table | Banded on | Scale |
+|---|---|---|---|
+| 1 | Pre-test / diagnostic | raw ÷ No. of Items | 5-band proficiency |
+| 2 | Written Works | raw ÷ HPS | 5-band proficiency |
+| 3 | Performance Tasks *(from Percentage Score)* | PS % | 7-band descriptor |
+| 4 | Quarterly Assessment | raw ÷ No. of Items | 5-band proficiency |
+| 5 | Quarterly Grades *(from Transmuted Grade)* | the grade | 7-band descriptor |
+
+Proficiency tables also carry **No. of Items / HPS, HSO, LSO, Mean, MPS**
+and a `TOTAL (to check entries)` column that reads 100 only when every
+learner was banded — its whole purpose is to expose a learner with no
+score.
+
+### The two band scales, from the workbook's own COUNTIFS
+
+**Proficiency** (rows 4, 23, 62). Half-open on every boundary but the top:
+
+| Band | Range |
+|---|---|
+| Not Proficient | 0% – 24% |
+| Low Proficient | 25% – 49% |
+| Nearly Proficient | 50% – 74% |
+| Proficient | 75% – 89% |
+| Highly Proficient | 90% – 100% |
+
+These match the thresholds already derived from the legacy JavaScript
+exactly — that port was faithful.
+
+**Descriptor** (rows 42–44, 81–83). Note that *Outstanding* spans three
+ranges under one merged heading:
+
+| Band | Range |
+|---|---|
+| Did Not Meet Expectations | 74% & below |
+| Fairly Satisfactory | 75% – 79% |
+| Satisfactory | 80% – 84% |
+| Very Satisfactory | 85% – 89% |
+| Outstanding | 90% – 94% · 95% – 97% · 98% – 100% |
+
+### What is implemented, and what is not
+
+Implemented in `app/src/lib/loa.ts`, `app/src/screens/RecordBook.tsx`
+(`RecordBookLoa`), tested in `loa.test.ts` and `e2e/loa-report.mjs`:
+all five band boundaries, both scales, the statistics columns, the check
+column, section rows with a weighted Total row, and CSV export.
+
+**Not implemented:** the pre-test / diagnostic table. A diagnostic sits
+outside the grading scheme, and there is nowhere in the data model to put
+one yet. Inventing it from a component would print a number under a
+heading that does not describe it.
+
+**Which scale each component uses** is data, in `SECTION_SCALES` — keyed
+by component code, defaulting to proficiency for a code the table does
+not name. It is not an `if (code === 'PT')` in a loop, so a school whose
+template differs edits one table.
+
+⚠️ **The template's currency is unconfirmed.** The school supplied it with
+the caveat that it may not be the latest issuance. Recorded in
+`docs/18-assumptions-register.md`; the seven-band Performance Task scale
+is the most likely thing to have been revised.
+
+### One thing the workbook confirmed outright
+
+Its hidden `transmu` sheet is **41 bands, 0 → 60 through 100 → 100** —
+byte-identical to the table already seeded in `supabase/seed.sql`.
 
 ## 3. Already implemented in the new system
 
@@ -168,7 +230,7 @@ route forward — the term could not be started at all.
 | Teacher configures item count and max score per component | ✅ Migrated — migration 0019 |
 | Summary = per-learner component breakdown + initial + grade + remark | ✅ Migrated |
 | Analytics = size, average, hi/lo, pass/fail, missing, distribution | ✅ Migrated |
-| LOA proficiency bands ≥90 / ≥75 / ≥50 / ≥25 / else | ✅ Migrated, flagged for validation |
+| LOA proficiency bands ≥90 / ≥75 / ≥50 / ≥25 / else | ✅ Migrated — **confirmed** against the school's workbook |
 | Student Detail = one learner's assessment breakdown | ✅ Migrated |
 | Distribution bands 96–100 / 91–95 / … / 75 / below 75 | ✅ Migrated, flagged as legacy-derived |
 
@@ -230,8 +292,8 @@ No new `anon` surface. The new function is revoked from `public` and
 
 | Risk | Severity |
 |---|---|
-| **Period grades still not materialised** — nothing writes `period_grades`, so Summary and Analytics compute in the browser and the student portal has no stored number | **High** |
-| LOA proficiency thresholds are legacy-derived, not confirmed against a division-office issuance | Medium |
+| ~~Period grades still not materialised~~ — closed by migration 0020 and the `compute-period-grades` Edge Function | Resolved |
+| ~~LOA proficiency thresholds are legacy-derived~~ — confirmed against `CLASSRECORD_Template.xlsx`. The **seven-band descriptor scale** and the template's currency remain unverified | Medium |
 | Analytics distribution bands likewise legacy-derived | Low |
 | Deleting an assessment cascades to scores | Medium — guarded |
 | Bundle now 550 kB in one chunk | Low |
@@ -246,7 +308,7 @@ No new `anon` surface. The new function is revoked from `public` and
 3. ✅ Record Book tabs: Setup · Grade Entry · Summary · Analytics · LOA
 4. ✅ Student Detail
 5. ✅ Legacy-parity tests
-6. ⏳ Materialise `period_grades` via an Edge Function running the shared engine
+6. ✅ Materialise `period_grades` via an Edge Function running the shared engine
 7. ⏳ Consolidated Grades (needs 6)
 8. ⏳ SF2 / SF4 attendance forms
 9. ⏳ XLSX export, reusing V0's DepEd workbook shape
