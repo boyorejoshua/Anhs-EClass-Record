@@ -93,23 +93,47 @@ signed-in user's `user_roles` rows and access has always been decided by
 row-level security in the database — the switcher only ever changed which
 navigation was drawn on top of that.
 
-## UI directions
+## Appearance
 
-Four visual directions live in `src/styles/themes.css`, selectable in demo
-mode via the header switcher and persisted to `localStorage`:
+**Refined** is the default and lives in `tokens.css` as the bare `:root`
+block — the handoff's language with real elevation, a deeper sidebar and
+slightly larger radii. Alternatives are token overrides in `themes.css`:
 
-| | Direction | Character |
+| Preference | `data-theme` | Character |
 |---|---|---|
-| **A** | Handoff | The delivered design, unchanged — the default |
-| **B** | Refined | Same language, executed with more care |
-| **C** | Airy | Light sidebar, calmer, more whitespace |
-| **D** | Focused | Full dark, for evening work and projector demos |
+| **Refined** | *(none)* | Light, dense — the default |
+| Comfortable | `comfortable` | Light sidebar, roomier rows |
+| Dark | `dark` | Full dark chrome, easier in low light |
+| System | resolves | Follows `prefers-color-scheme` |
 
-Each is **only** a block of custom-property overrides — no component
-changes anywhere. That is what the token layer buys, and it is also the
-answer to "can this look different for a different school".
+This is a **real user preference**, not demo scaffolding: it persists per
+person in `localStorage` and ships in production builds. `System` keeps a
+`matchMedia` listener so an OS change takes effect immediately.
 
-Once a direction is chosen it should be folded into `tokens.css` as the
-default, and the other three plus the switcher deleted. Carrying four
-themes indefinitely is four times the visual regression surface for no
-product benefit.
+Refined is the absence of `data-theme` rather than a value, so the
+default costs nothing at runtime.
+
+Print templates (SF10, report cards) stay on white in **every**
+appearance. They are paper, not screen, and an official document must
+look the same however the operator has set their preference.
+
+## Motion
+
+`src/styles/motion.css`. One duration scale and one easing, both tokens.
+Animation is used where it carries information, not for decoration:
+
+| Where | Why |
+|---|---|
+| Save indicator | The dot breathes while saving, settles when saved — the most important motion in the product |
+| Grade chip | One pulse on recompute, so a value changing three columns away is still attributable |
+| Nav rail | Grows from centre, so moving between items reads as travel |
+| Panels | Short staggered fade-up, leading the eye down the page |
+| Theme change | Colour-only transition; never layout, or the page visibly reflows |
+| Buttons | 90ms press — imperceptible present, conspicuous absent |
+| Skeletons | Shape of what is coming, so the layout does not jump |
+
+**`prefers-reduced-motion` removes all of it**, and the interface stays
+fully legible — no state is communicated by motion alone. Verified in a
+browser, not assumed: with reduced motion, animation duration collapses
+to ~0 and panels sit at `opacity: 1` rather than being stranded invisible
+by `animation-fill-mode`. Printing disables motion too.

@@ -33,6 +33,10 @@ export function Gradebook({ data, onDirtyChange }: Props) {
   const [onlyGaps, setOnlyGaps] = useState(false);
 
   const dirty = useRef<Set<string>>(new Set());
+  // Remembers the last rendered grade per learner so a recomputed value
+  // can pulse once. Without it the number changes silently three columns
+  // away from where the teacher is typing and the causal link is lost.
+  const prevGrades = useRef<Map<string, number | null>>(new Map());
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gridRef = useRef<HTMLTableElement>(null);
 
@@ -85,6 +89,13 @@ export function Gradebook({ data, onDirtyChange }: Props) {
     }
     return out;
   }, [roster, scores, scheme, assessments]);
+
+  // Record what was rendered, after the paint that used it.
+  useEffect(() => {
+    for (const s of roster) {
+      prevGrades.current.set(s.classEnrollmentId, results.get(s.classEnrollmentId)?.periodGrade ?? null);
+    }
+  });
 
   const stats = useMemo(() => {
     let missing = 0;
@@ -433,7 +444,22 @@ export function Gradebook({ data, onDirtyChange }: Props) {
                   <td className="gb-calc">
                     {grade == null
                       ? <span style={{ color: 'var(--faint)' }}>—</span>
-                      : <span className="gb-chip" data-band={band}>{grade}</span>}
+                      : (
+                        <span
+                          className="gb-chip"
+                          data-band={band}
+                          // key on the value so React remounts the node and
+                          // the CSS animation re-runs on every change
+                          key={grade}
+                          data-changed={
+                            prevGrades.current.has(student.classEnrollmentId) &&
+                            prevGrades.current.get(student.classEnrollmentId) !== grade
+                              ? 'true' : undefined
+                          }
+                        >
+                          {grade}
+                        </span>
+                      )}
                   </td>
                 </tr>
               );
