@@ -30,6 +30,7 @@ export type RouteId =
   | 'consolidated' | 'incoming' | 'analytics' | 'loa-reports'
   // registrar
   | 'students' | 'student' | 'enrollments' | 'queue' | 'records' | 'documents'
+  | 'import'
   // administration
   | 'setup' | 'years' | 'users' | 'sections' | 'grading'
   // student portal
@@ -86,6 +87,9 @@ const TEACHING: NavItem[] = [
   { key: 'analytics',   label: 'Analytics',   glyph: '◔', readiness: 'ready' },
   { key: 'loa-reports', label: 'LOA Reports', glyph: '◑', readiness: 'ready' },
   { key: 'reports',     label: 'Reports',     glyph: '◈', readiness: 'ready' },
+  // Deliberately near the bottom: importing is something a teacher does
+  // once a term, not something they navigate to every day.
+  { key: 'import',      label: 'Import',      glyph: '⇥', readiness: 'ready' },
   { key: 'help',        label: 'Help',        glyph: '?', readiness: 'ready' },
 ];
 
@@ -114,6 +118,9 @@ export const NAV: Record<Role, NavItem[]> = {
     { key: 'queue',     label: 'Grade Submissions',  glyph: '↑', readiness: 'ready' },
     { key: 'students',  label: 'Students',           glyph: '▦', readiness: 'ready' },
     { key: 'records',   label: 'Academic Records',   glyph: '◍', readiness: 'ready' },
+    // The registrar is the only role that can create a class or admit a
+    // learner, so a workbook for a class nobody has set up comes here.
+    { key: 'import',    label: 'Import',             glyph: '⇥', readiness: 'ready' },
     {
       key: 'enrollments', label: 'Enrollments', glyph: '◫', readiness: 'planned',
       note:
@@ -133,6 +140,7 @@ export const NAV: Record<Role, NavItem[]> = {
 
   school_admin: [
     { key: 'dashboard', label: 'Dashboard', glyph: '▤', readiness: 'ready' },
+    { key: 'import',    label: 'Import',    glyph: '⇥', readiness: 'ready' },
     {
       key: 'setup', label: 'School Setup', glyph: '⚙', readiness: 'planned',
       note: 'School profile and settings are currently configured during onboarding.',

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { CLASS_TABS, NAV, defaultRole, isReady, navItem, rolesFromSession } from './nav';
 import type { Role } from './data/types';
@@ -19,15 +21,20 @@ import type { Role } from './data/types';
 const ROLES: Role[] = ['teacher', 'adviser', 'registrar', 'school_admin', 'student'];
 
 /**
- * Every case App's `screen()` switch handles, plus the routes it reaches
- * through shared branches. Kept as a literal so that adding a `ready`
- * menu entry without adding a case fails here rather than in production.
+ * Every route App's `screen()` switch actually handles, READ OUT OF
+ * App.tsx rather than listed here.
+ *
+ * This used to be a hand-maintained literal, which made the test claim
+ * more than it checked: it caught a new nav entry only if you also
+ * forgot to update the list, and it could not notice a case that was
+ * deleted. Parsing the source is crude, but it cannot drift.
  */
-const HANDLED = new Set([
-  'dashboard', 'classes', 'attendance', 'submissions', 'reports', 'help',
-  'class', 'queue', 'incoming', 'students', 'student', 'records', 'profile', 'history',
-  'analytics', 'loa-reports',
-]);
+const APP_SOURCE = readFileSync(
+  fileURLToPath(new URL('./App.tsx', import.meta.url)), 'utf8');
+
+const HANDLED = new Set(
+  [...APP_SOURCE.matchAll(/case '([a-z-]+)':/g)].map((m) => m[1]!),
+);
 
 describe('navigation model', () => {
   it('gives every role at least one menu entry', () => {

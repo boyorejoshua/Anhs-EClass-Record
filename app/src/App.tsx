@@ -24,6 +24,7 @@ import { StudentGrades, StudentProfileScreen, StudentHistory } from './screens/S
 import { Sf10Preview } from './screens/Sf10Preview';
 import { SignIn } from './screens/SignIn';
 import { Help } from './screens/Help';
+import { ImportCenter } from './screens/ImportCenter';
 
 import { getDataSource, type SessionContext } from './data';
 import type { AcademicYear, CurrentUser, Role } from './data/types';
@@ -329,6 +330,18 @@ export default function App() {
               />
             )}
           </Async>
+        );
+
+      case 'import':
+        return (
+          <ImportCenter
+            resolveImport={source.resolveImport}
+            commitImport={source.commitImport}
+            getImportHistory={source.getImportHistory}
+            // The period is not known from an import result, so land on
+            // the class overview and let the teacher choose the term.
+            onOpenClass={(classId) => openClass(classId, 'overview')}
+          />
         );
 
       case 'help':

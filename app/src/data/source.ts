@@ -19,6 +19,7 @@ import type {
 } from './types';
 import type { Sf10Payload } from './sf10';
 import type { CohortSection } from '../lib/loa';
+import type { ImportPlan, ImportResolution } from '../lib/import/plan';
 
 export interface SessionUser {
   id: string;
@@ -81,6 +82,32 @@ export interface ScoreEdit {
   classEnrollmentId: string;
   raw: number | null;
   isExcused: boolean;
+}
+
+export interface ImportResult {
+  batchId: string;
+  classId: string;
+  createdClass: boolean;
+  studentsCreated: number;
+  learnersOnRoster: number;
+  assessments: number;
+  marks: number;
+}
+
+export interface ImportRecord {
+  id: string;
+  fileName: string;
+  at: string;
+  classId: string | null;
+  className: string | null;
+  importedBy: string | null;
+  summary: {
+    createdClass?: boolean;
+    studentsCreated?: number;
+    learnersOnRoster?: number;
+    assessments?: number;
+    marks?: number;
+  };
 }
 
 export interface DataSource {
@@ -189,6 +216,24 @@ export interface DataSource {
   approveSubmission(submissionId: string): Promise<void>;
   finalizeSubmission(submissionId: string): Promise<void>;
   publishSubmission(submissionId: string): Promise<void>;
+
+  /* ---- the Import Center ------------------------------------------ *
+   * Two calls, and the split is the safety property. `resolveImport`
+   * READS: it says what importing this workbook would do, and there is
+   * no path from it to a write. `commitImport` WRITES: it takes ids a
+   * person confirmed and does no matching of its own.
+   *
+   * If the commit could match names, the preview would be advisory — a
+   * second, unreviewed matching run would decide the outcome and the
+   * user would have approved something else.
+   * ------------------------------------------------------------------ */
+
+  /** What this workbook would do. Writes nothing, ever. */
+  resolveImport(workbook: unknown): Promise<ImportResolution>;
+  /** Execute a confirmed plan, in one transaction. */
+  commitImport(plan: ImportPlan): Promise<ImportResult>;
+  /** What has been imported, newest first. */
+  getImportHistory(limit?: number): Promise<ImportRecord[]>;
 
   /* ---- student portal --------------------------------------------- *
    * No student id parameter anywhere. The learner is resolved
