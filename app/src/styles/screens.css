@@ -493,3 +493,8 @@
 .gb-toolbar .input { width: auto; }
 .gb-toolbar input[type="search"] { min-width: 260px; flex: 0 1 320px; }
 .gb-toolbar select.input { max-width: 190px; }
+
+/* A labelled control in a toolbar: label above, control below, the pair
+   sitting inline with its neighbours. */
+.picker { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.picker .input { min-width: 230px; }

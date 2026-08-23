@@ -27,7 +27,7 @@ export type RouteId =
   | 'dashboard'
   // teaching
   | 'classes' | 'class' | 'attendance' | 'reports' | 'submissions' | 'help'
-  | 'consolidated' | 'incoming'
+  | 'consolidated' | 'incoming' | 'analytics' | 'loa-reports'
   // registrar
   | 'students' | 'student' | 'enrollments' | 'queue' | 'records' | 'documents'
   // administration
@@ -81,6 +81,10 @@ const TEACHING: NavItem[] = [
   { key: 'students',    label: 'Students',    glyph: '☖', readiness: 'ready' },
   { key: 'attendance',  label: 'Attendance',  glyph: '◫', readiness: 'ready' },
   { key: 'submissions', label: 'Submissions', glyph: '↑', readiness: 'ready' },
+  // Additional entry points, not replacements: both tabs stay inside the
+  // class workspace, and both routes render the same component.
+  { key: 'analytics',   label: 'Analytics',   glyph: '◔', readiness: 'ready' },
+  { key: 'loa-reports', label: 'LOA Reports', glyph: '◑', readiness: 'ready' },
   { key: 'reports',     label: 'Reports',     glyph: '◈', readiness: 'ready' },
   { key: 'help',        label: 'Help',        glyph: '?', readiness: 'ready' },
 ];
