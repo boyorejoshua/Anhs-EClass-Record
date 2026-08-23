@@ -24,7 +24,7 @@ import { Help } from './screens/Help';
 
 import { getDataSource, type SessionContext } from './data';
 import type { AcademicYear, CurrentUser, Role } from './data/types';
-import { DEMO_MODE } from './config';
+import { DEMO_MODE, signInBrand } from './config';
 import { getSupabase } from './lib/supabase';
 import {
   HOME, ROLE_LABEL, defaultRole, isReady, navItem, rolesFromSession,
@@ -194,7 +194,7 @@ export default function App() {
   }
 
   if (!session) {
-    return <SignIn schoolName="Angono National High School" onSignIn={source.signIn} />;
+    return <SignIn brand={signInBrand()} onSignIn={source.signIn} />;
   }
 
   // A signed-in account with no role can reach nothing, and saying so is

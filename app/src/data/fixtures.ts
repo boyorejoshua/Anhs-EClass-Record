@@ -21,7 +21,7 @@ import { TRANSITIONS } from '../lib/status';
 export const YEAR_TRIMESTER: AcademicYear = {
   id: 'year-anhs',
   label: '2026-2027',
-  periodStructure: 'trimester',
+  periodStructure: 'three_term',
   periods: [
     { id: 'p1', ordinal: 1, name: 'Term 1', shortName: 'T1', startDate: '2026-06-08', endDate: '2026-09-15', status: 'closed' },
     { id: 'p2', ordinal: 2, name: 'Term 2', shortName: 'T2', startDate: '2026-09-16', endDate: '2026-12-18', status: 'active' },

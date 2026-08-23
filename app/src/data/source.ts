@@ -52,7 +52,8 @@ export interface SessionPeriod {
 export interface SessionYear {
   id: string;
   label: string;
-  periodStructure: 'quarter' | 'semester' | 'trimester' | 'custom';
+  /** Mirrors academic_years.period_structure. `three_term` is DO 009 s.2026. */
+  periodStructure: 'three_term' | 'quarter' | 'semester' | 'custom';
   status: string;
   periods: SessionPeriod[];
 }

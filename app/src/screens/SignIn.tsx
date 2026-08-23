@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { SignInBrand } from '../config';
 
 /**
  * Shown when a backend is configured but nobody is signed in.
@@ -7,8 +8,8 @@ import { useState } from 'react';
  * account" and "wrong password" tells an attacker which addresses are
  * real. One message covers both.
  */
-export function SignIn({ schoolName, onSignIn }: {
-  schoolName: string;
+export function SignIn({ brand, onSignIn }: {
+  brand: SignInBrand;
   onSignIn: (email: string, password: string) => Promise<void>;
 }) {
   const [email, setEmail] = useState('');
@@ -33,10 +34,10 @@ export function SignIn({ schoolName, onSignIn }: {
     <div className="signin">
       <form className="signin-card panel" onSubmit={submit}>
         <div className="signin-brand">
-          <div className="side-mark" aria-hidden="true">ANHS</div>
+          <div className="side-mark" aria-hidden="true">{brand.mark}</div>
           <div>
             <h1>Academic Records</h1>
-            <p>{schoolName}</p>
+            <p>{brand.name}</p>
           </div>
         </div>
 

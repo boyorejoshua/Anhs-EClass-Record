@@ -99,7 +99,20 @@ This is the document to take to the first discovery meeting. Each row names an a
 | F17 | **LOA seven-band descriptor scale** (≤74 / 75-79 / 80-84 / 85-89 / 90-94 / 95-97 / 98-100) used for Performance Tasks and Quarterly Grades | Rebanding two of the five LOA tables | 🟨 Taken from the same workbook, **but the school flagged that it may not be the current issuance**. Most likely of the two scales to have been revised. Ask the department coordinator. |
 | F18 | Is the supplied `CLASSRECORD_Template.xlsx` the version currently in use? | LOA layout, band scales, and the pre-test table | 🟨 The school supplied it "not totally sure if this is updated". Everything in `lib/loa.ts` derives from it. |
 | F19 | **The LOA pre-test / diagnostic table is not implemented** — a diagnostic sits outside the grading scheme and the data model has nowhere to put one | One of five LOA tables missing at filing time | ⬜ Ask whether the diagnostic is required on the filed sheet, and where its scores come from |
+| F20 | **The three-term TRANSMUTATION TABLE.** Seeded from the named range `NewTransmu` in the school's `EClassRecordEditableEPPandTLE.xlsx` | **Every grade in every three-term class.** Passing needs an initial grade of 70, where the four-quarter table needed 60 | 🟨 **Not official.** The workbook says "(Waiting for the Official DepEd Order)" and DO 009 s.2026 states a separate issuance on the grading system will follow. Supersede — do not edit — when it lands |
+| F21 | **The three-term DESCRIPTORS** — Emerging / Developing / Connecting / Benchmarking / Advancing | Every report card and LOA descriptor column | 🟨 Same source, same caveat as F20 |
+| F22 | **Final grade = `ROUND(AVERAGE(T1,T2,T3), 0)`**, remark PASSED at ≥ 75 | Promotion and the SF10 | 🟨 From the workbook's SUMMARY sheet. Equal weighting across the three terms is an assumption the order may change |
+| F23 | **DO 015 s.2026 component weights CONFIRMED** — 20/50/30 core, 20/60/20 EPP-TLE | — | ✅ The workbook's `Helper` sheet matches what was implemented. Independent corroboration from a real artifact |
+| F24 | **The three-term class record carries NO learner identifier** — no LRN, no student number, only a name and a row position | Import matching cannot use a stable key | 🟨 Confirmed by inspection. Import must fall back on name matching with a human confirm step; see `three-term-import-mapping.md` §4 |
 
+> **F20–F24 are the highest-stakes rows in this register.** F20 in
+> particular changes what a passing grade is. It was seeded because the
+> alternative — continuing to transmute three-term work with the
+> four-quarter table — is knowably wrong, and because the schema makes
+> superseding it a data operation rather than a migration. But it is the
+> school's anticipation of an order DepEd had not issued. **Confirm it
+> before any grade is released to a learner.**
+>
 > **F16–F19 came from a real artifact, not an inference.** The school
 > supplied its own `CLASSRECORD_Template.xlsx` (encrypted; password held
 > by the school). That settled the band thresholds and the transmutation
