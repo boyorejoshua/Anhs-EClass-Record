@@ -18,6 +18,7 @@ import { RegistrarQueue } from './screens/RegistrarQueue';
 import { AdviserQueue } from './screens/AdviserQueue';
 import { RegistrarStudents } from './screens/RegistrarStudents';
 import { Students } from './screens/Students';
+import { GlobalAnalytics, GlobalLoaReports } from './screens/GlobalReports';
 import { StudentRecordScreen } from './screens/StudentRecordScreen';
 import { StudentGrades, StudentProfileScreen, StudentHistory } from './screens/StudentPortal';
 import { Sf10Preview } from './screens/Sf10Preview';
@@ -32,6 +33,9 @@ import {
   HOME, ROLE_LABEL, defaultRole, isReady, navItem, rolesFromSession,
   type ClassTab, type Route, type RouteId,
 } from './nav';
+
+/** Routes whose own picker owns the period, so the header's must stand down. */
+const CARRIES_OWN_PERIOD: ReadonlySet<RouteId> = new Set(['analytics', 'loa-reports']);
 
 export default function App() {
   const source = getDataSource();
@@ -99,6 +103,21 @@ export default function App() {
     const y = session?.academicYears.find((x) => x.id === yearId) ?? session?.academicYears[0];
     return y ? { id: y.id, label: y.label, periodStructure: y.periodStructure, periods: y.periods } : null;
   }, [session, yearId]);
+
+  /**
+   * Every year this account can report on, with its periods.
+   *
+   * The global report pickers need the whole list, not just the active
+   * year — "show me Term 2 of last year" is the point of them. Derived
+   * here rather than reaching into `session` inside the route switch,
+   * where TypeScript cannot see the null guard.
+   */
+  const allYears: AcademicYear[] = useMemo(
+    () => (session?.academicYears ?? []).map((y) => ({
+      id: y.id, label: y.label, periodStructure: y.periodStructure, periods: y.periods,
+    })),
+    [session],
+  );
 
   const activePeriod = useMemo(() => {
     if (!year) return null;
@@ -381,6 +400,26 @@ export default function App() {
           />
         );
 
+      case 'analytics':
+        return (
+          <GlobalAnalytics
+            years={allYears}
+            loadClasses={source.getClasses}
+            loadGradebook={source.getGradebook}
+            onOpenClass={(classId, pid) => { setPeriodId(pid); openClass(classId, 'analytics'); }}
+          />
+        );
+
+      case 'loa-reports':
+        return (
+          <GlobalLoaReports
+            years={allYears}
+            loadClasses={source.getClasses}
+            loadCohort={source.getLoaCohort}
+            onOpenClass={(classId, pid) => { setPeriodId(pid); openClass(classId, 'loa'); }}
+          />
+        );
+
       case 'students':
         return (
           <Students
@@ -464,18 +503,31 @@ export default function App() {
             {route.id === 'class' && cls && <span>{cls.gradeLevel} – {cls.section}</span>}
           </div>
           <h1>{title}</h1>
+          {/*
+            The header's period selector drives the class workspace. On a
+            screen that carries its OWN year and period picker it does
+            nothing, and two controls labelled "Grading period" on one
+            page is worse than none — a teacher changes the wrong one and
+            concludes the report is broken.
+          */}
           <div className="topbar-row">
-            <label className="topbar-label" htmlFor="period-select">Grading period</label>
-            <select
-              id="period-select"
-              className="select"
-              value={activePeriod ?? ''}
-              onChange={(e) => setPeriodId(e.target.value)}
-            >
-              {year?.periods.map((p) => (
-                <option key={p.id} value={p.id}>SY {year.label} · {p.name}</option>
-              ))}
-            </select>
+            {/* Only the period control stands down — the rest of this row
+                (appearance, sign out) belongs on every screen. */}
+            {!CARRIES_OWN_PERIOD.has(route.id) && (
+              <>
+                <label className="topbar-label" htmlFor="period-select">Grading period</label>
+                <select
+                  id="period-select"
+                  className="select"
+                  value={activePeriod ?? ''}
+                  onChange={(e) => setPeriodId(e.target.value)}
+                >
+                  {year?.periods.map((p) => (
+                    <option key={p.id} value={p.id}>SY {year.label} · {p.name}</option>
+                  ))}
+                </select>
+              </>
+            )}
 
             <div className="spacer" />
 
