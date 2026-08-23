@@ -11,7 +11,8 @@
 import type {
   AcademicYear, AttendanceDay, AttendanceMark, ClassStudent, ClassSummary, CurrentUser,
   DirectoryStudent, GradebookData, PersistedGrade, RosterStudent, StudentGradeRow,
-  StudentHistoryRow, StudentProfile, SubmissionRow, SubmissionStatus, ValidationReport,
+  EnrollmentRow, StudentHistoryRow, StudentIdentity, StudentProfile, SubmissionRow,
+  SubmissionStatus, ValidationReport,
 } from './types';
 import { DO015_CORE, DO015_MAPEH } from '../lib/grading/fixtures';
 import type { Assessment } from '../lib/grading';
@@ -206,6 +207,74 @@ const FIXTURE_SESSION: SessionContext = {
   settings: {},
 };
 
+/* ==================================================================== *
+ * THE STUDENT STORE
+ *
+ * Two arrays, deliberately, mirroring the two tables. A section transfer
+ * edits an ENROLMENT row; the STUDENT row is untouched. Holding them as
+ * one object here would let a demo do the thing the schema exists to
+ * prevent.
+ * ==================================================================== */
+
+const GRADE_LEVELS = [
+  { id: 'gl-7',  name: 'Grade 7',  ordinal: 7 },
+  { id: 'gl-8',  name: 'Grade 8',  ordinal: 8 },
+  { id: 'gl-9',  name: 'Grade 9',  ordinal: 9 },
+  { id: 'gl-10', name: 'Grade 10', ordinal: 10 },
+];
+
+const SECTIONS = [
+  { id: 'sec-pearl',   name: 'Pearl',   gradeLevelId: 'gl-10', gradeLevel: 'Grade 10', adviserUserId: null, academicYearId: 'year-anhs' },
+  { id: 'sec-diamond', name: 'Diamond', gradeLevelId: 'gl-10', gradeLevel: 'Grade 10', adviserUserId: null, academicYearId: 'year-anhs' },
+  { id: 'sec-ruby',    name: 'Ruby',    gradeLevelId: 'gl-9',  gradeLevel: 'Grade 9',  adviserUserId: null, academicYearId: 'year-anhs' },
+];
+
+const STUDENTS: StudentIdentity[] = ROSTER.map((r, i) => ({
+  studentId: r.studentId,
+  displayName: r.displayName,
+  firstName: r.displayName.split(', ')[1] ?? r.displayName,
+  middleName: null,
+  lastName: r.displayName.split(', ')[0] ?? r.displayName,
+  suffix: null,
+  studentNumber: `2026-${String(i + 1).padStart(4, '0')}`,
+  lrn: `1367890100${String(i + 1).padStart(2, '0')}`,
+  sex: i % 2 === 0 ? 'male' : 'female',
+  birthDate: null, birthPlace: null, motherTongue: null, religion: null,
+  addressLine: null, barangay: null, municipality: null, province: null,
+  contactNumber: null, email: null,
+  status: 'active', hasPortalAccount: false,
+}));
+
+type StoredEnrolment = EnrollmentRow & { studentId: string };
+
+const ENROLMENTS: StoredEnrolment[] = ROSTER.map((r, i) => ({
+  studentId: r.studentId,
+  enrollmentId: `en-${i}`,
+  academicYearId: 'year-anhs',
+  academicYear: '2026-2027',
+  yearStatus: 'active',
+  gradeLevel: 'Grade 10', gradeLevelId: 'gl-10',
+  section: 'Pearl', sectionId: 'sec-pearl',
+  status: 'enrolled', promotionStatus: null, generalAverage: null,
+  dateEnrolled: '2026-06-08',
+}));
+
+/** The directory view: one row per ENROLMENT in the chosen year. */
+function directory(yearId: string): DirectoryStudent[] {
+  return ENROLMENTS
+    .filter((e) => e.academicYearId === yearId)
+    .map((e) => {
+      const st = STUDENTS.find((x) => x.studentId === e.studentId)!;
+      return {
+        studentId: st.studentId, displayName: st.displayName,
+        studentNumber: st.studentNumber, lrn: st.lrn, sex: st.sex,
+        gradeLevel: e.gradeLevel, section: e.section,
+        enrollmentStatus: e.status, generalAverage: e.generalAverage,
+      };
+    })
+    .sort((a, b) => a.displayName.localeCompare(b.displayName));
+}
+
 /** Mutable in-memory scores, so edits persist for the length of a session. */
 const editedScores = new Map<string, { raw: number | null; isExcused: boolean }>();
 
@@ -278,6 +347,9 @@ function recordPeriodGrades(gb: GradebookData): void {
   persistedGrades.set(`${gb.classId}|${gb.periodId}`, rows);
 }
 
+const INITIAL_STUDENT_COUNT = STUDENTS.length;
+const INITIAL_ENROLMENT_COUNT = ENROLMENTS.length;
+
 /** Every period's status as the fixture ships, so a reset is exact. */
 const INITIAL_STATUS: Array<Record<string, SubmissionStatus>> =
   CLASSES.map((c) => ({ ...c.status }));
@@ -294,6 +366,8 @@ const INITIAL_STATUS: Array<Record<string, SubmissionStatus>> =
  */
 function resetFixtureState(): void {
   CLASSES.forEach((c, i) => { c.status = { ...INITIAL_STATUS[i]! }; });
+  STUDENTS.length = INITIAL_STUDENT_COUNT;
+  ENROLMENTS.length = INITIAL_ENROLMENT_COUNT;
   receipts.clear();
   editedScores.clear();
   persistedGrades.clear();
@@ -385,21 +459,132 @@ export function createFixtureSource(): DataSource {
       })) satisfies ClassStudent[];
     },
 
-    async getStudents(_yearId, search) {
-      const all: DirectoryStudent[] = ROSTER.map((r, i) => ({
-        studentId: r.studentId,
-        displayName: r.displayName,
-        studentNumber: `2026-${String(i + 1).padStart(4, '0')}`,
-        lrn: `1367890100${String(i + 1).padStart(2, '0')}`,
-        sex: i % 2 === 0 ? 'male' : 'female',
-        gradeLevel: 'Grade 10',
-        section: 'Pearl',
-        enrollmentStatus: 'enrolled',
-        generalAverage: null,
-      }));
+    async getStudents(yearId, search) {
       const q = (search ?? '').trim().toLowerCase();
+      const all = directory(yearId);
       return q ? all.filter((s) => s.displayName.toLowerCase().includes(q)
         || (s.lrn ?? '').includes(q) || (s.studentNumber ?? '').includes(q)) : all;
+    },
+
+    async getStudentRecord(studentId) {
+      const st = STUDENTS.find((x) => x.studentId === studentId);
+      if (!st) return null;
+      return {
+        student: st,
+        history: ENROLMENTS
+          .filter((e) => e.studentId === studentId)
+          .map(({ studentId: _s, ...row }) => row)
+          .sort((a, b) => b.academicYear.localeCompare(a.academicYear)),
+        grades: [],
+      };
+    },
+
+    async getEnrollmentOptions(yearId) {
+      return {
+        gradeLevels: GRADE_LEVELS,
+        sections: SECTIONS.filter((sec) => sec.academicYearId === yearId)
+          .map(({ academicYearId: _y, ...rest }) => rest),
+      };
+    },
+
+    /**
+     * Creates a PERSON and their FIRST YEAR, and refuses a duplicate the
+     * same way the database does — the demo has to teach the real rule,
+     * not a friendlier one.
+     */
+    async admitStudent(student, enrollment) {
+      if (!student.firstName?.trim() || !student.lastName?.trim()) {
+        throw new Error('A first name and a last name are required.');
+      }
+      const clash = STUDENTS.find((x) =>
+        (student.lrn && x.lrn === student.lrn)
+        || (student.studentNumber && x.studentNumber === student.studentNumber));
+      if (clash) {
+        throw new Error(
+          `A learner with that ${student.lrn && clash.lrn === student.lrn ? 'LRN' : 'student number'} `
+          + `already exists in this school (${clash.displayName}).`);
+      }
+
+      const studentId = `st-${Date.now()}-${STUDENTS.length}`;
+      const displayName = `${student.lastName.trim()}, ${student.firstName.trim()}`
+        + (student.middleName ? ` ${student.middleName.trim()}` : '');
+      STUDENTS.push({
+        studentId, displayName,
+        firstName: student.firstName.trim(), lastName: student.lastName.trim(),
+        middleName: student.middleName?.trim() || null,
+        suffix: student.suffix?.trim() || null,
+        studentNumber: student.studentNumber?.trim() || null,
+        lrn: student.lrn?.trim() || null,
+        sex: student.sex || null,
+        birthDate: student.birthDate || null,
+        birthPlace: null, motherTongue: null, religion: null,
+        addressLine: student.addressLine?.trim() || null,
+        barangay: null, municipality: null, province: null,
+        contactNumber: student.contactNumber?.trim() || null,
+        email: student.email?.trim() || null,
+        status: 'active', hasPortalAccount: false,
+      });
+      const enrollmentId = await src.enrolStudent(studentId, enrollment);
+      return { studentId, enrollmentId };
+    },
+
+    async enrolStudent(studentId, enrollment) {
+      if (!STUDENTS.some((x) => x.studentId === studentId)) {
+        throw new Error('Learner not found.');
+      }
+      if (!enrollment.academicYearId || !enrollment.gradeLevelId) {
+        throw new Error('An academic year and a grade level are required.');
+      }
+      // The (student, year) uniqueness the database enforces. Without it
+      // a learner appears twice in one directory.
+      if (ENROLMENTS.some((e) => e.studentId === studentId
+                               && e.academicYearId === enrollment.academicYearId)) {
+        throw new Error(
+          'This learner is already enrolled for that school year — '
+          + 'edit the enrolment instead of adding one.');
+      }
+      const year = YEAR_TRIMESTER.id === enrollment.academicYearId
+        ? YEAR_TRIMESTER.label : enrollment.academicYearId;
+      const gl = GRADE_LEVELS.find((g) => g.id === enrollment.gradeLevelId);
+      const sec = SECTIONS.find((x) => x.id === enrollment.sectionId);
+      const enrollmentId = `en-${Date.now()}-${ENROLMENTS.length}`;
+      ENROLMENTS.push({
+        studentId, enrollmentId,
+        academicYearId: enrollment.academicYearId, academicYear: year,
+        yearStatus: 'active',
+        gradeLevel: gl?.name ?? '—', gradeLevelId: enrollment.gradeLevelId,
+        section: sec?.name ?? null, sectionId: enrollment.sectionId ?? null,
+        status: enrollment.status ?? 'enrolled',
+        promotionStatus: null, generalAverage: null,
+        dateEnrolled: enrollment.dateEnrolled ?? new Date().toISOString().slice(0, 10),
+      });
+      return enrollmentId;
+    },
+
+    async updateStudent(studentId, patch) {
+      const st = STUDENTS.find((x) => x.studentId === studentId);
+      if (!st) throw new Error('Learner not found.');
+      // Patch semantics: an absent key is left alone, never blanked.
+      for (const [k, v] of Object.entries(patch)) {
+        if (v !== undefined) (st as unknown as Record<string, unknown>)[k] = v === '' ? null : v;
+      }
+      st.displayName = `${st.lastName}, ${st.firstName}`
+        + (st.middleName ? ` ${st.middleName}` : '');
+    },
+
+    /** A SECTION TRANSFER: the enrolment moves, the person does not. */
+    async updateEnrollment(enrollmentId, patch) {
+      const en = ENROLMENTS.find((x) => x.enrollmentId === enrollmentId);
+      if (!en) throw new Error('Enrolment not found.');
+      if (patch.gradeLevelId) {
+        en.gradeLevelId = patch.gradeLevelId;
+        en.gradeLevel = GRADE_LEVELS.find((g) => g.id === patch.gradeLevelId)?.name ?? en.gradeLevel;
+      }
+      if (patch.sectionId !== undefined) {
+        en.sectionId = patch.sectionId || null;
+        en.section = SECTIONS.find((x) => x.id === patch.sectionId)?.name ?? null;
+      }
+      if (patch.status) en.status = patch.status;
     },
 
     async getAttendance(classId, date) {

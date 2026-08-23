@@ -17,6 +17,8 @@ import { ClassWorkspace } from './screens/ClassWorkspace';
 import { RegistrarQueue } from './screens/RegistrarQueue';
 import { AdviserQueue } from './screens/AdviserQueue';
 import { RegistrarStudents } from './screens/RegistrarStudents';
+import { Students } from './screens/Students';
+import { StudentRecordScreen } from './screens/StudentRecordScreen';
 import { StudentGrades, StudentProfileScreen, StudentHistory } from './screens/StudentPortal';
 import { Sf10Preview } from './screens/Sf10Preview';
 import { SignIn } from './screens/SignIn';
@@ -381,10 +383,33 @@ export default function App() {
 
       case 'students':
         return (
-          <RegistrarStudents
+          <Students
             yearId={year.id}
+            yearLabel={year.label}
             load={source.getStudents}
-            onOpenRecord={(studentId) => setRoute({ id: 'records', studentId })}
+            loadOptions={source.getEnrollmentOptions}
+            admit={source.admitStudent}
+            onOpenStudent={(studentId) => setRoute({ id: 'student', studentId })}
+            // A courtesy, not a control: `admit_student` checks
+            // students.write itself and refuses anyone else, so hiding
+            // the button only spares a teacher a pointless error.
+            canAdmit={role === 'registrar' || role === 'school_admin'}
+          />
+        );
+
+      case 'student':
+        if (!route.studentId) return <Students
+          yearId={year.id} yearLabel={year.label}
+          load={source.getStudents} loadOptions={source.getEnrollmentOptions}
+          admit={source.admitStudent}
+          onOpenStudent={(studentId) => setRoute({ id: 'student', studentId })}
+          canAdmit={role === 'registrar' || role === 'school_admin'}
+        />;
+        return (
+          <StudentRecordScreen
+            studentId={route.studentId}
+            load={source.getStudentRecord}
+            onBack={() => go('students')}
           />
         );
 

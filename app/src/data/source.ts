@@ -13,7 +13,8 @@
  */
 import type {
   AttendanceDay, AttendanceMark, ClassStudent, ClassSummary, DirectoryStudent,
-  GradebookData, PersistedGrade, StudentGradeRow, StudentHistoryRow, StudentProfile,
+  EnrollmentDraft, EnrollmentOptions, GradebookData, PersistedGrade, StudentDraft,
+  StudentGradeRow, StudentHistoryRow, StudentProfile, StudentRecord,
   SubmissionRow, ValidationReport,
 } from './types';
 import type { Sf10Payload } from './sf10';
@@ -100,6 +101,28 @@ export interface DataSource {
   /* ---- roster & directory ---------------------------------------- */
   getClassStudents(classId: string): Promise<ClassStudent[]>;
   getStudents(academicYearId: string, search?: string): Promise<DirectoryStudent[]>;
+
+  /* ---- student management ------------------------------------------ *
+   * A STUDENT is a person; an ENROLLMENT is one school year of their
+   * attendance. Every signature below keeps them apart, because the
+   * commonest way to corrupt an academic record is to treat a section
+   * transfer as a new learner.
+   * ------------------------------------------------------------------ */
+
+  /** Identity, every year of attendance, and whatever grades the caller may read. */
+  getStudentRecord(studentId: string): Promise<StudentRecord | null>;
+  /** The grade levels and sections a form may offer. Never free text. */
+  getEnrollmentOptions(academicYearId: string): Promise<EnrollmentOptions>;
+  /** Create the person AND their first year. Refuses a duplicate LRN or number. */
+  admitStudent(
+    student: StudentDraft, enrollment: EnrollmentDraft,
+  ): Promise<{ studentId: string; enrollmentId: string }>;
+  /** Enrol an EXISTING person in another year — this is what promotion is. */
+  enrolStudent(studentId: string, enrollment: EnrollmentDraft): Promise<string>;
+  /** Patch identity. An absent key is left alone, never blanked. */
+  updateStudent(studentId: string, patch: Partial<StudentDraft>): Promise<void>;
+  /** Patch one year. This is how a SECTION TRANSFER happens. */
+  updateEnrollment(enrollmentId: string, patch: Partial<EnrollmentDraft>): Promise<void>;
 
   /* ---- attendance ------------------------------------------------- */
   getAttendance(classId: string, date: string): Promise<AttendanceDay>;

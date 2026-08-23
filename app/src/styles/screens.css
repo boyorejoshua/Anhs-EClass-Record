@@ -447,3 +447,49 @@
    colour-blindness like every other status in the system. */
 .chain li[data-done] b::before { content: '✓ '; }
 .chain li:not([data-done]) b::before { content: '○ '; }
+
+/* --- forms ------------------------------------------------------------ *
+ * Two columns on a laptop, one on a phone. Labels sit above their inputs
+ * rather than beside them: a registrar filling this in is reading down a
+ * column, not scanning across.
+ * ---------------------------------------------------------------------- */
+
+.form-grid {
+  display: grid; gap: 14px 18px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.field-label { font-size: 12px; font-weight: 600; color: var(--muted); }
+.field-req { color: var(--error); }
+.field-hint { font-size: 11.5px; color: var(--faint); line-height: 1.4; }
+
+.input {
+  font: inherit; font-size: 13px;
+  padding: 7px 10px;
+  border: 1px solid var(--border); border-radius: var(--r-ctl);
+  background: var(--panel); color: var(--ink);
+  min-width: 0; width: 100%;
+}
+.input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.input:disabled { background: var(--panel-alt-2); color: var(--faint); }
+
+.form-actions {
+  display: flex; gap: 10px; justify-content: flex-end;
+  margin-top: 16px;
+}
+
+/* --- detail lists ----------------------------------------------------- */
+
+.detail-grid {
+  display: grid; gap: 12px 20px; margin: 0;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+.detail dt { font-size: 11.5px; font-weight: 600; color: var(--muted); margin-bottom: 2px; }
+.detail dd { margin: 0; font-size: 13.5px; color: var(--ink); }
+
+/* An input inside a toolbar sits in a flex row, so it must size to its
+   content rather than filling the line the way a form field does. */
+.gb-toolbar .input { width: auto; }
+.gb-toolbar input[type="search"] { min-width: 260px; flex: 0 1 320px; }
+.gb-toolbar select.input { max-width: 190px; }

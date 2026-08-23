@@ -25,7 +25,7 @@ const ROLES: Role[] = ['teacher', 'adviser', 'registrar', 'school_admin', 'stude
  */
 const HANDLED = new Set([
   'dashboard', 'classes', 'attendance', 'submissions', 'reports', 'help',
-  'class', 'queue', 'incoming', 'students', 'records', 'profile', 'history',
+  'class', 'queue', 'incoming', 'students', 'student', 'records', 'profile', 'history',
 ]);
 
 describe('navigation model', () => {
@@ -75,10 +75,16 @@ describe('navigation model', () => {
     }
   });
 
-  it('treats the class workspace as reachable for every role', () => {
-    // 'class' is never a menu entry — it is reached by opening a class —
-    // so isReady must not report it as unavailable.
-    for (const role of ROLES) expect(isReady(role, 'class')).toBe(true);
+  it('treats every DETAIL route as reachable for every role', () => {
+    // These have no menu entry — they are reached by opening a row — so
+    // a readiness lookup finds nothing. Reporting them unavailable is
+    // how opening a class once bounced back to the dashboard, and the
+    // same trap caught the student record when it was added.
+    for (const role of ROLES) {
+      for (const id of ['class', 'student'] as const) {
+        expect(isReady(role, id), `${role} cannot reach ${id}`).toBe(true);
+      }
+    }
   });
 
   it('has no menu entry pointing at a route id it does not define', () => {

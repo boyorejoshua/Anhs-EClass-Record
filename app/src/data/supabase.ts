@@ -14,8 +14,8 @@ import { requireSupabase } from '../lib/supabase';
 import type { AssessmentDraft, DataSource, ScoreEdit, SessionContext } from './source';
 import type {
   AttendanceDay, ClassStudent, ClassSummary, DirectoryStudent,
-  GradebookData, PersistedGrade, StudentGradeRow, StudentHistoryRow, StudentProfile,
-  SubmissionRow, ValidationReport,
+  EnrollmentOptions, GradebookData, PersistedGrade, StudentGradeRow, StudentHistoryRow,
+  StudentProfile, StudentRecord, SubmissionRow, ValidationReport,
 } from './types';
 import type { Sf10Payload } from './sf10';
 
@@ -246,6 +246,51 @@ export function createSupabaseSource(): DataSource {
         label: `${c.gradeLevel} – ${c.section}`,
         data: await src.getGradebook(c.id, periodId),
       })));
+    },
+
+    async getStudentRecord(studentId) {
+      const { data, error } = await requireSupabase()
+        .rpc('student_profile', { p_student_id: studentId });
+      if (error) fail('Loading the learner record', error);
+      // null means RLS gave the caller no route to this learner — the
+      // same answer as "no such learner", which is the right answer to
+      // give. The screen renders "not found" either way.
+      return (data ?? null) as StudentRecord | null;
+    },
+
+    async getEnrollmentOptions(academicYearId) {
+      const { data, error } = await requireSupabase()
+        .rpc('enrollment_options', { p_year_id: academicYearId });
+      if (error) fail('Loading grade levels and sections', error);
+      return (data ?? { gradeLevels: [], sections: [] }) as EnrollmentOptions;
+    },
+
+    async admitStudent(student, enrollment) {
+      const { data, error } = await requireSupabase()
+        .rpc('admit_student', { p_student: student, p_enrollment: enrollment });
+      // "a learner with that LRN already exists in this school (Cruz, Juan)"
+      // is written for a registrar. Do not flatten it.
+      if (error) throw new Error(error.message);
+      return data as { studentId: string; enrollmentId: string };
+    },
+
+    async enrolStudent(studentId, enrollment) {
+      const { data, error } = await requireSupabase()
+        .rpc('enrol_student', { p_student_id: studentId, p_enrollment: enrollment });
+      if (error) throw new Error(error.message);
+      return data as string;
+    },
+
+    async updateStudent(studentId, patch) {
+      const { error } = await requireSupabase()
+        .rpc('update_student', { p_student_id: studentId, p_patch: patch });
+      if (error) throw new Error(error.message);
+    },
+
+    async updateEnrollment(enrollmentId, patch) {
+      const { error } = await requireSupabase()
+        .rpc('update_enrollment', { p_enrollment_id: enrollmentId, p_patch: patch });
+      if (error) throw new Error(error.message);
     },
 
     async getPeriodGrades(classId, periodId) {
