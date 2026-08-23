@@ -11,7 +11,10 @@
  * a way around the policies.
  */
 import { requireSupabase } from '../lib/supabase';
-import type { AssessmentDraft, DataSource, ScoreEdit, SessionContext } from './source';
+import type {
+  AssessmentDraft, DataSource, ImportRecord, ImportResult, ScoreEdit, SessionContext,
+} from './source';
+import type { ImportResolution } from '../lib/import/plan';
 import type {
   AttendanceDay, ClassStudent, ClassSummary, DirectoryStudent,
   EnrollmentOptions, GradebookData, PersistedGrade, StudentGradeRow, StudentHistoryRow,
@@ -400,6 +403,37 @@ export function createSupabaseSource(): DataSource {
       const { data, error } = await requireSupabase().rpc('my_academic_history');
       if (error) fail('Loading your academic history', error);
       return (data ?? []) as StudentHistoryRow[];
+    },
+
+    /* ---- the Import Center ---------------------------------------- */
+
+    async resolveImport(workbook) {
+      // `import_resolution` is SECURITY INVOKER and `stable`, so this
+      // call cannot write and row-level security decides which learners
+      // it can even see. A teacher previewing a workbook for a class
+      // they do not teach gets no candidates, which is the correct
+      // answer rather than an error.
+      const { data, error } = await requireSupabase()
+        .rpc('import_resolution', { p_workbook: workbook });
+      if (error) fail('Reading this workbook against your school', error);
+      return data as ImportResolution;
+    },
+
+    async commitImport(plan) {
+      const { data, error } = await requireSupabase()
+        .rpc('import_commit', { p_plan: plan });
+      // The function's refusals are written for a teacher — "that
+      // grading period has already been submitted…" — so show what it
+      // said rather than a wrapper's phrasing.
+      if (error) throw new Error(error.message);
+      return data as ImportResult;
+    },
+
+    async getImportHistory(limit) {
+      const { data, error } = await requireSupabase()
+        .rpc('import_history', { p_limit: limit ?? 50 });
+      if (error) fail('Loading import history', error);
+      return (data ?? []) as ImportRecord[];
     },
   };
 

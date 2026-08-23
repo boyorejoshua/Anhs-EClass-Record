@@ -741,23 +741,3 @@ function derivedColumns(sheet: Sheet, components: ParsedComponent[]):
   }
   return { initialGrade, termGrade, descriptor };
 }
-
-/* ------------------------------------------------------------------ *
- * Reading the result
- * ------------------------------------------------------------------ */
-
-export function hasBlockingIssues(parsed: ParsedWorkbook): boolean {
-  return parsed.issues.some((i) => i.severity === 'error');
-}
-
-/** How many marks the workbook actually carries, blanks excluded. */
-export function markCount(parsed: ParsedWorkbook): number {
-  return parsed.terms.reduce(
-    (n, t) => n + t.marks.filter((m) => m.score !== null).length, 0);
-}
-
-/** How many assessments would be created or matched, across all terms. */
-export function assessmentCount(parsed: ParsedWorkbook): number {
-  return parsed.terms.reduce(
-    (n, t) => n + t.components.reduce((m, c) => m + c.items.length, 0), 0);
-}

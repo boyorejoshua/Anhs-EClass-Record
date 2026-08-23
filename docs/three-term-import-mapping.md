@@ -279,3 +279,72 @@ Should historical four-quarter records ever need importing, it would be
 a separate, explicitly-labelled reader writing into a four-quarter
 `academic_years` row — never a fallback the three-term importer silently
 takes.
+
+---
+
+## 12. What was built
+
+| Piece | Where |
+|---|---|
+| Parser | `app/src/lib/import/three-term.ts` + fixture + 32 tests |
+| Planner | `app/src/lib/import/plan.ts` + 16 tests |
+| Resolution / commit / history | `supabase/migrations/0026_import_center.sql` |
+| Screen | `app/src/screens/ImportCenter.tsx`, route `import` |
+| End-to-end | `app/e2e/import-center.mjs` — 16 checks |
+
+### The split that makes the preview binding
+
+`import_resolution` **reads and cannot write** — `stable`, SECURITY
+INVOKER, no write path. `import_commit` **writes and cannot match** — it
+takes ids a person confirmed and has no name matching to fall back on.
+
+That is why "nothing is written until you confirm" is a property of the
+system rather than a claim about the screen. If the commit could match
+names, a second unreviewed matching run would decide the outcome and the
+user would have approved something else.
+
+### Marks are keyed by workbook row
+
+Not by enrolment id. A learner being created has no id when the plan is
+written, so a plan keyed by enrolment id silently drops every mark
+belonging to a new learner — the rows simply fail to join. The row
+number is the only identifier the workbook has, and the only one stable
+from the file to the database. It also means **skipping a row leaves its
+marks out with it**, rather than shifting them onto the learner below.
+
+### Who may do what
+
+`imports.execute` now reaches teachers, because the teacher holds the
+workbook. What an import may then **do** is gated by the permissions
+that already govern those acts, all checked inside `import_commit`:
+
+| Act | Permission | Held by |
+|---|---|---|
+| Create a class | `classes.assign` | registrar, admin |
+| Create a learner | `students.write` + `enrollments.write` | registrar, admin |
+| Write assessments | `assessments.write` | teacher of the class |
+| Write marks | `grades.encode` | teacher of the class |
+
+So a teacher importing into a class they teach just works; a teacher
+importing a workbook for a class nobody has created is told the
+registrar must create it. The preview reports which of these the caller
+actually holds, so the refusal is visible before anything runs.
+
+⚠️ `import_commit` is SECURITY DEFINER, so **RLS enforces nothing inside
+it**. `save_scores` relies entirely on the `assessment_scores` policies
+for permission and editability, and those do not run for the definer.
+Both checks are therefore explicit, and they run before any period is
+touched.
+
+### Still open
+
+- **The GRADE CHECK in §9 is not built.** The parser reads the
+  workbook's Initial Grade / TERM GRADE / DESCRIPTOR into
+  `term.derived` and nothing consumes them yet. Recomputing each learner
+  through the canonical engine and showing where the two disagree is the
+  single highest-value addition left, because a disagreement means the
+  mapping is wrong.
+- **The per-mark before → after diff in §9** shows totals, not
+  individual changes. It needs the current gradebook alongside the plan.
+- **Round-tripping identifiers (§8)** is not built. Until it is, every
+  import after the first still matches by name.

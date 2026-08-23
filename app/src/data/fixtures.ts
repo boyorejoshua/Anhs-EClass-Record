@@ -147,6 +147,24 @@ export const CLASSES: ClassSummary[] = [
   },
 ];
 
+/**
+ * Assessments an import created, keyed by `classId|periodId`.
+ *
+ * Held apart from ASSESSMENTS, which is the shape every fixture class
+ * ships with. An import into Term 3 of one class must not grow a column
+ * in every other class's Term 1 — which is exactly what appending to
+ * the shared list would do, and the demo would then show a teacher
+ * columns they never created.
+ *
+ * `buildScores` does not know about these, so an imported assessment
+ * has no seeded mark. Its only values are the ones the import wrote.
+ */
+const importedAssessments = new Map<string, Assessment[]>();
+
+function assessmentsFor(classId: string, periodId: string): Assessment[] {
+  return [...ASSESSMENTS, ...(importedAssessments.get(`${classId}|${periodId}`) ?? [])];
+}
+
 export function getGradebook(classId: string, periodId: string): GradebookData {
   const cls = CLASSES.find((c) => c.id === classId) ?? CLASSES[0]!;
   const status = cls.status[periodId] ?? 'draft';
@@ -156,7 +174,7 @@ export function getGradebook(classId: string, periodId: string): GradebookData {
     // MAPEH carries 20/60/20; everything else 20/50/30. Scheme comes
     // from the subject category, never from a constant in the screen.
     scheme: cls.subjectCode.startsWith('MAPEH') ? DO015_MAPEH : DO015_CORE,
-    assessments: ASSESSMENTS,
+    assessments: assessmentsFor(classId, periodId),
     roster: ROSTER.slice(0, cls.studentCount),
     scores: buildScores(periodId),
     status,
@@ -172,7 +190,12 @@ export function getGradebook(classId: string, periodId: string): GradebookData {
  * loading and error states go unwritten, and they would then be
  * discovered by a school on a bad connection rather than by us.
  * ------------------------------------------------------------------ */
-import type { DataSource, ScoreEdit, SessionContext } from './source';
+import type {
+  DataSource, ImportRecord, ImportResult, ScoreEdit, SessionContext,
+} from './source';
+import type {
+  ImportPlan, ImportResolution, ResolvedComponent, ResolvedLearner,
+} from '../lib/import/plan';
 import { SF10_FIXTURE } from './sf10';
 
 const FIXTURE_SESSION: SessionContext = {
@@ -349,6 +372,53 @@ function recordPeriodGrades(gb: GradebookData): void {
 
 const INITIAL_STUDENT_COUNT = STUDENTS.length;
 const INITIAL_ENROLMENT_COUNT = ENROLMENTS.length;
+const INITIAL_ROSTER_COUNT = ROSTER.length;
+
+/** Import history, newest last. Reset with everything else. */
+const importBatches: ImportRecord[] = [];
+
+/**
+ * The shape the Import Center hands to `resolveImport`. It is the
+ * parser's output, so the fixture reads the same payload the server
+ * does — a fixture that accepted a friendlier shape would let a real
+ * mismatch go unnoticed until the school hit it.
+ */
+interface ImportWorkbookInput {
+  identity?: {
+    gradeLevelText?: string | null;
+    sectionText?: string | null;
+    subjectText?: string | null;
+  };
+  roster?: { row: number; raw: string; sex?: 'male' | 'female' }[];
+  terms?: {
+    ordinal: number;
+    components?: {
+      key: 'WW' | 'PT' | 'EX';
+      items?: {
+        code: string; highestPossibleScore: number; childComponentCode: string | null;
+      }[];
+    }[];
+  }[];
+}
+
+/** Comparison only. The stored name keeps its original form. */
+function normaliseName(value: string): string {
+  return value.replace(/[^a-zA-Z0-9]+/g, ' ').trim().toLowerCase();
+}
+
+/**
+ * Match a workbook to one of the seeded classes on grade, section and
+ * subject — the same tuple the database is unique on, so the demo and
+ * the server agree about what "the same class" means.
+ */
+function resolveFixtureClass(wb: ImportWorkbookInput) {
+  const want = (v: string | null | undefined) => normaliseName(v ?? '');
+  return CLASSES.find((c) =>
+    want(c.gradeLevel) === want(wb.identity?.gradeLevelText)
+    && want(c.section) === want(wb.identity?.sectionText)
+    && (want(c.subject) === want(wb.identity?.subjectText)
+        || want(c.subjectCode) === want(wb.identity?.subjectText)));
+}
 
 /** Every period's status as the fixture ships, so a reset is exact. */
 const INITIAL_STATUS: Array<Record<string, SubmissionStatus>> =
@@ -371,6 +441,9 @@ function resetFixtureState(): void {
   receipts.clear();
   editedScores.clear();
   persistedGrades.clear();
+  importedAssessments.clear();
+  importBatches.length = 0;
+  ROSTER.length = INITIAL_ROSTER_COUNT;
 }
 
 export function createFixtureSource(): DataSource {
@@ -853,6 +926,221 @@ export function createFixtureSource(): DataSource {
         finalGrade: null,
         remark: null,
       })) satisfies StudentGradeRow[];
+    },
+
+    /* ---- the Import Center ---------------------------------------- *
+     * A real implementation, not a stub. The fixtures are what the
+     * offline demo and the end-to-end suite run against, and an import
+     * that pretended to work there would be discovered by a school
+     * rather than by us.
+     *
+     * The one thing it cannot model is row-level security: everything
+     * here is visible to everybody, so the permission flags below are
+     * the fixture user's, and matching sees the whole roster.
+     * ------------------------------------------------------------------ */
+
+    async resolveImport(workbook) {
+      const wb = workbook as ImportWorkbookInput;
+      const cls = resolveFixtureClass(wb);
+      const scheme = cls && cls.subjectCode.startsWith('MAPEH') ? DO015_MAPEH : DO015_CORE;
+
+      const wanted = new Set<string>();
+      for (const t of wb.terms ?? []) {
+        for (const c of t.components ?? []) {
+          for (const i of c.items ?? []) wanted.add(i.childComponentCode ?? c.key);
+        }
+      }
+      const components: ResolvedComponent[] = [...wanted].map((code) => {
+        const found = scheme.components.find((c) => c.code === code);
+        const parent = code === 'WW' || code === 'PT' || code === 'EX' ? code : 'EX';
+        return {
+          key: parent as ResolvedComponent['key'],
+          itemCode: parent === code ? null : code,
+          componentId: found?.id ?? null,
+          weight: found?.weight ?? null,
+          status: found ? 'matched' : 'missing',
+        };
+      });
+
+      const learners: ResolvedLearner[] = (wb.roster ?? []).map((r) => {
+        const candidates = ROSTER
+          .filter((x) => normaliseName(x.displayName) === normaliseName(r.raw))
+          .map((x) => ({
+            studentId: x.studentId,
+            enrollmentId: x.classEnrollmentId,
+            displayName: x.displayName,
+            lrn: null,
+            studentNumber: null,
+          }));
+        return {
+          row: r.row,
+          raw: r.raw,
+          sex: r.sex ?? null,
+          status: candidates.length === 1 ? 'matched'
+            : candidates.length > 1 ? 'ambiguous' : 'new',
+          candidates,
+        };
+      });
+
+      const termOrdinals = (wb.terms ?? []).map((t) => t.ordinal);
+      const periods = YEAR_TRIMESTER.periods
+        .filter((p) => termOrdinals.includes(p.ordinal))
+        .map((p) => ({
+          ordinal: p.ordinal,
+          periodId: p.id,
+          name: p.name,
+          editable: cls
+            ? ['draft', 'in_progress', 'returned', 'reopened']
+              .includes(cls.status[p.id] ?? 'draft')
+            : true,
+        }));
+
+      const assessments: ImportResolution['assessments'] = [];
+      for (const t of wb.terms ?? []) {
+        const period = periods.find((p) => p.ordinal === t.ordinal);
+        const existing = cls && period
+          ? assessmentsFor(cls.id, period.periodId) : ASSESSMENTS;
+        for (const c of t.components ?? []) {
+          let ordinal = 0;
+          for (const item of c.items ?? []) {
+            const code = item.childComponentCode ?? c.key;
+            const n = item.childComponentCode ? 1 : (ordinal += 1);
+            const match = existing.find(
+              (a) => a.componentId === code && a.ordinal === n);
+            assessments.push({
+              termOrdinal: t.ordinal,
+              componentKey: c.key,
+              itemCode: item.code,
+              ordinal: n,
+              newHps: item.highestPossibleScore,
+              assessmentId: match?.id ?? null,
+              currentHps: match?.highestPossibleScore ?? null,
+              status: !match ? 'willCreate'
+                : match.highestPossibleScore !== item.highestPossibleScore
+                  ? 'hpsChanged' : 'unchanged',
+            });
+          }
+        }
+      }
+
+      return {
+        class: {
+          status: cls ? 'matched' : 'unresolved',
+          classId: cls?.id ?? null,
+          academicYearId: YEAR_TRIMESTER.id,
+          gradeLevelId: null,
+          sectionId: null,
+          subjectId: null,
+          gradingSchemeId: scheme.id,
+          label: cls ? `${cls.gradeLevel} – ${cls.section} · ${cls.subject}` : null,
+          teacher: { userId: CURRENT_USER.id, displayName: CURRENT_USER.name },
+        },
+        periods,
+        components,
+        learners,
+        assessments,
+        permissions: {
+          runImport: true, createClass: false, createStudent: true, writeMarks: true,
+        },
+        issues: cls ? [] : [{
+          severity: 'error' as const,
+          code: 'no-such-class',
+          where: 'INPUT!J7',
+          message:
+            'No class here matches this workbook. In the demo only the seeded '
+            + 'classes exist, and an import cannot create one.',
+        }],
+      };
+    },
+
+    async commitImport(plan: ImportPlan) {
+      const cls = CLASSES.find((c) => c.id === plan.classId);
+      if (!cls) throw new Error('That class no longer exists.');
+
+      // Workbook row -> class-enrolment id, built as learners resolve.
+      // The same reason the server does it: a learner being created has
+      // no id until the moment they are created.
+      const rows = new Map<number, string>();
+      let studentsCreated = 0;
+      for (const learner of plan.learners) {
+        if (learner.action === 'link' && learner.enrollmentId) {
+          rows.set(learner.row, learner.enrollmentId);
+        } else if (learner.action === 'create' && learner.student) {
+          const id = `ce-imp-${ROSTER.length + 1}`;
+          const displayName = [learner.student.lastName, learner.student.firstName]
+            .filter(Boolean).join(', ');
+          ROSTER.push({ classEnrollmentId: id, studentId: `st-imp-${ROSTER.length + 1}`, displayName });
+          cls.studentCount = ROSTER.length;
+          rows.set(learner.row, id);
+          studentsCreated += 1;
+        }
+      }
+
+      let created = 0;
+      let marks = 0;
+      for (const period of plan.periods) {
+        const key = `${cls.id}|${period.periodId}`;
+        const added = importedAssessments.get(key) ?? [];
+        for (const a of period.assessments) {
+          const base = ASSESSMENTS.find(
+            (x) => x.componentId === a.componentId && x.ordinal === a.ordinal);
+          if (base) continue;
+          if (added.some((x) => x.componentId === a.componentId && x.ordinal === a.ordinal)) continue;
+          added.push({
+            id: `a-imp-${a.componentId}-${a.ordinal}`,
+            componentId: a.componentId,
+            ordinal: a.ordinal,
+            title: null,
+            highestPossibleScore: a.highestPossibleScore,
+          });
+          created += 1;
+        }
+        importedAssessments.set(key, added);
+
+        const all = assessmentsFor(cls.id, period.periodId);
+        for (const mark of period.marks) {
+          const ce = rows.get(mark.row);
+          const assessment = all.find(
+            (a) => a.componentId === mark.componentId && a.ordinal === mark.ordinal);
+          if (!ce || !assessment) continue;
+          // A blank stays a blank. Writing zero here would fail a
+          // learner who simply has not sat the test.
+          editedScores.set(`${ce}|${assessment.id}`, { raw: mark.raw, isExcused: false });
+          marks += 1;
+        }
+      }
+
+      const record: ImportRecord = {
+        id: `imp-${importBatches.length + 1}`,
+        fileName: plan.fileName,
+        at: new Date().toISOString(),
+        classId: cls.id,
+        className: `${cls.gradeLevel} – ${cls.section} · ${cls.subject}`,
+        importedBy: CURRENT_USER.name,
+        summary: {
+          createdClass: false,
+          studentsCreated,
+          learnersOnRoster: rows.size,
+          assessments: created,
+          marks,
+        },
+      };
+      importBatches.push(record);
+
+      const result: ImportResult = {
+        batchId: record.id,
+        classId: cls.id,
+        createdClass: false,
+        studentsCreated,
+        learnersOnRoster: rows.size,
+        assessments: created,
+        marks,
+      };
+      return result;
+    },
+
+    async getImportHistory(limit) {
+      return [...importBatches].reverse().slice(0, limit ?? 50);
     },
 
     async getMyHistory() {

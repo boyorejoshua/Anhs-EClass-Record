@@ -2,10 +2,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import * as XLSX from 'xlsx';
-import {
-  assessmentCount, hasBlockingIssues, markCount, parseThreeTermWorkbook,
-  splitGradeAndSection, splitName, WorkbookShapeError,
-} from './three-term';
+import { parseThreeTermWorkbook, splitGradeAndSection, splitName, WorkbookShapeError } from './three-term';
+import { assessmentCount, hasBlockingIssues, markCount } from './plan';
 import type { ParsedWorkbook } from './three-term';
 
 const FIXTURE = fileURLToPath(new URL('./__fixtures__/three-term-sample.xlsx', import.meta.url));
