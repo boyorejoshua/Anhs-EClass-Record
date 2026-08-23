@@ -262,3 +262,114 @@ export interface PersistedGrade {
   version: number;
   componentBreakdown: unknown;
 }
+
+/* ==================================================================== *
+ * STUDENT MANAGEMENT
+ *
+ * The distinction these types exist to protect: a STUDENT is a person,
+ * an ENROLLMENT is that person's participation in one school year. They
+ * are separate shapes because they are separate rows with separate
+ * lifetimes — a section transfer edits the second and never touches the
+ * first.
+ * ==================================================================== */
+
+/** Identity. One per person, per school, for as long as they attend. */
+export interface StudentIdentity {
+  studentId: string;
+  displayName: string;
+  firstName: string;
+  middleName: string | null;
+  lastName: string;
+  suffix: string | null;
+  studentNumber: string | null;
+  lrn: string | null;
+  sex: string | null;
+  birthDate: string | null;
+  birthPlace: string | null;
+  motherTongue: string | null;
+  religion: string | null;
+  addressLine: string | null;
+  barangay: string | null;
+  municipality: string | null;
+  province: string | null;
+  contactNumber: string | null;
+  email: string | null;
+  status: string;
+  hasPortalAccount: boolean;
+}
+
+/** One school year of attendance. The academic history IS this list. */
+export interface EnrollmentRow {
+  enrollmentId: string;
+  academicYearId: string;
+  academicYear: string;
+  yearStatus: string;
+  gradeLevel: string;
+  gradeLevelId: string;
+  section: string | null;
+  sectionId: string | null;
+  status: string;
+  promotionStatus: string | null;
+  generalAverage: number | null;
+  dateEnrolled: string | null;
+}
+
+export interface StudentGradeEntry {
+  academicYear: string;
+  period: string;
+  periodOrdinal: number;
+  subject: string;
+  subjectCode: string;
+  grade: number | null;
+  descriptor: string | null;
+  passed: boolean | null;
+}
+
+/**
+ * The STAFF-facing view of a learner.
+ *
+ * Distinct from `StudentProfile`, which is the portal's view of the
+ * signed-in learner's own record. Same person, different question: the
+ * portal asks "what are my grades", this asks "who is this learner and
+ * what is their history here". Keeping them apart stops a portal screen
+ * accidentally rendering a field only staff should see.
+ */
+export interface StudentRecord {
+  student: StudentIdentity;
+  history: EnrollmentRow[];
+  grades: StudentGradeEntry[];
+}
+
+/** What an enrolment form may offer. Never free text. */
+export interface EnrollmentOptions {
+  gradeLevels: Array<{ id: string; name: string; ordinal: number }>;
+  sections: Array<{
+    id: string; name: string; gradeLevelId: string; gradeLevel: string;
+    adviserUserId: string | null;
+  }>;
+}
+
+/** The two halves of an admission, kept apart on the way in as well. */
+export interface StudentDraft {
+  firstName: string;
+  lastName: string;
+  middleName?: string;
+  suffix?: string;
+  lrn?: string;
+  studentNumber?: string;
+  sex?: string;
+  birthDate?: string;
+  addressLine?: string;
+  contactNumber?: string;
+  email?: string;
+}
+
+export interface EnrollmentDraft {
+  academicYearId: string;
+  gradeLevelId: string;
+  sectionId?: string;
+  dateEnrolled?: string;
+  status?: string;
+  previousSchool?: string;
+  remarks?: string;
+}

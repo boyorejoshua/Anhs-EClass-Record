@@ -29,7 +29,7 @@ export type RouteId =
   | 'classes' | 'class' | 'attendance' | 'reports' | 'submissions' | 'help'
   | 'consolidated' | 'incoming'
   // registrar
-  | 'students' | 'enrollments' | 'queue' | 'records' | 'documents'
+  | 'students' | 'student' | 'enrollments' | 'queue' | 'records' | 'documents'
   // administration
   | 'setup' | 'years' | 'users' | 'sections' | 'grading'
   // student portal
@@ -76,6 +76,9 @@ export interface NavItem {
 const TEACHING: NavItem[] = [
   { key: 'dashboard',   label: 'Dashboard',   glyph: '▤', readiness: 'ready' },
   { key: 'classes',     label: 'My Classes',  glyph: '▦', readiness: 'ready' },
+  // Scoped by RLS, not by menu: a teacher sees only the learners in their
+  // own classes, so the same entry is safe for every teaching role.
+  { key: 'students',    label: 'Students',    glyph: '☖', readiness: 'ready' },
   { key: 'attendance',  label: 'Attendance',  glyph: '◫', readiness: 'ready' },
   { key: 'submissions', label: 'Submissions', glyph: '↑', readiness: 'ready' },
   { key: 'reports',     label: 'Reports',     glyph: '◈', readiness: 'ready' },
@@ -203,9 +206,18 @@ export function navItem(role: Role, id: RouteId): NavItem | undefined {
   return NAV[role].find((i) => i.key === id);
 }
 
+/**
+ * Routes reached by opening something rather than by clicking a menu.
+ *
+ * They have no NavItem, so a readiness lookup finds nothing and would
+ * report them unavailable — which is how opening a class once bounced
+ * straight back to the dashboard. Anything drilled into from a list
+ * belongs here.
+ */
+const DETAIL_ROUTES: ReadonlySet<RouteId> = new Set(['class', 'student']);
+
 export function isReady(role: Role, id: RouteId): boolean {
-  // 'class' is never a menu entry — it is reached by opening a class.
-  if (id === 'class') return true;
+  if (DETAIL_ROUTES.has(id)) return true;
   return navItem(role, id)?.readiness === 'ready';
 }
 
