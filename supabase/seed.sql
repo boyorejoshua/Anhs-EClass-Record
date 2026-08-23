@@ -113,7 +113,7 @@ insert into public.user_roles (user_id, role_id, school_id) values
 -- Academic years — SAME CODE, DIFFERENT STRUCTURE
 -- ------------------------------------------------------------
 insert into public.academic_years (id, school_id, label, start_date, end_date, period_structure, status) values
-  ('e0000001-0000-0000-0000-000000000001','11111111-1111-1111-1111-111111111111','2026-2027','2026-06-08','2027-04-08','trimester','active'),
+  ('e0000001-0000-0000-0000-000000000001','11111111-1111-1111-1111-111111111111','2026-2027','2026-06-08','2027-04-08','three_term','active'),
   ('f0000001-0000-0000-0000-000000000001','22222222-2222-2222-2222-222222222222','2026-2027','2026-06-08','2027-04-08','quarter','active');
 
 -- School A: THREE terms (DO 009 s.2026 dates, 201 class days)

@@ -33,7 +33,8 @@ export interface AcademicPeriod {
 export interface AcademicYear {
   id: string;
   label: string;
-  periodStructure: 'quarter' | 'semester' | 'trimester' | 'custom';
+  /** Mirrors academic_years.period_structure. `three_term` is DO 009 s.2026. */
+  periodStructure: 'three_term' | 'quarter' | 'semester' | 'custom';
   periods: AcademicPeriod[];
 }
 
