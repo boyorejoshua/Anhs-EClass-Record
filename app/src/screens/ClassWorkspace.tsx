@@ -303,8 +303,13 @@ export function ClassWorkspace(props: Props) {
             validate={() => validateSubmission(cls.id, periodId)}
             submit={(ack) => submitGrades(cls.id, periodId, ack)}
             recall={(reason) => recallSubmission(cls.id, periodId, reason)}
-            receivedAt={cls.receipts[periodId]?.receivedAt}
-            registrarReceivedAt={cls.receipts[periodId]?.registrarReceivedAt}
+            // `?.` guards `.receivedAt`, not the lookup itself — an RPC
+            // that omits `receipts` entirely (it happened: see migration
+            // 0028) would still throw here without the leading `?.` on
+            // `cls.receipts`, and with no error boundary in the app that
+            // is a blank screen, not a friendly gap.
+            receivedAt={cls.receipts?.[periodId]?.receivedAt}
+            registrarReceivedAt={cls.receipts?.[periodId]?.registrarReceivedAt}
             onSubmitted={onWorkflowChange}
             onReviewMissing={() => onTabChange('gradebook')}
           />
