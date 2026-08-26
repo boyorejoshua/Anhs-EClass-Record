@@ -311,7 +311,7 @@ export function buildPlan(
 
 export interface PlanSummary {
   classLabel: string;
-  classAction: 'update an existing class' | 'create a class' | 'nothing — unresolved';
+  classAction: 'update an existing class' | 'create a class' | 'do nothing — the class is unresolved';
   learners: { matched: number; created: number; ambiguous: number; skipped: number };
   assessments: { unchanged: number; changed: number; created: number };
   marks: { total: number; blank: number };
@@ -399,7 +399,7 @@ export function summarise(
     classAction:
       resolution.class.status === 'matched' ? 'update an existing class'
         : resolution.class.status === 'willCreate' ? 'create a class'
-          : 'nothing — unresolved',
+          : 'do nothing — the class is unresolved',
     learners: counts,
     assessments,
     marks: {
