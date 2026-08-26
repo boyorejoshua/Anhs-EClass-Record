@@ -246,11 +246,31 @@ const GRADE_LEVELS = [
   { id: 'gl-10', name: 'Grade 10', ordinal: 10 },
 ];
 
-const SECTIONS = [
-  { id: 'sec-pearl',   name: 'Pearl',   gradeLevelId: 'gl-10', gradeLevel: 'Grade 10', adviserUserId: null, academicYearId: 'year-anhs' },
-  { id: 'sec-diamond', name: 'Diamond', gradeLevelId: 'gl-10', gradeLevel: 'Grade 10', adviserUserId: null, academicYearId: 'year-anhs' },
-  { id: 'sec-ruby',    name: 'Ruby',    gradeLevelId: 'gl-9',  gradeLevel: 'Grade 9',  adviserUserId: null, academicYearId: 'year-anhs' },
+interface FixtureSection {
+  id: string; name: string; gradeLevelId: string; gradeLevel: string;
+  adviserUserId: string | null; room: string | null; capacity: number | null;
+  academicYearId: string;
+}
+const SECTIONS: FixtureSection[] = [
+  { id: 'sec-pearl',   name: 'Pearl',   gradeLevelId: 'gl-10', gradeLevel: 'Grade 10', adviserUserId: null, room: 'Room 204', capacity: 40, academicYearId: 'year-anhs' },
+  { id: 'sec-diamond', name: 'Diamond', gradeLevelId: 'gl-10', gradeLevel: 'Grade 10', adviserUserId: null, room: 'Room 205', capacity: 40, academicYearId: 'year-anhs' },
+  { id: 'sec-ruby',    name: 'Ruby',    gradeLevelId: 'gl-9',  gradeLevel: 'Grade 9',  adviserUserId: null, room: 'Room 201', capacity: 40, academicYearId: 'year-anhs' },
 ];
+
+/**
+ * The subjects a "create class" form offers. A demo teacher-only
+ * identity (CURRENT_USER) is the sole entry in `FIXTURE_TEACHERS` — the
+ * fixture models one signed-in staff person, not a staff directory, so
+ * that is the honest limit of what this dropdown can show.
+ */
+const FIXTURE_SUBJECTS = [
+  { id: 'sub-math10', code: 'MATH10', title: 'Mathematics 10' },
+  { id: 'sub-math9',  code: 'MATH9',  title: 'Mathematics 9' },
+  { id: 'sub-mapeh10', code: 'MAPEH10', title: 'MAPEH 10' },
+  { id: 'sub-eng10',  code: 'ENG10',  title: 'English 10' },
+  { id: 'sub-sci10',  code: 'SCI10',  title: 'Science 10' },
+];
+const FIXTURE_TEACHERS = [{ id: CURRENT_USER.id, displayName: CURRENT_USER.name }];
 
 const STUDENTS: StudentIdentity[] = ROSTER.map((r, i) => ({
   studentId: r.studentId,
@@ -373,6 +393,8 @@ function recordPeriodGrades(gb: GradebookData): void {
 const INITIAL_STUDENT_COUNT = STUDENTS.length;
 const INITIAL_ENROLMENT_COUNT = ENROLMENTS.length;
 const INITIAL_ROSTER_COUNT = ROSTER.length;
+const INITIAL_SECTION_COUNT = SECTIONS.length;
+const INITIAL_CLASSES_COUNT = CLASSES.length;
 
 /** Import history, newest last. Reset with everything else. */
 const importBatches: ImportRecord[] = [];
@@ -444,6 +466,8 @@ function resetFixtureState(): void {
   importedAssessments.clear();
   importBatches.length = 0;
   ROSTER.length = INITIAL_ROSTER_COUNT;
+  SECTIONS.length = INITIAL_SECTION_COUNT;
+  CLASSES.length = INITIAL_CLASSES_COUNT;
 }
 
 export function createFixtureSource(): DataSource {
@@ -558,6 +582,95 @@ export function createFixtureSource(): DataSource {
         sections: SECTIONS.filter((sec) => sec.academicYearId === yearId)
           .map(({ academicYearId: _y, ...rest }) => rest),
       };
+    },
+
+    /* ---- class and section setup -------------------------------------- */
+
+    async getSectionSetupOptions(yearId) {
+      const sections = SECTIONS.filter((sec) => sec.academicYearId === yearId);
+      return {
+        gradeLevels: GRADE_LEVELS,
+        subjects: FIXTURE_SUBJECTS,
+        teachers: FIXTURE_TEACHERS,
+        sections: sections.map((sec) => ({
+          id: sec.id, name: sec.name, gradeLevelId: sec.gradeLevelId,
+          gradeLevel: sec.gradeLevel, adviserUserId: sec.adviserUserId,
+          adviserName: sec.adviserUserId === CURRENT_USER.id ? CURRENT_USER.name : null,
+          room: sec.room, capacity: sec.capacity,
+          // Fixture-only match on names, since fixture classes never
+          // carried a sectionId — the real contract joins on the id.
+          classCount: CLASSES.filter(
+            (c) => c.gradeLevel === sec.gradeLevel && c.section === sec.name).length,
+        })),
+        classes: CLASSES.filter((c) => {
+          const sec = sections.find((s) => s.gradeLevel === c.gradeLevel && s.name === c.section);
+          return sec !== undefined;
+        }).map((c) => {
+          const sec = sections.find((s) => s.gradeLevel === c.gradeLevel && s.name === c.section)!;
+          const subject = FIXTURE_SUBJECTS.find((s) => s.code === c.subjectCode);
+          return {
+            id: c.id, sectionId: sec.id,
+            subjectId: subject?.id ?? c.subjectCode, subject: c.subject,
+            teacherId: CURRENT_USER.id, teacherName: CURRENT_USER.name,
+          };
+        }),
+        permissions: { canAssign: true },
+      };
+    },
+
+    async createSection(draft) {
+      const name = draft.name.trim();
+      if (!name) throw new Error('a section needs a name');
+      const clash = SECTIONS.find((s) =>
+        s.academicYearId === draft.academicYearId
+        && s.gradeLevelId === draft.gradeLevelId
+        && s.name.toLowerCase() === name.toLowerCase());
+      if (clash) {
+        throw new Error(`a section named "${name}" already exists for this grade level`);
+      }
+      const gradeLevel = GRADE_LEVELS.find((g) => g.id === draft.gradeLevelId);
+      const id = `sec-${SECTIONS.length + 1}`;
+      SECTIONS.push({
+        id, name, gradeLevelId: draft.gradeLevelId,
+        gradeLevel: gradeLevel?.name ?? '', adviserUserId: draft.adviserUserId ?? null,
+        room: draft.room ?? null, capacity: draft.capacity ?? null,
+        academicYearId: draft.academicYearId,
+      });
+      return id;
+    },
+
+    /**
+     * Idempotent by (section, subject), the same as the database: the
+     * unique key is what actually prevents a duplicate, not a check
+     * done here first.
+     */
+    async createClass(draft) {
+      const section = SECTIONS.find((s) => s.id === draft.sectionId);
+      const subject = FIXTURE_SUBJECTS.find((s) => s.id === draft.subjectId);
+      if (!section || !subject) throw new Error('class not found');
+
+      const existing = CLASSES.find(
+        (c) => c.gradeLevel === section.gradeLevel && c.section === section.name
+          && c.subjectCode === subject.code);
+      if (existing) return existing.id;
+
+      const id = `c-${subject.code.toLowerCase()}-${section.name.toLowerCase()}`;
+      CLASSES.push({
+        id, gradeLevel: section.gradeLevel, section: section.name,
+        subject: subject.title, subjectCode: subject.code,
+        // Auto-populated from the section's roster, same intent as
+        // sync_class_roster: nobody types the list twice. The fixture
+        // roster is shared across classes, so "populated" means the
+        // whole shared roster here rather than a real per-section one.
+        studentCount: ROSTER.length,
+        scheduleNote: draft.scheduleNote ?? null, room: draft.room ?? null,
+        status: { p1: 'draft', p2: 'draft', p3: 'draft' },
+        receipts: {},
+        completeness: {
+          p1: { scored: 0, total: 0 }, p2: { scored: 0, total: 0 }, p3: { scored: 0, total: 0 },
+        },
+      });
+      return id;
     },
 
     /**

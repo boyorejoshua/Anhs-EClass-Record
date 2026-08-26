@@ -230,3 +230,38 @@ pending its issuance.
 school already part-way through Term 1 on the anticipated template
 should re-enter its marks on the official one, or carry on. The importer
 reads both, so the system does not force the answer.
+
+---
+
+## Closed: class and section creation had no UI at all (26 Aug 2026)
+
+Flagged directly by the user against the live site, comparing it to the
+legacy Setup screen: a teacher had no way to add their own class or
+students without either seed data or an import happening to name one.
+
+Investigation showed the gap was bigger than "teacher self-serve":
+**nobody** — not a teacher, not the registrar — had a working screen to
+create a class or a section. `classes.assign` existed on the registrar
+and admin roles since the permission catalogue was first seeded, but no
+screen ever called it.
+
+**Decision, asked directly of the user:** should a teacher be able to
+self-create a class, matching the legacy system's ease of use? Answer:
+**registrar/admin only**, to keep one authority over official section
+lists and match the model every other part of the system already
+assumes (student admission, grade approval, document issuance are all
+registrar acts).
+
+Closed by migration 0029 and the **Classes & Sections** screen. Scope
+is deliberately narrow: it creates a section (grade level + name +
+adviser) and a class (section + subject + teacher) against grade
+levels, subjects and teacher accounts that **already exist**. Creating
+those — the school's curriculum and its user accounts — is a one-time
+onboarding step, not a per-term operational task, and remains a
+separate, larger, tracked gap (`13-onboarding-and-discovery.md`; see
+also the `years`/`users` items still marked `planned` in `nav.ts`).
+
+⚠️ Found in passing, not fixed: a duplicate, entirely unreferenced
+`Grade 9` grade-level row exists in the live ANHS data (code `G9P`).
+Flagged to the school rather than deleted — it is their production
+data.

@@ -18,6 +18,7 @@ import { RegistrarQueue } from './screens/RegistrarQueue';
 import { AdviserQueue } from './screens/AdviserQueue';
 import { RegistrarStudents } from './screens/RegistrarStudents';
 import { Students } from './screens/Students';
+import { ClassesAndSections } from './screens/ClassesAndSections';
 import { GlobalAnalytics, GlobalLoaReports } from './screens/GlobalReports';
 import { StudentRecordScreen } from './screens/StudentRecordScreen';
 import { StudentGrades, StudentProfileScreen, StudentHistory } from './screens/StudentPortal';
@@ -446,6 +447,17 @@ export default function App() {
             // students.write itself and refuses anyone else, so hiding
             // the button only spares a teacher a pointless error.
             canAdmit={role === 'registrar' || role === 'school_admin'}
+          />
+        );
+
+      case 'sections':
+        return (
+          <ClassesAndSections
+            yearId={year.id}
+            yearLabel={year.label}
+            load={source.getSectionSetupOptions}
+            createSection={source.createSection}
+            createClass={source.createClass}
           />
         );
 
