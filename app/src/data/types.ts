@@ -340,6 +340,48 @@ export interface StudentRecord {
   grades: StudentGradeEntry[];
 }
 
+/**
+ * What the "create a section / create a class" form may offer.
+ *
+ * `sections` and `classes` are the CURRENT state for the chosen year —
+ * the screen is a management view as much as a creation form, so a
+ * registrar can see what already exists before adding to it.
+ */
+export interface SectionSetupOptions {
+  gradeLevels: Array<{ id: string; name: string; ordinal: number }>;
+  subjects: Array<{ id: string; code: string; title: string }>;
+  /** Anyone holding a teaching role — candidates for adviser or class teacher. */
+  teachers: Array<{ id: string; displayName: string }>;
+  sections: Array<{
+    id: string; name: string; gradeLevelId: string; gradeLevel: string;
+    adviserUserId: string | null; adviserName: string | null;
+    room: string | null; capacity: number | null; classCount: number;
+  }>;
+  classes: Array<{
+    id: string; sectionId: string; subjectId: string; subject: string;
+    teacherId: string | null; teacherName: string | null;
+  }>;
+  permissions: { canAssign: boolean };
+}
+
+export interface SectionDraft {
+  academicYearId: string;
+  gradeLevelId: string;
+  name: string;
+  adviserUserId?: string | null;
+  room?: string | null;
+  capacity?: number | null;
+}
+
+export interface ClassDraft {
+  academicYearId: string;
+  sectionId: string;
+  subjectId: string;
+  teacherUserId?: string | null;
+  scheduleNote?: string | null;
+  room?: string | null;
+}
+
 /** What an enrolment form may offer. Never free text. */
 export interface EnrollmentOptions {
   gradeLevels: Array<{ id: string; name: string; ordinal: number }>;

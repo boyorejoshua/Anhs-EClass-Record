@@ -14,6 +14,7 @@ import { requireSupabase } from '../lib/supabase';
 import type {
   AssessmentDraft, DataSource, ImportRecord, ImportResult, ScoreEdit, SessionContext,
 } from './source';
+import type { ClassDraft, SectionDraft, SectionSetupOptions } from './types';
 import type { ImportResolution } from '../lib/import/plan';
 import type {
   AttendanceDay, ClassStudent, ClassSummary, DirectoryStudent,
@@ -403,6 +404,43 @@ export function createSupabaseSource(): DataSource {
       const { data, error } = await requireSupabase().rpc('my_academic_history');
       if (error) fail('Loading your academic history', error);
       return (data ?? []) as StudentHistoryRow[];
+    },
+
+    /* ---- class and section setup ------------------------------------ */
+
+    async getSectionSetupOptions(academicYearId) {
+      const { data, error } = await requireSupabase()
+        .rpc('section_setup_options', { p_year_id: academicYearId });
+      if (error) fail('Loading section setup', error);
+      return data as SectionSetupOptions;
+    },
+
+    async createSection(draft: SectionDraft) {
+      const { data, error } = await requireSupabase().rpc('create_section', {
+        p_academic_year_id: draft.academicYearId,
+        p_grade_level_id: draft.gradeLevelId,
+        p_name: draft.name,
+        p_adviser_user_id: draft.adviserUserId ?? null,
+        p_room: draft.room ?? null,
+        p_capacity: draft.capacity ?? null,
+      });
+      // The function's own refusal ("a section named ... already
+      // exists") is written for a registrar; show it as written.
+      if (error) throw new Error(error.message);
+      return data as string;
+    },
+
+    async createClass(draft: ClassDraft) {
+      const { data, error } = await requireSupabase().rpc('create_class', {
+        p_academic_year_id: draft.academicYearId,
+        p_section_id: draft.sectionId,
+        p_subject_id: draft.subjectId,
+        p_teacher_user_id: draft.teacherUserId ?? null,
+        p_schedule_note: draft.scheduleNote ?? null,
+        p_room: draft.room ?? null,
+      });
+      if (error) throw new Error(error.message);
+      return data as string;
     },
 
     /* ---- the Import Center ---------------------------------------- */

@@ -12,8 +12,9 @@
  * connection rather than by us.
  */
 import type {
-  AttendanceDay, AttendanceMark, ClassStudent, ClassSummary, DirectoryStudent,
-  EnrollmentDraft, EnrollmentOptions, GradebookData, PersistedGrade, StudentDraft,
+  AttendanceDay, AttendanceMark, ClassDraft, ClassStudent, ClassSummary, DirectoryStudent,
+  EnrollmentDraft, EnrollmentOptions, GradebookData, PersistedGrade, SectionDraft,
+  SectionSetupOptions, StudentDraft,
   StudentGradeRow, StudentHistoryRow, StudentProfile, StudentRecord,
   SubmissionRow, ValidationReport,
 } from './types';
@@ -216,6 +217,23 @@ export interface DataSource {
   approveSubmission(submissionId: string): Promise<void>;
   finalizeSubmission(submissionId: string): Promise<void>;
   publishSubmission(submissionId: string): Promise<void>;
+
+  /* ---- class and section setup -------------------------------------- *
+   * The gatekept path to a class existing at all. `classes.assign` is
+   * held by the registrar and admin roles only — a subject teacher
+   * cannot call these, and the screen that uses them hides behind the
+   * same `permissions.canAssign` flag `resolveImport` already exposes
+   * for the same reason.
+   *
+   * Deliberately narrow: this creates a SECTION and a CLASS for an
+   * EXISTING school year, against EXISTING grade levels, subjects and
+   * teacher accounts. Creating those in turn — the school's curriculum
+   * and its user accounts — is a one-time onboarding step, not a
+   * per-term operational task, and stays out of scope here.
+   * ------------------------------------------------------------------ */
+  getSectionSetupOptions(academicYearId: string): Promise<SectionSetupOptions>;
+  createSection(draft: SectionDraft): Promise<string>;
+  createClass(draft: ClassDraft): Promise<string>;
 
   /* ---- the Import Center ------------------------------------------ *
    * Two calls, and the split is the safety property. `resolveImport`

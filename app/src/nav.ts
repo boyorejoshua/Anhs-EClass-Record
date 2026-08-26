@@ -118,6 +118,12 @@ export const NAV: Record<Role, NavItem[]> = {
     { key: 'queue',     label: 'Grade Submissions',  glyph: '↑', readiness: 'ready' },
     { key: 'students',  label: 'Students',           glyph: '▦', readiness: 'ready' },
     { key: 'records',   label: 'Academic Records',   glyph: '◍', readiness: 'ready' },
+    // Sections and classes did not exist anywhere in the UI until this
+    // screen — the only way one came to exist before it was seed data,
+    // or an import that happened to name one. This is the actual start
+    // of a school year for a registrar: which sections exist, which
+    // classes run in them, who teaches and who advises.
+    { key: 'sections',  label: 'Classes & Sections',  glyph: '◫', readiness: 'ready' },
     // The registrar is the only role that can create a class or admit a
     // learner, so a workbook for a class nobody has set up comes here.
     { key: 'import',    label: 'Import',             glyph: '⇥', readiness: 'ready' },
@@ -159,10 +165,7 @@ export const NAV: Record<Role, NavItem[]> = {
         'app_metadata, which only a server-side function may do — a client holding the ' +
         'anon key must never be able to mint accounts.',
     },
-    {
-      key: 'sections', label: 'Classes & Sections', glyph: '◫', readiness: 'planned',
-      note: 'Sections, subjects and teaching loads are seeded during onboarding.',
-    },
+    { key: 'sections',  label: 'Classes & Sections', glyph: '◫', readiness: 'ready' },
     {
       key: 'grading', label: 'Grading Configuration', glyph: '◍', readiness: 'planned',
       note:
