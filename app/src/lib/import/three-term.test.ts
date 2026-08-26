@@ -60,6 +60,7 @@ describe('class identity', () => {
       schoolName: 'Angono National High School',
       govtSchoolId: '301417',
       schoolYear: '2026-2027',
+      schoolHead: null,
       gradeAndSection: 'Grade 7 - Masipag',
       gradeLevelText: 'Grade 7',
       sectionText: 'Masipag',
@@ -109,10 +110,27 @@ describe('the roster', () => {
     }
   });
 
-  it('refuses a workbook with no MALE/FEMALE blocks instead of guessing', () => {
+  it('reads nobody when the input sheet has no MALE/FEMALE blocks', () => {
+    // Sex is carried by the block and by nothing else, so without the
+    // headings there are no names to read. The term sheet still has its
+    // own blocks, which is what says where marks would go — so this is
+    // an empty roster reported as an error, not a malformed file.
     const bytes = variant((book) => {
       const s = book.Sheets.INPUT as XLSX.WorkSheet;
       delete s.B11; delete s.B62;
+    });
+    const parsed = parseThreeTermWorkbook(bytes);
+    expect(parsed.roster).toEqual([]);
+    expect(parsed.issues.some((i) => i.code === 'empty-roster')).toBe(true);
+    expect(hasBlockingIssues(parsed)).toBe(true);
+  });
+
+  it('refuses a workbook whose TERM sheet has no blocks at all', () => {
+    const bytes = variant((book) => {
+      for (const n of ['TERM1', 'TERM2', 'TERM3']) {
+        const s = book.Sheets[n] as XLSX.WorkSheet;
+        delete s.B11; delete s.B62;
+      }
     });
     expect(() => parseThreeTermWorkbook(bytes)).toThrow(WorkbookShapeError);
   });
@@ -302,7 +320,7 @@ describe('workbooks this is not', () => {
       book.SheetNames = book.SheetNames.filter((n) => n !== 'INPUT');
       delete book.Sheets.INPUT;
     });
-    expect(() => parseThreeTermWorkbook(bytes)).toThrow(/no INPUT sheet/);
+    expect(() => parseThreeTermWorkbook(bytes)).toThrow(/no INPUT DATA sheet/);
   });
 
   it('refuses a workbook with no term sheets', () => {

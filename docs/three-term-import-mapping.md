@@ -348,3 +348,91 @@ touched.
   individual changes. It needs the current gradebook alongside the plan.
 - **Round-tripping identifiers (§8)** is not built. Until it is, every
   import after the first still matches by name.
+
+---
+
+## 13. ⚠️ The OFFICIAL DepEd class record — supersedes §2–§6
+
+DepEd has published the real Electronic Class Record on the Learning
+Standards guide site. Two workbooks, differing only in their weights:
+
+| Workbook | Subjects | WW / PT / EX |
+|---|---|---|
+| `…EClass_Record_for_EPPTLE_TLE_Music_and_Arts_PE_and_Health` | EPP/TLE, TLE, Music, Arts, PE, Health | **20 / 60 / 20** |
+| `…EClass_Record_for_Science_Math_English_Filipino_GMRCVE_Araling_Panlipunan` | Science, Math, English, Filipino, GMRC/VE, Araling Panlipunan | **20 / 50 / 30** |
+
+Both confirm the exam split as **ST1 30 / ST2 30 / TE 40**, which is what
+the component tree was built for.
+
+Note **GMRC/VE sits with the core subjects**, and MAPEH appears as four
+separate subjects rather than one.
+
+### Where it differs from the anticipated template
+
+| | Anticipated (§2–§6) | **Official** |
+|---|---|---|
+| Sheets | `INPUT` · `TERM1-3` · `SUMMARY OF GRADES` | `INPUT DATA` · `TERM 1-3` · `FINAL GRADES` · `HELPER` |
+| Class details | horizontal header band | vertical `label : value` list |
+| Grade & section | one string needing a split | **two separate fields** |
+| Roster | two STACKED blocks, one column | two blocks **SIDE BY SIDE** — male name in `K`, female in `N`, same rows |
+| Name row vs mark row | the same row | **different**: names on `INPUT DATA` 11–60, marks on term rows 18–67 and 69–118 |
+| Band heading row | 8 | 12–13, merged across two rows |
+| Item codes / scores out of | 9 / 10 | 14 / 15 |
+| Exams tail | `Total · PS · WS` | `WS ST1 · WS ST2 · WS TE · PS · WS` — **six columns**, each with a score out of |
+| Transmutation | `NewTransmu` | `HELPER!B8:D48` |
+
+### One reader, not two
+
+Every coordinate above is **discovered**, not declared:
+
+- Class details are found by looking for the LABEL and reading
+  rightwards, skipping the `:` column. `SUBJECT TEACHER` is looked up
+  before `SUBJECT` so the longer label wins.
+- Band headings are the **multi-column merges** on the band row. The
+  official file merges `Initial Grade` / `Term Grade` / `Descriptor`
+  onto the same row, but each spans one column across several rows —
+  that shape tells them apart, not their names.
+- Item codes are on the row after the band merges END; scores out of on
+  the one after. Two rows in the official file, one in the other.
+- The summary tail is stripped **by name** (`^(total|ps|ws)\b`), because
+  the official exams band has six trailing columns and they carry a
+  score out of — 30 / 30 / 40, the DO 015 exam weights. Counting back
+  three would have created three assessments that do not exist.
+
+### The transmutation table was wrong, and is now right
+
+Migration 0023 seeded the table from the school's own workbook, which
+said of itself *"(Waiting for the Official DepEd Order)"*. It is not the
+official one:
+
+| Initial grade | 0023 seeded | **Official** |
+|---|---|---|
+| 30.00 | 60 | **66** |
+| 50.00 | 64 | **71** |
+| 65.00 | 72 | **74** |
+| 69.99 | 74 | 74 |
+| **70.00** | **75** | **75** |
+| 88.50 | 90 | **91** |
+
+The one thing 0023 got right is the one that mattered most: **passing
+begins at an initial grade of 70, not 60.** Everything below the pass
+line was wrong, by up to seven points, always in the direction that
+under-reports a struggling learner.
+
+Migration 0027 replaces it. `period_grades` held **0 rows**, so no
+learner had a grade on record computed from the superseded table —
+checked, not assumed. The old table is renamed rather than deleted, so
+provenance survives.
+
+Forty-one bands transcribed by hand is forty-one chances to mistype a
+number that decides who passes. Three things now hold each other in
+place:
+
+```
+workbook HELPER  →  OFFICIAL_TRANSMUTATION  →  migration 0027
+   (fixture)          (official.test.ts)      (verified by query)
+```
+
+The descriptors were already correct. What the official file adds is the
+department's own sentence for each band, now in
+`descriptor_bands.general_description`.

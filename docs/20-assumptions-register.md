@@ -209,3 +209,24 @@ If time is short, these ten answers unblock the most:
 - **During implementation:** an open ⬜ blocking a build decision is an escalation, not a guess.
 - **Before commercial deployment:** every ⚖️ row must be ✅ or explicitly accepted in writing by Mendtrix leadership.
 - **Per new school:** most rows reset. School-specific answers do not transfer — though DepEd-wide answers (A1–A3, I12, F8) do, and answering them once benefits every subsequent deployment.
+
+---
+
+## Closed by the official DepEd Electronic Class Record (26 Aug 2026)
+
+The department published the three-term Electronic Class Record on the
+Learning Standards guide site. It settles the items that were open
+pending its issuance.
+
+| Ref | Was | Now |
+|---|---|---|
+| F20 | Three-term transmutation table unconfirmed; using the school's anticipation | **CLOSED.** `HELPER!B8:D48` of both official workbooks, transcribed in migration 0027 and `app/src/lib/grading/official-three-term.ts`. It differs from the school's version everywhere below the pass line. |
+| F21 | Descriptor bands unconfirmed | **CLOSED.** Five bands, exactly as already implemented, plus the department's own wording for each. |
+| F22 | Whether passing needs an initial grade of 60 or 70 | **CLOSED — 70.** Confirmed by the official table. |
+| F23 | Per-subject weights unconfirmed | **CLOSED.** 20/50/30 core, 20/60/20 for EPP-TLE and MAPEH; exams split 30/30/40. GMRC/VE is grouped with the core subjects, and MAPEH appears as four separate subjects. |
+| F24 | Whether the school's layout would match the official one | **CLOSED — it does not.** Different sheet names, a vertical detail block, a side-by-side roster and a six-column exams tail. Both are read; see `three-term-import-mapping.md` §13. |
+
+⚠️ Still open, and still a question for the division office: whether a
+school already part-way through Term 1 on the anticipated template
+should re-enter its marks on the official one, or carry on. The importer
+reads both, so the system does not force the answer.
