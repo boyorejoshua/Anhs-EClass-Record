@@ -382,6 +382,40 @@ export interface ClassDraft {
   room?: string | null;
 }
 
+/** One section an adviser advises, for a given school year. */
+export interface AdvisorySection {
+  id: string;
+  name: string;
+  gradeLevel: string;
+  gradeLevelId: string;
+}
+
+/** One learner's grade in one subject, for the consolidated view. */
+export interface ConsolidatedGradeCell {
+  classId: string;
+  grade: number | null;
+  descriptor: string | null;
+  passed: boolean | null;
+  statusCode: string | null;
+}
+
+/**
+ * Every subject, every learner, one section, one period. What an
+ * adviser needs to consolidate a report card — the thing every subject
+ * teacher's own submission feeds into.
+ */
+export interface ConsolidatedGrades {
+  section: { id: string; name: string; gradeLevel: string };
+  /** Column order. `classId` lets a cell link back to the real gradebook. */
+  subjects: Array<{ id: string; title: string; classId: string }>;
+  rows: Array<{
+    studentId: string;
+    displayName: string;
+    /** Keyed by subject id. A subject absent here has no grade YET, not zero. */
+    grades: Record<string, ConsolidatedGradeCell>;
+  }>;
+}
+
 /** What an enrolment form may offer. Never free text. */
 export interface EnrollmentOptions {
   gradeLevels: Array<{ id: string; name: string; ordinal: number }>;

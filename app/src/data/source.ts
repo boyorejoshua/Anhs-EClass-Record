@@ -12,7 +12,8 @@
  * connection rather than by us.
  */
 import type {
-  AttendanceDay, AttendanceMark, ClassDraft, ClassStudent, ClassSummary, DirectoryStudent,
+  AdvisorySection, AttendanceDay, AttendanceMark, ClassDraft, ClassStudent, ClassSummary,
+  ConsolidatedGrades, DirectoryStudent,
   EnrollmentDraft, EnrollmentOptions, GradebookData, PersistedGrade, SectionDraft,
   SectionSetupOptions, StudentDraft,
   StudentGradeRow, StudentHistoryRow, StudentProfile, StudentRecord,
@@ -211,6 +212,17 @@ export interface DataSource {
   registrarReceiveSubmission(submissionId: string): Promise<void>;
   /** Every class in the sections this adviser advises. */
   getAdviserQueue(academicYearId: string): Promise<SubmissionRow[]>;
+  /**
+   * The sections THIS adviser advises — usually one, never assumed to be.
+   * What a "pick your section" control on Consolidated Grades offers.
+   */
+  getMyAdvisorySections(academicYearId: string): Promise<AdvisorySection[]>;
+  /**
+   * Every subject's period grade for every learner in one advised
+   * section. Refuses outright if the caller does not advise that
+   * section — the database checks this itself, not just the screen.
+   */
+  getConsolidatedGrades(sectionId: string, periodId: string): Promise<ConsolidatedGrades>;
   submitGrades(classId: string, periodId: string, acknowledgeWarnings: boolean): Promise<void>;
   getSubmissionQueue(academicYearId: string): Promise<SubmissionRow[]>;
   returnSubmission(submissionId: string, reason: string): Promise<void>;

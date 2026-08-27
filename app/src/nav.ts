@@ -102,14 +102,7 @@ export const NAV: Record<Role, NavItem[]> = {
     // their section's grades here; the adviser signs for each one and
     // passes the section on to the registrar.
     { key: 'incoming', label: 'Incoming Grades', glyph: '⇤', readiness: 'ready' },
-    {
-      key: 'consolidated', label: 'Consolidated Grades', glyph: '◍', readiness: 'planned',
-      note:
-        'Consolidating every subject for an advisory section needs each subject ' +
-        'teacher to have submitted first, and needs the period grades to have been ' +
-        'computed and stored. That computation is the one piece of the chain not yet ' +
-        'built — see docs/21-functional-optimization-audit.md.',
-    },
+    { key: 'consolidated', label: 'Consolidated Grades', glyph: '◍', readiness: 'ready' },
     ...TEACHING.slice(4),
   ],
 

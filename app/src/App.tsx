@@ -20,6 +20,7 @@ import { RegistrarStudents } from './screens/RegistrarStudents';
 import { Students } from './screens/Students';
 import { ClassesAndSections } from './screens/ClassesAndSections';
 import { GlobalAnalytics, GlobalLoaReports } from './screens/GlobalReports';
+import { ConsolidatedGrades } from './screens/ConsolidatedGrades';
 import { StudentRecordScreen } from './screens/StudentRecordScreen';
 import { StudentGrades, StudentProfileScreen, StudentHistory } from './screens/StudentPortal';
 import { Sf10Preview } from './screens/Sf10Preview';
@@ -37,7 +38,7 @@ import {
 } from './nav';
 
 /** Routes whose own picker owns the period, so the header's must stand down. */
-const CARRIES_OWN_PERIOD: ReadonlySet<RouteId> = new Set(['analytics', 'loa-reports']);
+const CARRIES_OWN_PERIOD: ReadonlySet<RouteId> = new Set(['analytics', 'loa-reports', 'consolidated']);
 
 export default function App() {
   const source = getDataSource();
@@ -395,6 +396,15 @@ export default function App() {
               unforwardSubmission: source.unforwardSubmission,
             }}
             onOpenClass={(classId, pid) => { setPeriodId(pid); openClass(classId, 'summary'); }}
+          />
+        );
+
+      case 'consolidated':
+        return (
+          <ConsolidatedGrades
+            years={allYears}
+            loadSections={source.getMyAdvisorySections}
+            loadGrades={source.getConsolidatedGrades}
           />
         );
 

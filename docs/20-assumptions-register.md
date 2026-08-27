@@ -261,7 +261,63 @@ onboarding step, not a per-term operational task, and remains a
 separate, larger, tracked gap (`13-onboarding-and-discovery.md`; see
 also the `years`/`users` items still marked `planned` in `nav.ts`).
 
-⚠️ Found in passing, not fixed: a duplicate, entirely unreferenced
-`Grade 9` grade-level row exists in the live ANHS data (code `G9P`).
-Flagged to the school rather than deleted — it is their production
-data.
+⚠️ Found in passing: a duplicate, entirely unreferenced `Grade 9`
+grade-level row existed in the live ANHS data (code `G9P`). Flagged to
+the user rather than deleted unilaterally, since it was production
+data; deleted on the user's explicit instruction once flagged. Confirmed
+by re-querying `grade_levels` afterward: exactly one `Grade 9` row
+remains (`G9`).
+
+---
+
+## Closed: adviser had no way to see grades across subjects (27 Aug 2026)
+
+Legacy-screenshot gap report against the live site: the adviser's
+Incoming Grades screen only ever shows chain-of-custody status, never
+marks, by design — receiving a submission is acknowledging a hand-off,
+not reviewing it. But that left the adviser with no answer at all to
+"has everyone in my section actually filed a grade, and what did they
+file" — the legacy Record Book's whole-class summary view had no
+successor. Closed by migration 0030 (`app.class_enrollment_advised_by_me`,
+a `period_grades` read policy scoped to an adviser's own advised
+sections, `rds.my_advisory_sections`, `rds.consolidated_grades`) and the
+**Consolidated Grades** screen (`nav.ts` `consolidated`, previously
+`planned`).
+
+⚠️ Disclosed for the record: building and verifying this migration
+against the live database produced two real incidents, both caught and
+corrected before merge, neither shipped to production:
+
+1. **A live-data leak from a verification script.** A test script nested
+   `begin;...commit;` blocks inside an outer `begin;...rollback;`
+   wrapper. Postgres treats a nested `BEGIN` as a no-op but a `COMMIT`
+   always commits the real outer transaction — so the first inner
+   `commit;` permanently wrote a test `period_grades` row (grade 89, a
+   real class_enrollment) to production before the trailing `rollback;`
+   ran, which by then had nothing left to undo. Caught when a later
+   verification attempt hit a duplicate-key error on the same insert.
+   Fixed by deleting the leaked row and confirming zero remain. A full
+   audit of other tables touched earlier in the session (`students`,
+   `assessments`, `assessment_scores`, `class_enrollments`,
+   `grade_submissions`, `import_batches`, `classes`) found no other
+   leaks — those tests had used a single top-level transaction with no
+   nested commits. Going forward, live-DB verification uses exactly one
+   top-level `begin; ... rollback;` with no nested `begin`/`commit`
+   pairs inside it.
+
+2. **`rds.consolidated_grades` was silently wrong, not broken.** The
+   first version had no `security definer` clause, so it ran as
+   SECURITY INVOKER by default — its internal joins to
+   `class_enrollments`/`classes` were subject to the CALLING adviser's
+   own RLS grants. An adviser who does not personally teach a given
+   subject in their own advised section has no RLS grant to read that
+   class's `class_enrollments`, so the function returned an empty grade
+   for that column for every learner — no error, a plausible-looking
+   blank that reads as "not filed yet" rather than "broken". Only caught
+   because the live verification specifically tested the cross-teacher
+   case (an adviser reading a subject someone else teaches), not just an
+   adviser who happens to teach everything in their own section. Fixed
+   by rewriting the function as `language plpgsql`, `security definer`,
+   with an explicit authorization check before running the full-visibility
+   query — the same pattern `create_class`/`create_section` already use
+   for controlled writes, now used for a controlled read.
