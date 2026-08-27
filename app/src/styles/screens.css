@@ -536,3 +536,24 @@
   border-left: 3px solid var(--accent);
   font-size: 13px;
 }
+
+/* --- Student Detail: the year strip ----------------------------------- *
+ * Q1 / Q2 / Q3 / Final, side by side. Each period tile is a BUTTON —
+ * seeing that Term 2 dipped and being unable to click into it would be
+ * the obvious next question left unanswered.
+ * ---------------------------------------------------------------------- */
+
+.year-strip .stat-btn {
+  font: inherit; text-align: inherit; cursor: pointer;
+  border: 1px solid var(--border); background: var(--panel);
+}
+.year-strip .stat-btn:hover:not(:disabled) { border-color: var(--accent); }
+.year-strip .stat-btn:disabled { cursor: default; }
+.year-strip .stat-btn[aria-current="true"] {
+  border-color: var(--accent);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+/* The one derived number on the strip, so it does not read as a period. */
+.year-strip .stat[data-final="true"] {
+  border-left: 2px solid var(--accent);
+}

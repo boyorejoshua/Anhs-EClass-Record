@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { AcademicPeriod, ClassSummary, GradebookData } from '../data/types';
 import type { SummaryRow } from '../lib/recordbook';
+import { summaryRows } from '../lib/recordbook';
 import { flattenComponents } from '../lib/grading';
 
 interface Props {
@@ -11,6 +12,84 @@ interface Props {
   row: SummaryRow;
   onBack: () => void;
   onGoGradebook: () => void;
+  /** Every period in the year, for the across-the-year strip. */
+  periods?: AcademicPeriod[];
+  /** Switches period without leaving the learner. */
+  onSelectPeriod?: (periodId: string) => void;
+  /** Switches learner without leaving the period. */
+  onSelectStudent?: (row: SummaryRow) => void;
+  /** Reads another period's gradebook for the across-the-year strip. */
+  loadGradebook?: (classId: string, periodId: string) => Promise<GradebookData>;
+}
+
+/**
+ * This learner's grade in every period of the year.
+ *
+ * The legacy screen's Q1/Q2/Q3/Q4/FINAL strip. It needs a read per
+ * period, which is why it is its own hook rather than something the
+ * parent pre-loads: a teacher who never opens a learner's detail should
+ * not pay four gradebook reads on every visit to Summary.
+ *
+ * The CURRENT period is taken from the gradebook already on screen
+ * rather than re-fetched, so the number in the strip and the number in
+ * the breakdown below it cannot disagree.
+ */
+function useYearGrades(
+  cls: ClassSummary,
+  periods: AcademicPeriod[],
+  current: AcademicPeriod,
+  currentData: GradebookData,
+  classEnrollmentId: string,
+  loadGradebook?: (classId: string, periodId: string) => Promise<GradebookData>,
+) {
+  const currentGrade = useMemo(() => {
+    const r = summaryRows(currentData).find((x) => x.classEnrollmentId === classEnrollmentId);
+    return r?.periodGrade ?? null;
+  }, [currentData, classEnrollmentId]);
+
+  const [grades, setGrades] = useState<Record<string, number | null>>({});
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!loadGradebook) return;
+    let live = true;
+    setLoading(true);
+    const others = periods.filter((p) => p.id !== current.id);
+    Promise.all(others.map(async (p) => {
+      try {
+        const g = await loadGradebook(cls.id, p.id);
+        const r = summaryRows(g).find((x) => x.classEnrollmentId === classEnrollmentId);
+        return [p.id, r?.periodGrade ?? null] as const;
+      } catch {
+        // A period the caller may not read (archived, or not yet
+        // opened) is a BLANK, not an error — the strip is context, and
+        // failing the whole detail screen over it would be absurd.
+        return [p.id, null] as const;
+      }
+    })).then((pairs) => {
+      if (!live) return;
+      setGrades(Object.fromEntries(pairs));
+      setLoading(false);
+    });
+    return () => { live = false; };
+  }, [cls.id, periods, current.id, classEnrollmentId, loadGradebook]);
+
+  const all = useMemo(() => {
+    const merged: Record<string, number | null> = { ...grades, [current.id]: currentGrade };
+    return periods.map((p) => ({ period: p, grade: merged[p.id] ?? null }));
+  }, [grades, currentGrade, periods, current.id]);
+
+  const recorded = all.filter((x) => x.grade != null);
+  // A5 in the assumptions register: the final grade is the simple mean
+  // of the period grades, and that is NOT yet confirmed with the
+  // school. It is also only meaningful once every period is in, so the
+  // strip labels how many are counted rather than presenting a partial
+  // mean as if it were final.
+  const final = recorded.length > 0
+    ? Math.round(recorded.reduce((n, x) => n + (x.grade ?? 0), 0) / recorded.length)
+    : null;
+
+  return { all, final, recordedCount: recorded.length, loading };
 }
 
 /**
@@ -26,8 +105,19 @@ interface Props {
  * object is created for the period; the period is a dimension of the
  * grade, not of the person.
  */
-export function StudentDetail({ cls, period, yearLabel, data, row, onBack, onGoGradebook }: Props) {
+export function StudentDetail({
+  cls, period, yearLabel, data, row, onBack, onGoGradebook,
+  periods, onSelectPeriod, onSelectStudent, loadGradebook,
+}: Props) {
   const leaves = useMemo(() => flattenComponents(data.scheme.components), [data.scheme]);
+
+  // Every learner in the class, so the picker can switch without going
+  // back to Summary first — the legacy screen's student dropdown.
+  const allRows = useMemo(() => summaryRows(data), [data]);
+
+  const year = useYearGrades(
+    cls, periods ?? [period], period, data, row.classEnrollmentId, loadGradebook,
+  );
 
   // Every assessment with this learner's mark against it, grouped by the
   // leaf component so an Exams tree shows ST1 / ST2 / TE separately.
@@ -62,6 +152,51 @@ export function StudentDetail({ cls, period, yearLabel, data, row, onBack, onGoG
 
   return (
     <>
+      {/*
+        The legacy screen's picker bar. Its whole value is that checking
+        a second learner does not mean going back to Summary and finding
+        them in a table again — a teacher chasing missing marks moves
+        through the class one name at a time.
+      */}
+      {(onSelectPeriod || onSelectStudent) && (
+        <div className="panel detail-picker">
+          <div className="gb-toolbar">
+            {onSelectPeriod && periods && periods.length > 1 && (
+              <label className="picker">
+                <span className="field-label">Grading period</span>
+                <select
+                  className="input" value={period.id}
+                  onChange={(e) => onSelectPeriod(e.target.value)}
+                >
+                  {periods.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </label>
+            )}
+            {onSelectStudent && (
+              <label className="picker">
+                <span className="field-label">Learner</span>
+                <select
+                  className="input" value={row.classEnrollmentId}
+                  onChange={(e) => {
+                    const next = allRows.find((r) => r.classEnrollmentId === e.target.value);
+                    if (next) onSelectStudent(next);
+                  }}
+                >
+                  {allRows.map((r) => (
+                    <option key={r.classEnrollmentId} value={r.classEnrollmentId}>
+                      {r.displayName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <div className="spacer" />
+            <button className="btn btn-sm" onClick={onGoGradebook}>Go to row</button>
+            <button className="btn btn-sm" onClick={() => window.print()}>Print / PDF</button>
+          </div>
+        </div>
+      )}
+
       <div className="panel">
         <div className="panel-head">
           <div>
@@ -75,6 +210,51 @@ export function StudentDetail({ cls, period, yearLabel, data, row, onBack, onGoG
           <button className="btn btn-sm" onClick={onGoGradebook}>Open in gradebook</button>
           <button className="btn btn-sm" onClick={() => window.print()}>Print</button>
         </div>
+
+        {/*
+          Every period of the year, side by side. The legacy
+          Q1/Q2/Q3/Q4/FINAL strip — and the reason a teacher opens this
+          screen at all, since it is the only place the year reads as
+          one story rather than as one term.
+        */}
+        {periods && periods.length > 1 && (
+          <div className="panel-body">
+            <div className="stat-row year-strip">
+              {year.all.map(({ period: p, grade }) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className="stat stat-btn"
+                  aria-current={p.id === period.id}
+                  disabled={!onSelectPeriod}
+                  onClick={() => onSelectPeriod?.(p.id)}
+                >
+                  <b>{grade ?? (year.loading ? '·' : '—')}</b>
+                  <span>{p.shortName ?? p.name}</span>
+                </button>
+              ))}
+              <div className="stat" data-final="true">
+                <b>{year.final ?? '—'}</b>
+                <span>
+                  Final
+                  {/*
+                    Say what the number is made of. A mean over one term
+                    out of three is not a final grade, and presenting it
+                    as one is how a learner gets told the wrong thing.
+                  */}
+                  {year.recordedCount > 0 && year.recordedCount < year.all.length
+                    && ` (${year.recordedCount} of ${year.all.length})`}
+                </span>
+              </div>
+            </div>
+            {year.recordedCount > 0 && year.recordedCount < year.all.length && (
+              <p className="menu-note">
+                Provisional — the mean of the {year.recordedCount} period
+                {year.recordedCount === 1 ? '' : 's'} graded so far, not the final grade.
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="panel-body">
           <div className="stat-row">

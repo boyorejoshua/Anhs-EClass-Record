@@ -430,3 +430,99 @@ invented subject, a cross-tenant year and a colleague's existing class
 were all refused with sentences. `e2e/teacher-add-class.mjs` (19 checks)
 re-proves the capitalisation case through the UI, since that is the
 defect the old gate was justified by.
+
+---
+
+## Fixed in passing: Student Detail showed one period's marks under another's heading (27 Aug 2026)
+
+Found while building the legacy Student Detail picker (Phase 2), not
+reported by anyone — which is the point worth recording.
+
+`ClassWorkspace` held the drilled-into learner as a `SummaryRow`
+**snapshot**, taken from whichever period's gradebook was loaded at the
+moment their name was clicked. A comment on the state declared it was
+"cleared whenever the tab or the period changes". Only the tab buttons
+cleared it; the period buttons called `onPeriodChange` directly. So
+opening a learner in Term 1 and then clicking Term 2 rendered Term 1's
+initial grade, period grade, descriptor, missing-score count and full
+component breakdown under a heading that read "Term 2" — with no error,
+no blank, and nothing to notice.
+
+Fixed by holding the **class-enrolment id** instead and re-deriving the
+row from the currently loaded gradebook on every render. That works
+precisely because a `class_enrollment` identifies an enrolment rather
+than a name or a period — the same property that lets a learner be
+renamed without orphaning their marks. A learner absent from the new
+period's roster now resolves to null and falls back to Summary, rather
+than rendering a detail screen for somebody not in the class.
+
+`e2e/student-detail.mjs` check 4c is the regression test: it reads the
+stat row before and after a period switch and fails if the numbers do
+not move.
+
+⚠️ **A5 surfaced again.** The new year strip shows a FINAL tile, and
+the only rule available for it is assumption A5 — *the final grade is
+the simple mean of the period grades* — which is still unconfirmed with
+the school. The strip therefore labels a partial mean rather than
+presenting it as final: with two of three terms graded it reads
+"Final (2 of 3)" and prints "Provisional — the mean of the 2 periods
+graded so far, not the final grade." **Confirm A5 before any final
+grade is issued on a document.**
+
+---
+
+## ⚠️ Shipped a dead end, then closed it: a teacher-made class had no way to get learners (27 Aug 2026)
+
+Reported by the user for the fourth time — *"there's no way how to add
+an student"* — and this time they were describing a defect I had
+introduced the same day, not the standing design decision I kept
+answering with.
+
+**What went wrong.** Migration 0032 let a teacher create their own
+class, including in a section they name themselves. The roster is
+filled by `sync_class_roster`, which copies from `enrollments` matching
+the section. A section invented thirty seconds ago has no enrolments.
+So the feature's happy path was: create a class, land in an empty
+gradebook, and find nothing anywhere that could put a learner in it.
+
+**Why the tests missed it.** Every check in `e2e/teacher-add-class.mjs`
+and every check in the live-database verification created a class in a
+SEEDED section that already had learners. The one state the feature
+actually produces for a new user — an empty section — was the one state
+never exercised. The fixtures made this worse rather than catching it:
+`createMyClass` handed every new class the shared 20-learner roster, so
+the fixture could not represent an empty class at all.
+
+**Closed by migration 0033** — `students.write.own_classes` on teacher
+and adviser, `rds.my_class_roster`, `add_learner_to_my_class`,
+`remove_learner_from_my_class` — and a roster editor on the class
+Students tab.
+
+**What it does not reopen.** V0's defining defect was a student OWNED by
+a class (`students.class_id`), keyed by name. The three tables stay
+three tables. Adding a learner writes a `class_enrollments` row; it
+reaches `students` only when nobody by that name is on file, and reuses
+the existing year `enrollment` when there is one — verified live: the
+same learner in two subjects is one person, one year enrolment, two
+class enrolments. Removing writes to `class_enrollments` alone, and is
+refused outright once any score exists, because the delete would
+cascade the marks with it.
+
+**The duplicate guard.** A typed name that matches an active learner is
+refused and the match is named, unless the teacher confirms it really
+is a different child — two learners genuinely can share a name. Matching
+is case- and whitespace-insensitive, so "dela cruz" and "Dela  Cruz" are
+one child.
+
+⚠️ **Provisional learners now exist in the data.** A learner a teacher
+types has NO LRN. `students.lrn` has been nullable since 0005
+("learners arrive without one"), so this is an anticipated state rather
+than a hack — but an LRN is what the division office reconciles on. The
+roster marks them "Needs LRN" and the registrar has to complete the
+record. **A school going live should agree who watches that queue.**
+
+⚠️ **Two of the fixtures were lying, and both are now fixed.** Beyond
+the empty-class problem, `getMyClassRoster` reported `hasScores: true`
+for everyone, which hid the Remove button on precisely the class the
+feature exists for. Both were caught only by writing the e2e test
+against the real workflow rather than against the seeded happy path.

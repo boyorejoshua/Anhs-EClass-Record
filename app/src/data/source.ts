@@ -14,8 +14,8 @@
 import type {
   AdvisorySection, AttendanceDay, AttendanceMark, ClassDraft, ClassStudent, ClassSummary,
   ConsolidatedGrades, DirectoryStudent,
-  EnrollmentDraft, EnrollmentOptions, GradebookData, MyAccount, MyClassDraft,
-  MyClassSetupOptions, NewAccount,
+  EnrollmentDraft, EnrollmentOptions, GradebookData, LearnerToAdd, MyAccount, MyClassDraft,
+  MyClassRoster, MyClassSetupOptions, NewAccount,
   PersistedGrade, ProfileEdit, SectionDraft,
   SectionSetupOptions, StaffDirectory, StudentDraft,
   StudentGradeRow, StudentHistoryRow, StudentProfile, StudentRecord,
@@ -260,6 +260,22 @@ export interface DataSource {
    * ------------------------------------------------------------------ */
   getMyClassSetupOptions(academicYearId: string): Promise<MyClassSetupOptions>;
   createMyClass(draft: MyClassDraft): Promise<string>;
+
+  /* ---- the roster of a class the caller teaches --------------------- *
+   * Without these, `createMyClass` is a dead end: a section a teacher
+   * names themselves has no enrolment, so sync_class_roster leaves the
+   * class empty and nothing could fill it.
+   *
+   * The three-table split is preserved. Adding a learner writes a
+   * `class_enrollments` row; it reaches `students` ONLY when nobody by
+   * that name is on file, and refuses a same-name match unless the
+   * caller confirms it really is a different child. Removing writes to
+   * `class_enrollments` alone — never the person, never their year.
+   * ------------------------------------------------------------------ */
+  getMyClassRoster(classId: string): Promise<MyClassRoster>;
+  /** Returns the class-enrolment id. */
+  addLearnerToMyClass(learner: LearnerToAdd): Promise<string>;
+  removeLearnerFromMyClass(classEnrollmentId: string): Promise<void>;
 
   /* ---- accounts ----------------------------------------------------- *
    * THERE IS NO PUBLIC SIGN-UP, and that is deliberate. Every account
