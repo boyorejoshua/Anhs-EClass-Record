@@ -110,6 +110,17 @@ function buildScores(periodId: string) {
   // One excused learner, so the excused-vs-missing distinction is visible.
   const excused = scores['ce-3'];
   if (excused) excused['a-pt2'] = { raw: null, isExcused: true };
+
+  // ONE learner with nothing scored at all in Term 2 — a late
+  // transfer-in, which every class has. Without this the fixtures gave
+  // every learner a computable grade in every period, so `ungraded` was
+  // permanently 0 and the whole "missing grades" half of Analytics
+  // never rendered: not because it was broken, but because the demo
+  // data could not produce the state it exists for.
+  if (periodId === 'p2') {
+    const late = scores['ce-5'];
+    if (late) for (const item of ASSESSMENTS) late[item.id] = { raw: null, isExcused: false };
+  }
   return scores;
 }
 
@@ -951,6 +962,40 @@ export function createFixtureSource(): DataSource {
         break;
       }
       if (!found) throw new Error('no such learner in this class');
+    },
+
+    async correctLearnerName(fix) {
+      const st = STUDENTS.find((s) => s.studentId === fix.studentId);
+      if (!st) throw new Error('that learner is not in any class you teach');
+      const first = fix.firstName.trim();
+      const last = fix.lastName.trim();
+      if (!first || !last) throw new Error('a first and last name are both required');
+
+      const norm = (x: string) => x.toLowerCase().replace(/\s+/g, ' ').trim();
+      const clash = STUDENTS.find((s) => s.studentId !== fix.studentId
+        && norm(s.firstName) === norm(first) && norm(s.lastName) === norm(last));
+      if (clash && !fix.confirmNamesake) {
+        throw new Error(`Another learner at this school is already called `
+          + `${clash.displayName}. Confirm they are different people if that is correct.`);
+      }
+
+      st.firstName = first;
+      st.lastName = last;
+      st.middleName = fix.middleName?.trim() || null;
+      st.suffix = fix.suffix?.trim() || null;
+      st.displayName = `${last}, ${first}`;
+      // The rename has to reach every list the learner appears in —
+      // which in the real schema it does for free, because those lists
+      // hold an id and read the name through a join. The fixtures
+      // denormalise displayName, so they have to do it by hand.
+      for (const r of ROSTER) {
+        if (r.studentId === fix.studentId) r.displayName = st.displayName;
+      }
+      for (const list of classRosters.values()) {
+        for (const r of list) {
+          if (r.studentId === fix.studentId) r.displayName = st.displayName;
+        }
+      }
     },
 
     /* ---- accounts ------------------------------------------------- */

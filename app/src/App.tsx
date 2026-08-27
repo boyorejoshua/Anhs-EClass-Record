@@ -452,6 +452,7 @@ export default function App() {
               load: source.getMyClassRoster,
               add: source.addLearnerToMyClass,
               remove: source.removeLearnerFromMyClass,
+              rename: source.correctLearnerName,
               onChanged: bumpRevision,
             } : undefined}
           />

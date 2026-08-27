@@ -526,3 +526,70 @@ the empty-class problem, `getMyClassRoster` reported `hasScores: true`
 for everyone, which hid the Remove button on precisely the class the
 feature exists for. Both were caught only by writing the e2e test
 against the real workflow rather than against the seeded happy path.
+
+---
+
+## Closed: Analytics reached parity with the legacy screen (27 Aug 2026)
+
+The bar chart and its bands already matched. What did not was everything
+that names PEOPLE rather than counting them — and that is the half a
+teacher actually acts on. A bar saying seven learners sit in 86–90 is
+not actionable until you know which seven.
+
+Added: **Students per performance band** (each band's learners with
+their grades), **Students with missing grades** (by name), a
+**Pass / Fail** panel with rates and Top(90+)/Missing tiles, a
+**Graded x/y** tile, and a separate **Missing** row on the bands chart.
+
+**Missing is deliberately its own row, not folded into "Below 75".** A
+learner with no computable grade is not a low score, and merging the two
+would report a teacher's unfinished marking as a cohort of failing
+children. For the same reason the pass rate is a share of GRADED
+learners, not of the class — otherwise a half-marked term reads as a
+collapsing pass rate.
+
+⚠️ **A fixture was hiding this feature rather than testing it.**
+`buildScores` gave every learner a score in every period, so `ungraded`
+was permanently 0 and the entire missing-grades half of Analytics never
+rendered — not because it was broken, but because the demo data could
+not produce the state it exists for. One learner now has nothing scored
+in Term 2, which is what a late transfer-in looks like in any real
+class. This is the fourth fixture found lying this way; the pattern is
+always the same, a fixture generous enough to make an empty or partial
+state unreachable.
+
+---
+
+## Closed: a teacher can correct a learner's spelling (27 Aug 2026)
+
+Asked for alongside the legacy Student List screenshot. Migration 0034
+adds `app.learner_in_my_classes` and `correct_learner_name`, and the
+roster row gets an inline **Edit name**.
+
+**Why this is safe here and was not in V0.** There the NAME WAS THE KEY
+(`grades[term][studentName]`), so correcting a spelling did not rename a
+learner — it created a new one and orphaned every mark filed under the
+old spelling. Here identity is a uuid and scores hang off the
+class-enrolment id, so a rename changes a display string and nothing
+else.
+
+**Scope: name parts only** — first, middle, last, suffix. Never the LRN,
+sex, birth date, status or enrolment; the function takes no parameter
+for any of them, so it is not a rule it enforces but a request it cannot
+express. Only for a learner in a class the caller teaches, never the
+school directory. Renaming onto another learner's name is refused and
+the match named, unless confirmed. Every rename is audited with the
+PREVIOUS name, because the question a registrar asks later is not what a
+learner is called but what they were called before.
+
+The roster editor now also appears on the **Setup** tab, under the score
+configuration, because that is where the legacy put the Student List and
+where the user went looking: *"even on setup page, there's no way a
+teacher can add its students"*. Same component as the Students tab, so
+the two cannot drift.
+
+⚠️ **The sign-in password reveal toggle is not covered by an automated
+test.** Demo mode signs in from fixtures and never renders the sign-in
+screen, so there is no way to drive it from the e2e suite; the check
+skips itself honestly rather than passing vacuously. It is covered by
+typecheck and build only. **Worth one manual look on the deployed site.**

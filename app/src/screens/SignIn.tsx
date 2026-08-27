@@ -16,6 +16,16 @@ export function SignIn({ brand, onSignIn }: {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * Masking is the default, and revealing is the escape hatch.
+   *
+   * It earns its place here more than on most sign-in forms: a teacher's
+   * first password is one an administrator read out to them, and a
+   * mistyped password they cannot see produces the same "that email and
+   * password did not match" as a wrong one — sending them back to the
+   * administrator for a reset they did not need.
+   */
+  const [reveal, setReveal] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -50,14 +60,36 @@ export function SignIn({ brand, onSignIn }: {
           />
         </label>
 
-        <label className="signin-field">
-          <span>Password</span>
-          <input
-            className="input" type="password" autoComplete="current-password" required
-            value={password} onChange={(e) => setPassword(e.target.value)}
-            disabled={busy}
-          />
-        </label>
+        {/*
+          A div rather than a wrapping <label>, unlike the email field
+          above. The toggle is a BUTTON, and a button inside a label is
+          also inside that label's click target — so every press would
+          both toggle and re-focus the input. `htmlFor` keeps the label
+          association without swallowing the button.
+        */}
+        <div className="signin-field">
+          <label htmlFor="signin-password">Password</label>
+          <div className="pw-wrap">
+            <input
+              id="signin-password"
+              className="input"
+              type={reveal ? 'text' : 'password'}
+              autoComplete="current-password" required
+              value={password} onChange={(e) => setPassword(e.target.value)}
+              disabled={busy}
+            />
+            <button
+              type="button"
+              className="pw-toggle"
+              aria-pressed={reveal}
+              aria-controls="signin-password"
+              onClick={() => setReveal((v) => !v)}
+              disabled={busy}
+            >
+              {reveal ? 'Hide' : 'Show'}
+            </button>
+          </div>
+        </div>
 
         {error && <p className="signin-error" role="alert">{error}</p>}
 

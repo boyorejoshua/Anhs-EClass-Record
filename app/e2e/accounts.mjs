@@ -44,6 +44,40 @@ const openNav = async (name) => {
 
 await page.goto('http://localhost:5199/', { waitUntil: 'networkidle' });
 
+/* ---- 0. the sign-in reveal toggle ------------------------------------ *
+ * Demo mode signs straight in, so the sign-in screen is only reachable
+ * by signing out. Worth the detour: a teacher's FIRST password is one an
+ * administrator read out to them, and a mistyped password they cannot
+ * see produces the same refusal as a wrong one — sending them back for a
+ * reset they never needed.
+ * ---------------------------------------------------------------------- */
+if ((await page.getByRole('button', { name: /^Sign out$/ }).count()) > 0) {
+  await page.getByRole('button', { name: /^Sign out$/ }).first().click();
+  await page.waitForTimeout(700);
+}
+if ((await page.locator('#signin-password').count()) > 0) {
+  const pw = page.locator('#signin-password');
+  const toggle = page.locator('.pw-toggle');
+  check('0. the password field masks by default',
+    await pw.getAttribute('type') === 'password');
+  check('0b. a reveal control is offered', (await toggle.count()) === 1);
+  await pw.fill('SomePassword123!');
+  await toggle.click();
+  await page.waitForTimeout(150);
+  check('0c. it reveals the password', await pw.getAttribute('type') === 'text');
+  check('0d. and reports its state to assistive tech',
+    await toggle.getAttribute('aria-pressed') === 'true');
+  await toggle.click();
+  await page.waitForTimeout(150);
+  check('0e. and masks it again', await pw.getAttribute('type') === 'password');
+  check('0f. the typed password survived the round trip — the toggle is not a reset',
+    await pw.inputValue() === 'SomePassword123!');
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForTimeout(600);
+} else {
+  ok.push('0. (skipped: this build signs in automatically)');
+}
+
 /* ---- 1. every role can reach their own account ---------------------- */
 const teacherNav = (await page.locator('nav button, aside button').allInnerTexts()).join(' | ');
 check('1. a teacher has My Account', /My Account/.test(teacherNav));

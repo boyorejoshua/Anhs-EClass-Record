@@ -14,7 +14,8 @@
 import type {
   AdvisorySection, AttendanceDay, AttendanceMark, ClassDraft, ClassStudent, ClassSummary,
   ConsolidatedGrades, DirectoryStudent,
-  EnrollmentDraft, EnrollmentOptions, GradebookData, LearnerToAdd, MyAccount, MyClassDraft,
+  EnrollmentDraft, EnrollmentOptions, GradebookData, LearnerNameFix, LearnerToAdd,
+  MyAccount, MyClassDraft,
   MyClassRoster, MyClassSetupOptions, NewAccount,
   PersistedGrade, ProfileEdit, SectionDraft,
   SectionSetupOptions, StaffDirectory, StudentDraft,
@@ -276,6 +277,16 @@ export interface DataSource {
   /** Returns the class-enrolment id. */
   addLearnerToMyClass(learner: LearnerToAdd): Promise<string>;
   removeLearnerFromMyClass(classEnrollmentId: string): Promise<void>;
+  /**
+   * Fix the spelling of a learner in a class the caller teaches.
+   *
+   * Safe in a way it was not in V0, where the NAME WAS THE KEY
+   * (`grades[term][studentName]`) and correcting a spelling silently
+   * created a second learner, orphaning every mark under the old one.
+   * Here identity is a uuid and scores hang off the class-enrolment id,
+   * so this changes a display string and nothing else.
+   */
+  correctLearnerName(fix: LearnerNameFix): Promise<void>;
 
   /* ---- accounts ----------------------------------------------------- *
    * THERE IS NO PUBLIC SIGN-UP, and that is deliberate. Every account
