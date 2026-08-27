@@ -738,6 +738,80 @@ export function createFixtureSource(): DataSource {
       return id;
     },
 
+    /* ---- a teacher's own class ------------------------------------ */
+
+    async getMyClassSetupOptions(yearId) {
+      return {
+        gradeLevels: GRADE_LEVELS.map((g) => ({ id: g.id, name: g.name, ordinal: g.ordinal })),
+        subjects: FIXTURE_SUBJECTS,
+        sections: SECTIONS
+          .filter((s) => s.academicYearId === yearId)
+          .map((s) => ({
+            id: s.id, name: s.name, gradeLevelId: s.gradeLevelId, gradeLevel: s.gradeLevel,
+            learnerCount: ROSTER.length,
+          })),
+        myClasses: CLASSES.map((c) => ({
+          id: c.id,
+          sectionId: SECTIONS.find(
+            (s) => s.name === c.section && s.gradeLevel === c.gradeLevel)?.id ?? '',
+          subjectId: FIXTURE_SUBJECTS.find((s) => s.code === c.subjectCode)?.id ?? '',
+        })),
+        permissions: { canCreateOwn: true },
+      };
+    },
+
+    async createMyClass(draft) {
+      const subject = FIXTURE_SUBJECTS.find((s) => s.id === draft.subjectId);
+      if (!subject) throw new Error('that subject is not offered by this school');
+
+      // Resolve the section the same way the server does: by id, or by
+      // a CASE-INSENSITIVE name match within the grade level, so
+      // "pearl" lands on "Pearl" instead of forking it.
+      let section = draft.sectionId
+        ? SECTIONS.find((s) => s.id === draft.sectionId)
+        : undefined;
+
+      if (!section) {
+        const name = (draft.sectionName ?? '').trim();
+        const level = GRADE_LEVELS.find((g) => g.id === draft.gradeLevelId);
+        if (!name || !level) {
+          throw new Error('choose a section, or give a grade level and a section name');
+        }
+        section = SECTIONS.find(
+          (s) => s.gradeLevelId === level.id && s.name.toLowerCase() === name.toLowerCase());
+        if (!section) {
+          section = {
+            id: `sec-${name.toLowerCase().replace(/\s+/g, '-')}`,
+            name, gradeLevelId: level.id, gradeLevel: level.name,
+            // Never the adviser: teaching a class in a section is not
+            // the same authority as advising it.
+            adviserUserId: null, room: null, capacity: null,
+            academicYearId: draft.academicYearId,
+          };
+          SECTIONS.push(section);
+        }
+      }
+
+      const existing = CLASSES.find(
+        (c) => c.gradeLevel === section!.gradeLevel && c.section === section!.name
+          && c.subjectCode === subject.code);
+      if (existing) return existing.id;
+
+      const id = `c-${subject.code.toLowerCase()}-${section.name.toLowerCase()}`;
+      CLASSES.push({
+        id, gradeLevel: section.gradeLevel, section: section.name,
+        subject: subject.title, subjectCode: subject.code,
+        studentCount: ROSTER.length,
+        scheduleNote: draft.scheduleNote ?? null, room: draft.room ?? null,
+        status: { p1: 'draft', p2: 'draft', p3: 'draft' },
+        receipts: {},
+        completeness: {
+          p1: { scored: 0, total: 0 }, p2: { scored: 0, total: 0 }, p3: { scored: 0, total: 0 },
+        },
+      });
+      return id;
+    },
+
     /* ---- accounts ------------------------------------------------- */
 
     async getStaffDirectory() {

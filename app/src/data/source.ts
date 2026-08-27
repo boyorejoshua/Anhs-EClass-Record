@@ -14,7 +14,8 @@
 import type {
   AdvisorySection, AttendanceDay, AttendanceMark, ClassDraft, ClassStudent, ClassSummary,
   ConsolidatedGrades, DirectoryStudent,
-  EnrollmentDraft, EnrollmentOptions, GradebookData, MyAccount, NewAccount,
+  EnrollmentDraft, EnrollmentOptions, GradebookData, MyAccount, MyClassDraft,
+  MyClassSetupOptions, NewAccount,
   PersistedGrade, ProfileEdit, SectionDraft,
   SectionSetupOptions, StaffDirectory, StudentDraft,
   StudentGradeRow, StudentHistoryRow, StudentProfile, StudentRecord,
@@ -247,6 +248,18 @@ export interface DataSource {
   getSectionSetupOptions(academicYearId: string): Promise<SectionSetupOptions>;
   createSection(draft: SectionDraft): Promise<string>;
   createClass(draft: ClassDraft): Promise<string>;
+
+  /* ---- a teacher's OWN class ---------------------------------------- *
+   * Separate from the registrar's pair above, and the separation is the
+   * safety property. `create_my_class` forces primary_teacher_id to the
+   * caller — it is not a parameter — so "create a class for somebody
+   * else" is not a request it can express. A teacher may name a new
+   * section (resolved case-insensitively onto an existing one, so a
+   * typo cannot fork it) but may never appoint its adviser, invent a
+   * subject, or admit a learner.
+   * ------------------------------------------------------------------ */
+  getMyClassSetupOptions(academicYearId: string): Promise<MyClassSetupOptions>;
+  createMyClass(draft: MyClassDraft): Promise<string>;
 
   /* ---- accounts ----------------------------------------------------- *
    * THERE IS NO PUBLIC SIGN-UP, and that is deliberate. Every account

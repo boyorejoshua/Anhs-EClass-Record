@@ -366,6 +366,16 @@ export default function App() {
               <MyClasses
                 classes={list} year={year!} periodId={activePeriod!}
                 onOpenClass={openClass} purpose={purpose}
+                // Only the teaching roles. `create_my_class` checks
+                // classes.create.own itself and refuses anyone else, so
+                // this only spares a registrar a button that would
+                // error — the registrar's own path is Classes &
+                // Sections, which can assign a class to somebody else.
+                addClass={role === 'teacher' || role === 'adviser' ? {
+                  loadOptions: source.getMyClassSetupOptions,
+                  create: source.createMyClass,
+                  onCreated: () => { retryClasses(); bumpRevision(); },
+                } : undefined}
               />
             )}
           </Async>
