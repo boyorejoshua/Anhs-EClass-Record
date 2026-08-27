@@ -33,6 +33,9 @@ export type RouteId =
   | 'import'
   // administration
   | 'setup' | 'years' | 'users' | 'sections' | 'grading'
+  // everyone: their own login. Distinct from the student portal's
+  // 'profile', which is a LEARNER record read from a different identity.
+  | 'account'
   // student portal
   | 'profile' | 'history';
 
@@ -90,6 +93,7 @@ const TEACHING: NavItem[] = [
   // Deliberately near the bottom: importing is something a teacher does
   // once a term, not something they navigate to every day.
   { key: 'import',      label: 'Import',      glyph: '⇥', readiness: 'ready' },
+  { key: 'account',     label: 'My Account',  glyph: '☺', readiness: 'ready' },
   { key: 'help',        label: 'Help',        glyph: '?', readiness: 'ready' },
 ];
 
@@ -135,6 +139,7 @@ export const NAV: Record<Role, NavItem[]> = {
         'in docs/11-document-engine.md — atomic numbering, frozen signatories and ' +
         'stored artifacts. SF10 can already be previewed under Academic Records.',
     },
+    { key: 'account',   label: 'My Account',          glyph: '☺', readiness: 'ready' },
   ],
 
   school_admin: [
@@ -151,13 +156,7 @@ export const NAV: Record<Role, NavItem[]> = {
         'downstream, and archiving one makes it read-only by trigger. It is seeded ' +
         'during onboarding rather than edited live.',
     },
-    {
-      key: 'users', label: 'Users', glyph: '▦', readiness: 'planned',
-      note:
-        'Creating a user means creating a Supabase Auth identity with the tenant in ' +
-        'app_metadata, which only a server-side function may do — a client holding the ' +
-        'anon key must never be able to mint accounts.',
-    },
+    { key: 'users', label: 'Users', glyph: '▦', readiness: 'ready' },
     { key: 'sections',  label: 'Classes & Sections', glyph: '◫', readiness: 'ready' },
     {
       key: 'grading', label: 'Grading Configuration', glyph: '◍', readiness: 'planned',
@@ -167,12 +166,17 @@ export const NAV: Record<Role, NavItem[]> = {
         'them in the UI is deferred; changing a scheme mid-year would alter grades ' +
         'already computed under it.',
     },
+    { key: 'account', label: 'My Account', glyph: '☺', readiness: 'ready' },
   ],
 
   student: [
     { key: 'dashboard', label: 'My Grades',        glyph: '▩', readiness: 'ready' },
     { key: 'profile',   label: 'My Profile',       glyph: '▦', readiness: 'ready' },
     { key: 'history',   label: 'Academic History', glyph: '◷', readiness: 'ready' },
+    // 'profile' above is the LEARNER record — LRN, guardian, enrolment.
+    // This is the LOGIN: name and password. Two different things that
+    // both reasonably answer to "my profile", so both are listed.
+    { key: 'account',   label: 'My Account',       glyph: '☺', readiness: 'ready' },
   ],
 };
 

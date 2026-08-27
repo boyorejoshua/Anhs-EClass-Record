@@ -10,7 +10,8 @@
  */
 import type {
   AcademicYear, AttendanceDay, AttendanceMark, ClassStudent, ClassSummary, ConsolidatedGradeCell,
-  CurrentUser, DirectoryStudent, GradebookData, PersistedGrade, RosterStudent, StudentGradeRow,
+  CurrentUser, DirectoryStudent, GradebookData, PersistedGrade, RosterStudent, StaffAccount,
+  StudentGradeRow,
   EnrollmentRow, StudentHistoryRow, StudentIdentity, StudentProfile, SubmissionRow,
   SubmissionStatus, ValidationReport,
 } from './types';
@@ -260,12 +261,7 @@ const SECTIONS: FixtureSection[] = [
   { id: 'sec-ruby',    name: 'Ruby',    gradeLevelId: 'gl-9',  gradeLevel: 'Grade 9',  adviserUserId: null, room: 'Room 201', capacity: 40, academicYearId: 'year-anhs' },
 ];
 
-/**
- * The subjects a "create class" form offers. A demo teacher-only
- * identity (CURRENT_USER) is the sole entry in `FIXTURE_TEACHERS` — the
- * fixture models one signed-in staff person, not a staff directory, so
- * that is the honest limit of what this dropdown can show.
- */
+/** The subjects a "create class" form offers. */
 const FIXTURE_SUBJECTS = [
   { id: 'sub-math10', code: 'MATH10', title: 'Mathematics 10' },
   { id: 'sub-math9',  code: 'MATH9',  title: 'Mathematics 9' },
@@ -273,7 +269,68 @@ const FIXTURE_SUBJECTS = [
   { id: 'sub-eng10',  code: 'ENG10',  title: 'English 10' },
   { id: 'sub-sci10',  code: 'SCI10',  title: 'Science 10' },
 ];
-const FIXTURE_TEACHERS = [{ id: CURRENT_USER.id, displayName: CURRENT_USER.name }];
+
+/* ==================================================================== *
+ * THE STAFF STORE
+ *
+ * Mirrors the four seeded ANHS accounts (supabase/seed.sql), so the
+ * accounts screens demonstrate against a directory rather than against
+ * a single signed-in person.
+ *
+ * `roles` is an ARRAY on purpose. Juan holds teacher AND adviser — the
+ * arrangement V0's mutually exclusive role CHECK could not express at
+ * all, and the most common one in a Philippine high school.
+ * ==================================================================== */
+const STAFF: StaffAccount[] = [
+  {
+    id: CURRENT_USER.id, email: 'maria@anhs.test', employeeId: 'EMP-003',
+    firstName: 'Maria', middleName: null, lastName: 'Santos', suffix: null,
+    status: 'active', mustChangePassword: false, lastLoginAt: '2026-08-26T23:12:00Z',
+    position: 'Teacher III', isSelf: true, roles: ['teacher'],
+  },
+  {
+    id: 'u-juan', email: 'juan@anhs.test', employeeId: 'EMP-004',
+    firstName: 'Juan', middleName: null, lastName: 'Dela Cruz', suffix: null,
+    status: 'active', mustChangePassword: false, lastLoginAt: '2026-08-27T01:40:00Z',
+    position: 'Teacher II', isSelf: false, roles: ['adviser', 'teacher'],
+  },
+  {
+    id: 'u-ana', email: 'registrar@anhs.test', employeeId: 'EMP-002',
+    firstName: 'Ana', middleName: null, lastName: 'Reyes', suffix: null,
+    status: 'active', mustChangePassword: false, lastLoginAt: '2026-08-26T08:05:00Z',
+    position: 'Registrar II', isSelf: false, roles: ['registrar'],
+  },
+  {
+    id: 'u-elena', email: 'admin@anhs.test', employeeId: 'EMP-001',
+    firstName: 'Elena', middleName: null, lastName: 'Cruz', suffix: null,
+    status: 'active', mustChangePassword: false, lastLoginAt: '2026-08-27T02:20:00Z',
+    position: 'School Principal IV', isSelf: false, roles: ['school_admin'],
+  },
+];
+const INITIAL_STAFF_COUNT = STAFF.length;
+/** Deep enough: `roles` is the only nested value, and it is a string[]. */
+const INITIAL_STAFF = STAFF.map((u) => ({ ...u, roles: [...u.roles] }));
+
+/** The school's role catalogue, as seeded. */
+const FIXTURE_ROLES = [
+  { code: 'adviser',      name: 'Class Adviser' },
+  { code: 'principal',    name: 'Principal' },
+  { code: 'registrar',    name: 'Registrar' },
+  { code: 'school_admin', name: 'School Administrator' },
+  { code: 'student',      name: 'Student' },
+  { code: 'teacher',      name: 'Subject Teacher' },
+];
+
+/**
+ * Derived from STAFF rather than listed separately, so "who works here"
+ * has ONE definition. A second hand-written list would drift the moment
+ * an account was added through the Users screen — and the new teacher
+ * would be missing from the very dropdown that assigns them a class.
+ */
+const teachingStaff = () => STAFF
+  .filter((u) => u.status === 'active'
+    && (u.roles.includes('teacher') || u.roles.includes('adviser')))
+  .map((u) => ({ id: u.id, displayName: `${u.lastName}, ${u.firstName}` }));
 
 const STUDENTS: StudentIdentity[] = ROSTER.map((r, i) => ({
   studentId: r.studentId,
@@ -471,6 +528,11 @@ function resetFixtureState(): void {
   ROSTER.length = INITIAL_ROSTER_COUNT;
   SECTIONS.length = INITIAL_SECTION_COUNT;
   CLASSES.length = INITIAL_CLASSES_COUNT;
+  STAFF.length = INITIAL_STAFF_COUNT;
+  // Truncating the array puts the added accounts back, but the seeded
+  // four are mutated in place by role, status and profile edits — so
+  // those have to be restored field by field.
+  STAFF.forEach((u, i) => Object.assign(u, INITIAL_STAFF[i]!));
 }
 
 export function createFixtureSource(): DataSource {
@@ -594,7 +656,7 @@ export function createFixtureSource(): DataSource {
       return {
         gradeLevels: GRADE_LEVELS,
         subjects: FIXTURE_SUBJECTS,
-        teachers: FIXTURE_TEACHERS,
+        teachers: teachingStaff(),
         sections: sections.map((sec) => ({
           id: sec.id, name: sec.name, gradeLevelId: sec.gradeLevelId,
           gradeLevel: sec.gradeLevel, adviserUserId: sec.adviserUserId,
@@ -674,6 +736,114 @@ export function createFixtureSource(): DataSource {
         },
       });
       return id;
+    },
+
+    /* ---- accounts ------------------------------------------------- */
+
+    async getStaffDirectory() {
+      return {
+        roles: FIXTURE_ROLES,
+        users: STAFF.map((u) => ({ ...u, roles: [...u.roles] })),
+        // The fixture signs in as a teacher, but the demo role switcher
+        // reaches the admin menu, so the directory has to be usable
+        // from there. Against Supabase these come from the permission
+        // catalogue and a teacher is refused outright.
+        permissions: { canWrite: true, canAssignRoles: true, canDeactivate: true },
+      };
+    },
+
+    async createAccount(draft) {
+      const email = draft.email.trim().toLowerCase();
+      if (STAFF.some((u) => u.email.toLowerCase() === email)) {
+        throw new Error('That email address already has an account. '
+          + 'Every account across all schools needs its own address.');
+      }
+      if (draft.password.length < 8) {
+        throw new Error('Use a temporary password of at least 8 characters.');
+      }
+      const id = `u-new-${STAFF.length + 1}`;
+      STAFF.push({
+        id, email,
+        employeeId: draft.employeeId?.trim() || null,
+        firstName: draft.firstName.trim(),
+        middleName: draft.middleName?.trim() || null,
+        lastName: draft.lastName.trim(),
+        suffix: draft.suffix?.trim() || null,
+        status: 'active',
+        // The one behaviour worth reproducing exactly: a fresh account
+        // always starts owing a password change, because the person who
+        // created it knows the temporary one.
+        mustChangePassword: true,
+        lastLoginAt: null,
+        position: draft.position?.trim() || null,
+        isSelf: false,
+        roles: [...draft.roles],
+      });
+      return { userId: id };
+    },
+
+    async resetPassword(userId, password) {
+      if (password.length < 8) {
+        throw new Error('Use a password of at least 8 characters.');
+      }
+      const user = STAFF.find((u) => u.id === userId);
+      if (!user) throw new Error('No such account in this school.');
+      user.mustChangePassword = true;
+    },
+
+    async setUserRoles(userId, roleCodes) {
+      const user = STAFF.find((u) => u.id === userId);
+      if (!user) throw new Error('No such account in this school.');
+      if (user.isSelf && !roleCodes.includes('school_admin')
+          && user.roles.includes('school_admin')) {
+        throw new Error('you cannot remove your own administrator role '
+          + '— ask another administrator');
+      }
+      user.roles = [...roleCodes].sort();
+    },
+
+    async setUserStatus(userId, status) {
+      const user = STAFF.find((u) => u.id === userId);
+      if (!user) throw new Error('No such account in this school.');
+      if (user.isSelf && status !== 'active') {
+        throw new Error('you cannot deactivate your own account');
+      }
+      user.status = status;
+    },
+
+    async getMyAccount() {
+      const me = STAFF.find((u) => u.isSelf) ?? STAFF[0]!;
+      return {
+        id: me.id, email: me.email, employeeId: me.employeeId,
+        firstName: me.firstName, middleName: me.middleName,
+        lastName: me.lastName, suffix: me.suffix,
+        status: me.status, mustChangePassword: me.mustChangePassword,
+        position: me.position, employmentStatus: 'Permanent',
+        dateHired: '2019-06-03', qualifications: 'BSEd Mathematics',
+        ancillaryAssignments: null,
+        schoolName: CURRENT_USER.schoolName,
+        roles: [...me.roles],
+      };
+    },
+
+    async updateMyProfile(edit) {
+      const me = STAFF.find((u) => u.isSelf) ?? STAFF[0]!;
+      if (!edit.firstName.trim() || !edit.lastName.trim()) {
+        throw new Error('a first and last name are both required');
+      }
+      me.firstName = edit.firstName.trim();
+      me.lastName = edit.lastName.trim();
+      me.middleName = edit.middleName?.trim() || null;
+      me.suffix = edit.suffix?.trim() || null;
+      me.position = edit.position?.trim() || null;
+    },
+
+    async changeMyPassword(password) {
+      if (password.length < 8) {
+        throw new Error('Use a password of at least 8 characters.');
+      }
+      const me = STAFF.find((u) => u.isSelf) ?? STAFF[0]!;
+      me.mustChangePassword = false;
     },
 
     /**

@@ -321,3 +321,63 @@ corrected before merge, neither shipped to production:
    with an explicit authorization check before running the full-visibility
    query — the same pattern `create_class`/`create_section` already use
    for controlled writes, now used for a controlled read.
+
+---
+
+## Closed: nobody could create an account (27 Aug 2026)
+
+Flagged directly against the live site while planning a school demo:
+*"lets say its a new user, how they can register and make some edit? …
+the app that we have is a demo users only."* True, and it was the gap
+between a demo and a deployment — every login in the system was seeded
+by `supabase/seed.sql`. No way to add a teacher, change a role, reset a
+forgotten password, or correct the spelling of your own name on records
+you sign.
+
+**Decision: there is no public sign-up, and there should not be.** Every
+account belongs to exactly one school, and the tenant lives in the auth
+identity's `app_metadata` where no client can write it (migration 0015).
+A self-serve form would have to let the registrant name their own school
+— making anyone who has the URL a teacher at that school, with read
+access to every learner's grades. For a system holding minors' records
+under RA 10173 that is a disclosure, not a rough edge. So:
+
+1. **Mendtrix provisions the school and its first administrator.** Once
+   per school, at implementation time — the act the implementation fee
+   in `14-commercialization.md` already pays for.
+2. **The administrator creates everyone else** from the new Users screen.
+3. **Everyone maintains their own details** from My Account.
+
+Closed by migration 0031, the `manage-users` Edge Function, and the
+`Users` / `MyAccount` screens (`nav.ts` `users` moves from `planned` to
+`ready`; a new `account` route is on every role's menu).
+
+**Temporary passwords rather than emailed invites.** Supabase's invite
+flow needs SMTP configured and needs every teacher to have working email
+they actually read; a DepEd public school reliably has neither. An
+administrator sets a temporary password and hands it over directly. The
+cost is that two people briefly know it, so `users.must_change_password`
+makes the handover one-time — the app blocks on a password change rather
+than showing a banner, because a grade submitted under a shared password
+is attributable to two people, which is a chain-of-custody problem.
+
+⚠️ **Not verified end to end.** The SQL half of 0031 was verified against
+the live database (12 authorization checks: cross-tenant refusal,
+self-lockout refusal, self-promotion refusal, unknown-status refusal),
+and a rolled-back transaction confirmed that the exact rows the Edge
+Function writes do resolve into a working session with the right
+inherited permissions. But this session's network policy blocks outbound
+HTTPS to `*.supabase.co`, so **the `manage-users` Edge Function itself
+was never exercised over HTTP** — the GoTrue admin calls
+(`createUser`, `updateUserById`, `deleteUser`) are unproven against the
+live project. The fixture path is fully covered by `e2e/accounts.mjs`
+(28 checks), which is a test of the screens, not of GoTrue. Somebody
+should create one account against production and delete it before the
+school demo.
+
+⚠️ **Also still open: the demo accounts are live and their password is in
+the repository.** `VERCEL.md` publishes `MendtrixDemo2026!` for seven
+`.test` accounts on a publicly reachable URL. That is correct while the
+project holds only seeded data and is exactly wrong the moment it holds
+a real learner record. Rotating or deleting them is a prerequisite for
+the school demo, not a follow-up.

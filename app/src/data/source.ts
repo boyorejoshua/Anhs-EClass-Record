@@ -14,8 +14,9 @@
 import type {
   AdvisorySection, AttendanceDay, AttendanceMark, ClassDraft, ClassStudent, ClassSummary,
   ConsolidatedGrades, DirectoryStudent,
-  EnrollmentDraft, EnrollmentOptions, GradebookData, PersistedGrade, SectionDraft,
-  SectionSetupOptions, StudentDraft,
+  EnrollmentDraft, EnrollmentOptions, GradebookData, MyAccount, NewAccount,
+  PersistedGrade, ProfileEdit, SectionDraft,
+  SectionSetupOptions, StaffDirectory, StudentDraft,
   StudentGradeRow, StudentHistoryRow, StudentProfile, StudentRecord,
   SubmissionRow, ValidationReport,
 } from './types';
@@ -246,6 +247,37 @@ export interface DataSource {
   getSectionSetupOptions(academicYearId: string): Promise<SectionSetupOptions>;
   createSection(draft: SectionDraft): Promise<string>;
   createClass(draft: ClassDraft): Promise<string>;
+
+  /* ---- accounts ----------------------------------------------------- *
+   * THERE IS NO PUBLIC SIGN-UP, and that is deliberate. Every account
+   * belongs to exactly one school, and the tenant lives in the auth
+   * identity's app_metadata, which no client may write. A self-serve
+   * form would have to let the registrant name their own school —
+   * making anyone with the URL a teacher at that school. So Mendtrix
+   * provisions a school and its first administrator; the administrator
+   * creates everyone else; everyone maintains their own details.
+   *
+   * `createAccount` and `resetPassword` go through the manage-users
+   * Edge Function because minting an auth identity needs service_role.
+   * Everything else here is a plain RPC — the database can authorize
+   * roles, status and self-edits by itself.
+   * ------------------------------------------------------------------ */
+  getStaffDirectory(): Promise<StaffDirectory>;
+  createAccount(draft: NewAccount): Promise<{ userId: string; warning?: string }>;
+  /** Issues a temporary password and re-arms the must-change flag. */
+  resetPassword(userId: string, password: string): Promise<void>;
+  setUserRoles(userId: string, roleCodes: string[]): Promise<void>;
+  setUserStatus(userId: string, status: 'active' | 'inactive' | 'suspended'): Promise<void>;
+
+  /** The signed-in person's own account. Any role, including students. */
+  getMyAccount(): Promise<MyAccount>;
+  updateMyProfile(edit: ProfileEdit): Promise<void>;
+  /**
+   * Sets the caller's OWN password and clears the must-change flag.
+   * Two steps against two systems (Auth, then the row), so the flag is
+   * only cleared once Auth has actually accepted the new password.
+   */
+  changeMyPassword(password: string): Promise<void>;
 
   /* ---- the Import Center ------------------------------------------ *
    * Two calls, and the split is the safety property. `resolveImport`

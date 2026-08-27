@@ -416,6 +416,88 @@ export interface ConsolidatedGrades {
   }>;
 }
 
+/* ==================================================================== *
+ * ACCOUNTS
+ *
+ * A STAFF ACCOUNT is a login. It is not a student — `StudentProfile`
+ * above is the learner's portal record and reads a different identity
+ * (app.current_student_id()). Keeping the two shapes apart is what
+ * stops "my profile" meaning two different things depending on who is
+ * signed in.
+ * ==================================================================== */
+
+/** One account in the school directory, as an administrator sees it. */
+export interface StaffAccount {
+  id: string;
+  email: string;
+  employeeId: string | null;
+  firstName: string;
+  middleName: string | null;
+  lastName: string;
+  suffix: string | null;
+  status: 'active' | 'inactive' | 'suspended';
+  mustChangePassword: boolean;
+  lastLoginAt: string | null;
+  position: string | null;
+  /** So the screen can refuse to offer an administrator their own delete. */
+  isSelf: boolean;
+  roles: string[];
+}
+
+export interface StaffDirectory {
+  roles: Array<{ code: string; name: string }>;
+  users: StaffAccount[];
+  permissions: {
+    canWrite: boolean;
+    canAssignRoles: boolean;
+    canDeactivate: boolean;
+  };
+}
+
+/** The signed-in person's own account. Distinct from StudentProfile. */
+export interface MyAccount {
+  id: string;
+  email: string;
+  employeeId: string | null;
+  firstName: string;
+  middleName: string | null;
+  lastName: string;
+  suffix: string | null;
+  status: string;
+  mustChangePassword: boolean;
+  position: string | null;
+  employmentStatus: string | null;
+  dateHired: string | null;
+  qualifications: string | null;
+  ancillaryAssignments: string | null;
+  schoolName: string | null;
+  roles: string[];
+}
+
+/** The fields a person may change about themselves. Never email or roles. */
+export interface ProfileEdit {
+  firstName: string;
+  lastName: string;
+  middleName?: string | null;
+  suffix?: string | null;
+  position?: string | null;
+  qualifications?: string | null;
+}
+
+/** What an administrator fills in to create an account. */
+export interface NewAccount {
+  email: string;
+  /** Temporary. The person is forced to replace it on first sign-in. */
+  password: string;
+  firstName: string;
+  lastName: string;
+  middleName?: string | null;
+  suffix?: string | null;
+  employeeId?: string | null;
+  position?: string | null;
+  roles: string[];
+}
+
 /** What an enrolment form may offer. Never free text. */
 export interface EnrollmentOptions {
   gradeLevels: Array<{ id: string; name: string; ordinal: number }>;
