@@ -402,6 +402,31 @@ function receiptsFor(classId: string, periodId: string) {
   return r;
 }
 
+/**
+ * Per-class rosters, so a class can genuinely be EMPTY.
+ *
+ * The fixtures used to hand every class the same shared ROSTER sliced
+ * to `studentCount`, which made it impossible to reproduce the one
+ * state that matters here: a class created in a brand-new section has
+ * nobody in it. That is exactly the dead end migration 0033 exists to
+ * close, so the fixture has to be able to express it or the e2e test
+ * proves nothing.
+ *
+ * Seeded classes fall back to the shared ROSTER lazily; a class created
+ * in a NEW section is registered with an empty list up front.
+ */
+const classRosters = new Map<string, RosterStudent[]>();
+
+function rosterFor(classId: string): RosterStudent[] {
+  let list = classRosters.get(classId);
+  if (!list) {
+    const cls = CLASSES.find((c) => c.id === classId);
+    list = ROSTER.slice(0, cls?.studentCount ?? 0);
+    classRosters.set(classId, list);
+  }
+  return list;
+}
+
 /** `classId|periodId` -> classEnrollmentId -> the grade as recorded at submission. */
 const persistedGrades = new Map<string, Record<string, PersistedGrade>>();
 
@@ -523,6 +548,7 @@ function resetFixtureState(): void {
   receipts.clear();
   editedScores.clear();
   persistedGrades.clear();
+  classRosters.clear();
   importedAssessments.clear();
   importBatches.length = 0;
   ROSTER.length = INITIAL_ROSTER_COUNT;
@@ -770,6 +796,7 @@ export function createFixtureSource(): DataSource {
       let section = draft.sectionId
         ? SECTIONS.find((s) => s.id === draft.sectionId)
         : undefined;
+      let wasExisting = section !== undefined;
 
       if (!section) {
         const name = (draft.sectionName ?? '').trim();
@@ -779,6 +806,7 @@ export function createFixtureSource(): DataSource {
         }
         section = SECTIONS.find(
           (s) => s.gradeLevelId === level.id && s.name.toLowerCase() === name.toLowerCase());
+        wasExisting = section !== undefined;
         if (!section) {
           section = {
             id: `sec-${name.toLowerCase().replace(/\s+/g, '-')}`,
@@ -798,10 +826,15 @@ export function createFixtureSource(): DataSource {
       if (existing) return existing.id;
 
       const id = `c-${subject.code.toLowerCase()}-${section.name.toLowerCase()}`;
+      // A section that already existed brings its enrolment with it; a
+      // section the teacher just named brings NOBODY. Reproducing that
+      // is the whole reason this fixture tracks rosters per class —
+      // see migration 0033's note on the dead end.
+      const inherited = wasExisting ? ROSTER.length : 0;
       CLASSES.push({
         id, gradeLevel: section.gradeLevel, section: section.name,
         subject: subject.title, subjectCode: subject.code,
-        studentCount: ROSTER.length,
+        studentCount: inherited,
         scheduleNote: draft.scheduleNote ?? null, room: draft.room ?? null,
         status: { p1: 'draft', p2: 'draft', p3: 'draft' },
         receipts: {},
@@ -809,7 +842,115 @@ export function createFixtureSource(): DataSource {
           p1: { scored: 0, total: 0 }, p2: { scored: 0, total: 0 }, p3: { scored: 0, total: 0 },
         },
       });
+      classRosters.set(id, ROSTER.slice(0, inherited));
       return id;
+    },
+
+    /* ---- the roster of a class I teach ----------------------------- */
+
+    async getMyClassRoster(classId) {
+      const cls = CLASSES.find((c) => c.id === classId);
+      if (!cls) throw new Error('you do not teach this class');
+      const inClass = rosterFor(classId);
+      const inClassIds = new Set(inClass.map((r) => r.studentId));
+      return {
+        classId,
+        roster: inClass.map((r) => {
+          const st = STUDENTS.find((s) => s.studentId === r.studentId);
+          return {
+            classEnrollmentId: r.classEnrollmentId,
+            studentId: r.studentId,
+            displayName: r.displayName,
+            firstName: st?.firstName ?? r.displayName,
+            lastName: st?.lastName ?? '',
+            sex: (st?.sex ?? null) as 'male' | 'female' | null,
+            lrn: st?.lrn ?? null,
+            // A class that has never been scored has nobody with
+            // marks, so everyone in it is removable. Blanket-truthing
+            // this hid the Remove button on exactly the class the
+            // feature exists for — the empty one a teacher just made.
+            hasScores: (cls.completeness.p1?.scored ?? 0) > 0
+              && !r.classEnrollmentId.startsWith('ce-new-'),
+          };
+        }),
+        candidates: STUDENTS
+          .filter((s) => !inClassIds.has(s.studentId))
+          .map((s) => ({
+            studentId: s.studentId,
+            displayName: s.displayName,
+            lrn: s.lrn ?? null,
+            enrolledHere: true,
+          })),
+        permissions: { canWrite: true },
+      };
+    },
+
+    async addLearnerToMyClass(learner) {
+      const cls = CLASSES.find((c) => c.id === learner.classId);
+      if (!cls) throw new Error('you do not teach this class');
+
+      let studentId = learner.studentId ?? null;
+      let displayName: string;
+
+      if (studentId) {
+        const st = STUDENTS.find((s) => s.studentId === studentId);
+        if (!st) throw new Error('no such learner at this school');
+        displayName = st.displayName;
+      } else {
+        const first = (learner.firstName ?? '').trim();
+        const last = (learner.lastName ?? '').trim();
+        if (!first || !last) {
+          throw new Error('choose a learner, or give a first and last name');
+        }
+        // The duplicate guard, matching the server: case- and
+        // space-insensitive, refused unless explicitly confirmed.
+        const norm = (x: string) => x.toLowerCase().replace(/\s+/g, ' ').trim();
+        const clash = STUDENTS.find(
+          (s) => norm(s.firstName) === norm(first) && norm(s.lastName) === norm(last));
+        if (clash && !learner.confirmNewPerson) {
+          throw new Error(`${clash.displayName} is already on file at this school. `
+            + 'Add them from the list instead, or confirm this is a different '
+            + 'learner with the same name.');
+        }
+        studentId = `st-new-${STUDENTS.length + 1}`;
+        displayName = `${last}, ${first}`;
+        STUDENTS.push({
+          studentId, displayName, firstName: first, middleName: null, lastName: last,
+          suffix: null, sex: learner.sex ?? null,
+          // No LRN. The registrar completes the record; a null LRN is
+          // the flag the Students directory already surfaces.
+          lrn: null, studentNumber: null, birthDate: null, status: 'active',
+        } as StudentIdentity);
+      }
+
+      const id = `ce-new-${ROSTER.length + 1}`;
+      const entry = { classEnrollmentId: id, studentId, displayName };
+      // ROSTER is the school-wide pool the gradebook reads from;
+      // rosterFor(classId) is THIS class's membership. Two lists,
+      // because one learner belongs to many classes and exactly one
+      // school — the same split the three tables encode.
+      if (!ROSTER.some((r) => r.classEnrollmentId === id)) ROSTER.push(entry);
+      const list = rosterFor(learner.classId);
+      list.push(entry);
+      cls.studentCount = list.length;
+      return id;
+    },
+
+    async removeLearnerFromMyClass(classEnrollmentId) {
+      // Only ever the CLASS membership. STUDENTS is untouched, and so is
+      // the school-wide ROSTER — removing a learner from one subject
+      // must never withdraw them from the school.
+      let found = false;
+      for (const [classId, list] of classRosters) {
+        const i = list.findIndex((r) => r.classEnrollmentId === classEnrollmentId);
+        if (i < 0) continue;
+        list.splice(i, 1);
+        const cls = CLASSES.find((c) => c.id === classId);
+        if (cls) cls.studentCount = list.length;
+        found = true;
+        break;
+      }
+      if (!found) throw new Error('no such learner in this class');
     },
 
     /* ---- accounts ------------------------------------------------- */

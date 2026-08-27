@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useState } from 'react';
 import type {
   AcademicPeriod, AcademicYear, AttendanceDay, AttendanceMark, ClassStudent, ClassSummary,
-  GradebookData, PersistedGrade, ValidationReport,
+  GradebookData, LearnerToAdd, MyClassRoster, PersistedGrade, ValidationReport,
 } from '../data/types';
 import type { ScoreEdit } from '../data/source';
 import { StatusBadge } from '../components/StatusBadge';
@@ -16,6 +16,7 @@ import type { AssessmentDraft } from '../data/source';
 import { ClassSubmission } from './ClassSubmission';
 import { ClassAttendance } from './ClassAttendance';
 import { ClassStudents } from './ClassStudents';
+import { ClassRoster } from './ClassRoster';
 import { CLASS_TABS, type ClassTab } from '../nav';
 import { displayStatus, isEditable, missingCount, pct } from '../lib/status';
 import { downloadCsv, gradebookCsv, slug, summaryCsv } from '../lib/export';
@@ -50,6 +51,13 @@ interface Props {
   ) => Promise<CohortSection[]>;
   /** Another period's gradebook, for Student Detail's year strip. */
   loadGradebook: (classId: string, periodId: string) => Promise<GradebookData>;
+  /* The roster editor. Absent for a role that may only read the list. */
+  roster?: {
+    load: (classId: string) => Promise<MyClassRoster>;
+    add: (learner: LearnerToAdd) => Promise<string>;
+    remove: (classEnrollmentId: string) => Promise<void>;
+    onChanged: () => void;
+  };
 }
 
 /**
@@ -93,7 +101,7 @@ export function ClassWorkspace(props: Props) {
   const {
     cls, year, periodId, tab, onTabChange, onPeriodChange, gradebook, retryGradebook,
     recorded, onSaveScores, onBack, validateSubmission, submitGrades, recallSubmission,
-    loadStudents, loadLoaCohort, loadGradebook,
+    loadStudents, loadLoaCohort, loadGradebook, roster,
     loadAttendance, saveAttendance, onWorkflowChange, saveAssessments,
   } = props;
 
@@ -319,7 +327,22 @@ export function ClassWorkspace(props: Props) {
         )}
 
         {tab === 'students' && (
-          <ClassStudents classId={cls.id} load={loadStudents} />
+          <>
+            {/*
+              The editable roster comes FIRST. A teacher opening the
+              Students tab of an empty class they just created is here
+              to put learners in it, not to read a list of nobody.
+            */}
+            {roster && (
+              <ClassRoster
+                classId={cls.id}
+                load={roster.load}
+                add={async (l) => { const id = await roster.add(l); roster.onChanged(); return id; }}
+                remove={async (id) => { await roster.remove(id); roster.onChanged(); }}
+              />
+            )}
+            <ClassStudents classId={cls.id} load={loadStudents} />
+          </>
         )}
 
         {tab === 'reports' && (

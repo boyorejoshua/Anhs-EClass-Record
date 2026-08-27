@@ -451,6 +451,49 @@ export interface MyClassDraft {
   room?: string | null;
 }
 
+/**
+ * The roster of a class the caller teaches, plus who could join it.
+ *
+ * `candidates` matters as much as `roster`. A teacher typing a name
+ * that already exists is exactly how a school ends up with two records
+ * for one child, so the form offers the school's existing learners
+ * first and treats free text as the fallback.
+ */
+export interface MyClassRoster {
+  classId: string;
+  roster: Array<{
+    classEnrollmentId: string;
+    studentId: string;
+    displayName: string;
+    firstName: string;
+    lastName: string;
+    sex: 'male' | 'female' | null;
+    /** Null means provisional — the registrar still owes this record an LRN. */
+    lrn: string | null;
+    /** Removing them would discard recorded work, so removal is refused. */
+    hasScores: boolean;
+  }>;
+  candidates: Array<{
+    studentId: string;
+    displayName: string;
+    lrn: string | null;
+    /** Already enrolled in this school year, just not in this class. */
+    enrolledHere: boolean;
+  }>;
+  permissions: { canWrite: boolean };
+}
+
+/** Either an existing learner by id, or a new one by name. Never both. */
+export interface LearnerToAdd {
+  classId: string;
+  studentId?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  sex?: 'male' | 'female' | null;
+  /** "Yes, this really is a different person with the same name." */
+  confirmNewPerson?: boolean;
+}
+
 /* ==================================================================== *
  * ACCOUNTS
  *

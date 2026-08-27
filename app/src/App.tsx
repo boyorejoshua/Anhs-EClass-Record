@@ -444,6 +444,16 @@ export default function App() {
             onWorkflowChange={bumpRevision}
             loadLoaCohort={source.getLoaCohort}
             loadGradebook={source.getGradebook}
+            // Teaching roles only. add_learner_to_my_class checks
+            // app.teaches_class itself and refuses anyone else, so this
+            // only spares a registrar a panel they would be refused —
+            // their path is Students, which admits with an LRN.
+            roster={role === 'teacher' || role === 'adviser' ? {
+              load: source.getMyClassRoster,
+              add: source.addLearnerToMyClass,
+              remove: source.removeLearnerFromMyClass,
+              onChanged: bumpRevision,
+            } : undefined}
           />
         );
 

@@ -15,8 +15,8 @@ import type {
   AssessmentDraft, DataSource, ImportRecord, ImportResult, ScoreEdit, SessionContext,
 } from './source';
 import type {
-  AdvisorySection, ClassDraft, ConsolidatedGrades, MyAccount, MyClassDraft,
-  MyClassSetupOptions, NewAccount,
+  AdvisorySection, ClassDraft, ConsolidatedGrades, LearnerToAdd, MyAccount, MyClassDraft,
+  MyClassRoster, MyClassSetupOptions, NewAccount,
   SectionDraft, SectionSetupOptions, StaffDirectory,
 } from './types';
 import type { ImportResolution } from '../lib/import/plan';
@@ -484,6 +484,32 @@ export function createSupabaseSource(): DataSource {
       });
       if (error) throw new Error(error.message);
       return data as string;
+    },
+
+    async getMyClassRoster(classId: string) {
+      const { data, error } = await requireSupabase()
+        .rpc('my_class_roster', { p_class_id: classId });
+      if (error) throw new Error(error.message);
+      return data as MyClassRoster;
+    },
+
+    async addLearnerToMyClass(learner: LearnerToAdd) {
+      const { data, error } = await requireSupabase().rpc('add_learner_to_my_class', {
+        p_class_id: learner.classId,
+        p_student_id: learner.studentId ?? null,
+        p_first_name: learner.firstName ?? null,
+        p_last_name: learner.lastName ?? null,
+        p_sex: learner.sex ?? null,
+        p_confirm_new_person: learner.confirmNewPerson ?? false,
+      });
+      if (error) throw new Error(error.message);
+      return data as string;
+    },
+
+    async removeLearnerFromMyClass(classEnrollmentId: string) {
+      const { error } = await requireSupabase()
+        .rpc('remove_learner_from_my_class', { p_class_enrollment_id: classEnrollmentId });
+      if (error) throw new Error(error.message);
     },
 
     /* ---- accounts --------------------------------------------------- */
