@@ -483,6 +483,22 @@ export interface MyClassRoster {
   permissions: { canWrite: boolean };
 }
 
+/**
+ * A spelling correction. Name parts only — never LRN, sex, birth date,
+ * status or enrolment, which are the registrar's to own. The absent
+ * fields are not a rule this shape enforces; they are a request it
+ * cannot express.
+ */
+export interface LearnerNameFix {
+  studentId: string;
+  firstName: string;
+  lastName: string;
+  middleName?: string | null;
+  suffix?: string | null;
+  /** Renaming onto somebody else's name is refused without this. */
+  confirmNamesake?: boolean;
+}
+
 /** Either an existing learner by id, or a new one by name. Never both. */
 export interface LearnerToAdd {
   classId: string;

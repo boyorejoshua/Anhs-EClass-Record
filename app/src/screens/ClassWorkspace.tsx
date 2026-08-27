@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useState } from 'react';
 import type {
   AcademicPeriod, AcademicYear, AttendanceDay, AttendanceMark, ClassStudent, ClassSummary,
-  GradebookData, LearnerToAdd, MyClassRoster, PersistedGrade, ValidationReport,
+  GradebookData, LearnerNameFix, LearnerToAdd, MyClassRoster, PersistedGrade, ValidationReport,
 } from '../data/types';
 import type { ScoreEdit } from '../data/source';
 import { StatusBadge } from '../components/StatusBadge';
@@ -56,6 +56,7 @@ interface Props {
     load: (classId: string) => Promise<MyClassRoster>;
     add: (learner: LearnerToAdd) => Promise<string>;
     remove: (classEnrollmentId: string) => Promise<void>;
+    rename: (fix: LearnerNameFix) => Promise<void>;
     onChanged: () => void;
   };
 }
@@ -253,11 +254,32 @@ export function ClassWorkspace(props: Props) {
         {tab === 'setup' && period && (
           <Async state={gradebook} retry={retryGradebook} rows={6}>
             {(g) => (
-              <RecordBookSetup
-                cls={cls} period={period} yearLabel={year.label} data={g} status={status}
-                save={(items) => saveAssessments(cls.id, periodId, items)}
-                onSaved={onWorkflowChange}
-              />
+              <>
+                <RecordBookSetup
+                  cls={cls} period={period} yearLabel={year.label} data={g} status={status}
+                  save={(items) => saveAssessments(cls.id, periodId, items)}
+                  onSaved={onWorkflowChange}
+                />
+                {/*
+                  The legacy Setup screen carried the Student List right
+                  under the score configuration, and that is where a
+                  teacher goes looking — reported directly: "even on
+                  setup page, there's no way a teacher can add its
+                  students". Same component as the Students tab, not a
+                  second implementation, so the two cannot drift.
+                */}
+                {roster && (
+                  <div style={{ marginTop: 18 }}>
+                    <ClassRoster
+                      classId={cls.id}
+                      load={roster.load}
+                      add={async (l) => { const id = await roster.add(l); roster.onChanged(); return id; }}
+                      remove={async (id) => { await roster.remove(id); roster.onChanged(); }}
+                      rename={async (f) => { await roster.rename(f); roster.onChanged(); }}
+                    />
+                  </div>
+                )}
+              </>
             )}
           </Async>
         )}
@@ -339,6 +361,7 @@ export function ClassWorkspace(props: Props) {
                 load={roster.load}
                 add={async (l) => { const id = await roster.add(l); roster.onChanged(); return id; }}
                 remove={async (id) => { await roster.remove(id); roster.onChanged(); }}
+                rename={async (f) => { await roster.rename(f); roster.onChanged(); }}
               />
             )}
             <ClassStudents classId={cls.id} load={loadStudents} />

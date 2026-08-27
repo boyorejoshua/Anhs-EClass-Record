@@ -15,7 +15,8 @@ import type {
   AssessmentDraft, DataSource, ImportRecord, ImportResult, ScoreEdit, SessionContext,
 } from './source';
 import type {
-  AdvisorySection, ClassDraft, ConsolidatedGrades, LearnerToAdd, MyAccount, MyClassDraft,
+  AdvisorySection, ClassDraft, ConsolidatedGrades, LearnerNameFix, LearnerToAdd,
+  MyAccount, MyClassDraft,
   MyClassRoster, MyClassSetupOptions, NewAccount,
   SectionDraft, SectionSetupOptions, StaffDirectory,
 } from './types';
@@ -509,6 +510,18 @@ export function createSupabaseSource(): DataSource {
     async removeLearnerFromMyClass(classEnrollmentId: string) {
       const { error } = await requireSupabase()
         .rpc('remove_learner_from_my_class', { p_class_enrollment_id: classEnrollmentId });
+      if (error) throw new Error(error.message);
+    },
+
+    async correctLearnerName(fix: LearnerNameFix) {
+      const { error } = await requireSupabase().rpc('correct_learner_name', {
+        p_student_id: fix.studentId,
+        p_first_name: fix.firstName,
+        p_last_name: fix.lastName,
+        p_middle_name: fix.middleName ?? null,
+        p_suffix: fix.suffix ?? null,
+        p_confirm_namesake: fix.confirmNamesake ?? false,
+      });
       if (error) throw new Error(error.message);
     },
 

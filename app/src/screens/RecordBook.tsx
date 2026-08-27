@@ -267,10 +267,19 @@ export function RecordBookAnalytics({ cls, period, data, onGoGradebook }: Omit<P
   return (
     <>
       <div className="stat-row">
-        <div className="stat"><b>{a.classSize}</b><span>Learners</span></div>
         <div className="stat"><b>{a.average ?? '—'}</b><span>Class average</span></div>
         <div className="stat"><b>{a.highest ?? '—'}</b><span>Highest</span></div>
         <div className="stat"><b>{a.lowest ?? '—'}</b><span>Lowest</span></div>
+        {/*
+          Graded OVER class size, not two separate tiles. The legacy
+          shows "15/30" because the question a teacher asks first is
+          "how much of this is even marked yet" — and an average over
+          half a class means something different from an average over
+          all of it.
+        */}
+        <div className="stat">
+          <b data-warn={a.ungraded > 0}>{a.graded}/{a.classSize}</b><span>Graded</span>
+        </div>
         <div className="stat"><b>{a.passing}</b><span>Passing</span></div>
         <div className="stat"><b data-warn={a.failing > 0}>{a.failing}</b><span>Failing</span></div>
         <div className="stat"><b data-warn={a.missingScores > 0}>{a.missingScores}</b><span>Missing scores</span></div>
@@ -300,10 +309,29 @@ export function RecordBookAnalytics({ cls, period, data, onGoGradebook }: Omit<P
                     <span className="dist-count mono">{b.count}</span>
                   </div>
                 ))}
+                {/*
+                  Missing is its own row, below the bands and visually
+                  apart from them. A learner with no grade is not a low
+                  score, and folding them into "Below 75" would report a
+                  teacher's unfinished marking as failing children.
+                */}
+                {a.ungraded > 0 && (
+                  <div className="dist-row dist-missing">
+                    <span className="dist-label mono">Missing</span>
+                    <div className="dist-track">
+                      <span
+                        style={{ width: `${(a.ungraded / peak) * 100}%` }}
+                        data-missing="true"
+                        title={a.ungradedNames.join(', ')}
+                      />
+                    </div>
+                    <span className="dist-count mono">{a.ungraded}</span>
+                  </div>
+                )}
                 {a.ungraded > 0 && (
                   <p className="menu-note">
-                    {a.ungraded} learner{a.ungraded === 1 ? ' is' : 's are'} not counted — no score
-                    has been entered for them in {period.name}.
+                    {a.ungraded} learner{a.ungraded === 1 ? ' is' : 's are'} not counted in the
+                    bands above — no score has been entered for them in {period.name}.
                   </p>
                 )}
               </div>
@@ -311,6 +339,122 @@ export function RecordBookAnalytics({ cls, period, data, onGoGradebook }: Omit<P
           </div>
         </div>
 
+        <div className="panel">
+          <div className="panel-head"><h2>Pass / Fail</h2></div>
+          <div className="panel-body">
+            {a.graded === 0 ? (
+              <EmptyState title="Nothing graded yet">
+                A pass rate needs at least one computable grade.
+              </EmptyState>
+            ) : (
+              <>
+                <div className="rate">
+                  <div className="rate-row">
+                    <span className="rate-label" data-tone="ok">
+                      Passing (≥{data.scheme.passMark})
+                    </span>
+                    <span className="mono rate-n">{a.passing}/{a.graded}</span>
+                  </div>
+                  <div className="rate-track">
+                    <span style={{ width: `${a.passRate ?? 0}%` }} data-tone="ok" />
+                  </div>
+                  <span className="rate-pct mono">{a.passRate}%</span>
+
+                  <div className="rate-row">
+                    <span className="rate-label" data-tone="bad">
+                      Below {data.scheme.passMark}
+                    </span>
+                    <span className="mono rate-n">{a.failing}/{a.graded}</span>
+                  </div>
+                  <div className="rate-track">
+                    <span style={{ width: `${100 - (a.passRate ?? 0)}%` }} data-tone="bad" />
+                  </div>
+                  <span className="rate-pct mono">{100 - (a.passRate ?? 0)}%</span>
+                </div>
+
+                <div className="stat-row" style={{ marginTop: 14 }}>
+                  <div className="stat"><b>{a.topPerformers}</b><span>Top (90+)</span></div>
+                  <div className="stat">
+                    <b data-warn={a.ungraded > 0}>{a.ungraded}</b><span>Missing</span>
+                  </div>
+                </div>
+
+                <p className="menu-note">
+                  Both rates are shares of the {a.graded} learner{a.graded === 1 ? '' : 's'}
+                  {' '}with a grade, not of the whole class — otherwise unfinished marking
+                  would read as a collapsing pass rate.
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/*
+        Students per Performance Band — the legacy's most-used panel, and
+        the one the bar chart cannot replace. A bar says seven learners
+        are in 86–90; this says WHICH seven, and by how much, which is
+        what a teacher acts on.
+      */}
+      <div className="panel">
+        <div className="panel-head">
+          <h2>Students per performance band</h2>
+          <div className="spacer" />
+          <span className="mono" style={{ fontSize: 12, color: 'var(--muted)' }}>
+            {a.graded} graded
+          </span>
+        </div>
+        <div className="panel-body">
+          <div className="band-grid">
+            {a.distribution.map((b) => (
+              <div className="band" key={b.label} data-low={b.max < data.scheme.passMark}>
+                <div className="band-head">
+                  <span className="band-label mono">{b.label}</span>
+                  <span className="band-count">
+                    {b.count} student{b.count === 1 ? '' : 's'}
+                  </span>
+                </div>
+                {b.members.length === 0 ? (
+                  <p className="faint band-empty">No students in this range</p>
+                ) : (
+                  <ul className="band-list">
+                    {b.members.map((m) => (
+                      <li key={m.name}>
+                        <span>{m.name}</span>
+                        <b className="mono">{m.grade}</b>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {a.ungradedNames.length > 0 && (
+        <div className="panel">
+          <div className="panel-head">
+            <h2>Students with missing grades</h2>
+            <div className="spacer" />
+            <span className="mono" style={{ fontSize: 12, color: 'var(--muted)' }}>
+              {a.ungradedNames.length} student{a.ungradedNames.length === 1 ? '' : 's'}
+            </span>
+          </div>
+          <div className="panel-body">
+            <ul className="name-chips">
+              {a.ungradedNames.map((n) => <li key={n}>{n}</li>)}
+            </ul>
+            <p className="menu-note">
+              Nothing has been scored for these learners in {period.name}, so no grade can be
+              computed. They are excluded from the average and the pass rate rather than
+              counted as zero.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="two-col">
         <div className="panel">
           <div className="panel-head"><h2>Component averages</h2></div>
           <div className="panel-body">

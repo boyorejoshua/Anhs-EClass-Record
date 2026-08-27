@@ -153,6 +153,16 @@ export interface DistributionBand {
   max: number;
   count: number;
   names: string[];
+  /**
+   * The same learners WITH their grades.
+   *
+   * `names` alone is enough for a bar-chart tooltip and useless for the
+   * legacy's "Students per Performance Band" panel, where the whole
+   * value is seeing WHO is in the 76–80 band and by how much. Kept
+   * alongside rather than replacing `names`, which the chart's title
+   * attribute still uses.
+   */
+  members: Array<{ name: string; grade: number }>;
 }
 
 export interface Analytics {
@@ -173,6 +183,19 @@ export interface Analytics {
   componentAverages: Array<{ code: string; name: string; average: number | null }>;
   /** Below the pass mark, or with gaps — the intervention list. */
   needsAttention: Array<{ name: string; grade: number | null; missing: number; reason: string }>;
+  /**
+   * Learners with no computable grade at all, by name.
+   *
+   * The legacy Analytics screen lists these separately from the bands,
+   * and it is right to: a learner with no grade is not a low score, and
+   * folding them into "Below 75" would report a teacher's unfinished
+   * marking as a cohort of failing children.
+   */
+  ungradedNames: string[];
+  /** Passing as a share of GRADED learners, not of the class. 0-100. */
+  passRate: number | null;
+  /** How many scored 90 or above — the legacy's "Top (90+)" tile. */
+  topPerformers: number;
 }
 
 /**
@@ -244,12 +267,28 @@ export function analytics(rows: SummaryRow[], scheme: GradingScheme, assessmentC
     missingScores,
     completion: cells > 0 ? Math.round(((cells - missingScores) / cells) * 100) : 0,
     distribution: DISTRIBUTION.map(([label, min, max]) => {
-      const names = graded.filter((r) => r.periodGrade! >= min && r.periodGrade! <= max)
-        .map((r) => r.displayName);
-      return { label, min, max, count: names.length, names };
+      const inBand = graded
+        .filter((r) => r.periodGrade! >= min && r.periodGrade! <= max)
+        .sort((a, b) => b.periodGrade! - a.periodGrade!);
+      return {
+        label, min, max,
+        count: inBand.length,
+        names: inBand.map((r) => r.displayName),
+        members: inBand.map((r) => ({ name: r.displayName, grade: r.periodGrade! })),
+      };
     }),
     componentAverages,
     needsAttention,
+    ungradedNames: rows
+      .filter((r) => r.periodGrade == null)
+      .map((r) => r.displayName)
+      .sort((a, b) => a.localeCompare(b)),
+    // Of the GRADED, deliberately. A class half-marked would otherwise
+    // report a collapsing pass rate that is really just unfinished work.
+    passRate: grades.length
+      ? Math.round((grades.filter((g) => g >= scheme.passMark).length / grades.length) * 100)
+      : null,
+    topPerformers: grades.filter((g) => g >= 90).length,
   };
 }
 

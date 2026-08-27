@@ -557,3 +557,70 @@
 .year-strip .stat[data-final="true"] {
   border-left: 2px solid var(--accent);
 }
+
+/* --- Analytics: legacy-parity panels ---------------------------------- *
+ * Students per performance band, missing-grade chips, and the pass/fail
+ * rate. The bar chart says seven learners are in 86-90; these say WHICH
+ * seven, which is the thing a teacher acts on.
+ * ---------------------------------------------------------------------- */
+
+/* Missing sits below the bands and reads apart from them — a learner
+   with no grade is not a low score. */
+.dist-missing { opacity: .85; margin-top: 6px; padding-top: 8px; border-top: 1px dashed var(--border); }
+.dist-track span[data-missing="true"] { background: var(--border); }
+
+.band-grid {
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+.band {
+  border: 1px solid var(--border); border-radius: var(--r-panel);
+  padding: 11px 13px; min-width: 0;
+}
+.band[data-low="true"] { border-color: color-mix(in srgb, var(--error) 30%, var(--border)); }
+.band-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.band-label { font-size: 12.5px; font-weight: 700; color: var(--accent); }
+.band[data-low="true"] .band-label { color: var(--error); }
+.band-count { margin-left: auto; font-size: 11.5px; color: var(--muted); }
+.band-empty { font-size: 12.5px; margin: 0; }
+
+.band-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.band-list li {
+  display: flex; align-items: baseline; gap: 8px;
+  font-size: 12.5px; line-height: 1.35;
+  background: var(--panel-alt); border-radius: var(--r-ctl);
+  padding: 4px 8px;
+}
+.band-list li span { min-width: 0; overflow-wrap: anywhere; }
+.band-list li b { margin-left: auto; font-size: 12.5px; }
+
+.name-chips { list-style: none; display: flex; flex-wrap: wrap; gap: 7px; margin: 0; padding: 0; }
+.name-chips li {
+  font-size: 12.5px;
+  border: 1px solid var(--border); border-radius: var(--r-ctl);
+  padding: 4px 10px; background: var(--panel-alt);
+}
+
+/* Pass / fail, as two labelled rates rather than a pie — a percentage a
+   teacher can read against a count is more use than a wedge. */
+.rate { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; }
+.rate-row { display: contents; }
+.rate-label { font-size: 12.5px; font-weight: 600; }
+.rate-label[data-tone="ok"]  { color: var(--ok, var(--accent)); }
+.rate-label[data-tone="bad"] { color: var(--error); }
+.rate-n { font-size: 12.5px; color: var(--muted); text-align: right; }
+.rate-track {
+  grid-column: 1 / 2; height: 7px; border-radius: 4px;
+  background: var(--panel-alt-2); overflow: hidden;
+}
+.rate-track span { display: block; height: 100%; border-radius: 4px; }
+.rate-track span[data-tone="ok"]  { background: var(--accent); }
+.rate-track span[data-tone="bad"] { background: var(--error); }
+.rate-pct { grid-column: 2 / 3; font-size: 11.5px; color: var(--muted); }
+
+/* The inline "Edit name" affordance on a roster row. */
+.tbl-inline-edit {
+  margin-left: 9px; font-size: 11.5px; font-weight: 600;
+  opacity: .7;
+}
+.tbl-inline-edit:hover { opacity: 1; }

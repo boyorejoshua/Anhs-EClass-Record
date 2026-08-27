@@ -178,6 +178,63 @@ check('7. the learner exists exactly ONCE across roster + candidates',
   candidateText.length + rosterText.length === 1,
   `roster ${rosterText.length}, candidates ${candidateText.length}`);
 
+/* ---- 8. the roster is on SETUP too, where the legacy put it ---------- */
+// Reported directly: "even on setup page, there's no way a teacher can
+// add its students". The legacy Student List sat under the score
+// configuration, and that is where a teacher goes looking.
+await page.getByRole('tab', { name: /^setup$/i }).click();
+await page.waitForTimeout(900);
+const setupText = await page.locator('body').innerText();
+check('8. the Setup tab also carries the roster editor',
+  /Add a learner/i.test(setupText) && /Class list/i.test(setupText));
+check('8b. and the score configuration is still above it',
+  setupText.indexOf('Written Works') < setupText.indexOf('Add a learner'),
+  'Student List belongs under the HPS setup, as in the legacy screen');
+
+/* ---- 9. correcting a spelling ---------------------------------------- */
+await page.getByRole('tab', { name: /^students$/i }).click();
+await page.waitForTimeout(800);
+// `.first()` throughout: a nested ancestor match can yield the same
+// node twice, which reads as a strict-mode violation rather than a bug.
+const roster = page.locator('.panel', { hasText: 'Class list' }).first();
+const target = roster.locator('tbody tr').first();
+const originalName = (await target.locator('th').innerText()).replace(/Edit name/, '').trim();
+
+await target.getByRole('button', { name: /^Edit name$/ }).click();
+await page.waitForTimeout(400);
+// The Add form also carries "First name *", so every field lookup below
+// is scoped to the rename form opened inside the roster table.
+const renameForm = roster.locator('.inline-form').first();
+check('9. an Edit name control opens an inline form',
+  /Correcting the spelling of/i.test(await page.locator('body').innerText()));
+check('9b. and it promises to touch nothing else',
+  /marks, LRN and enrolment are untouched/i.test(await page.locator('body').innerText()));
+
+await renameForm.getByLabel('First name *').fill('Juanito');
+await renameForm.getByLabel('Last name *').fill('Abadd');
+await renameForm.getByRole('button', { name: /^Save name$/ }).click();
+await page.waitForTimeout(900);
+const renamed = await roster.locator('tbody tr', { hasText: 'Abadd' }).first().innerText();
+check('9c. THE RENAME STUCK', /Abadd, Juanito/.test(renamed), renamed.replace(/\n/g, ' | '));
+check('9d. and it is a different name from before',
+  !renamed.includes(originalName), `was "${originalName}"`);
+
+/* ---- 10. renaming ONTO somebody else is caught ----------------------- */
+const other = (await roster.locator('tbody tr').nth(1).locator('th').innerText())
+  .replace(/Edit name/, '').trim();
+const [oLast, oFirst] = other.split(', ');
+await roster.locator('tbody tr', { hasText: 'Abadd' }).first()
+  .getByRole('button', { name: /^Edit name$/ }).click();
+await page.waitForTimeout(400);
+const renameForm2 = roster.locator('.inline-form').first();
+await renameForm2.getByLabel('First name *').fill(oFirst);
+await renameForm2.getByLabel('Last name *').fill(oLast);
+await page.waitForTimeout(400);
+check('10. renaming onto another learner is caught before saving',
+  /already has that name/i.test(await page.locator('body').innerText()), other);
+check('10b. and Save is blocked until confirmed',
+  await renameForm2.getByRole('button', { name: /^Save name$/ }).isDisabled());
+
 await browser.close();
 console.log('PASS:'); for (const o of ok) console.log('  ✓', o);
 if (fails.length) { console.log('FAIL:'); for (const f of fails) console.log('  ✗', f); process.exit(1); }
