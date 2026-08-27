@@ -10,7 +10,8 @@
  */
 import type {
   AcademicYear, AttendanceDay, AttendanceMark, ClassStudent, ClassSummary, ConsolidatedGradeCell,
-  CurrentUser, DirectoryStudent, GradebookData, PersistedGrade, RosterStudent, StaffAccount,
+  CurrentUser, DirectoryStudent, GradebookData, GradeLevelCensus, PersistedGrade,
+  RosterStudent, StaffAccount, StudentQuery,
   StudentGradeRow,
   EnrollmentRow, StudentHistoryRow, StudentIdentity, StudentProfile, SubmissionRow,
   SubmissionStatus, ValidationReport,
@@ -252,10 +253,15 @@ const FIXTURE_SESSION: SessionContext = {
  * ==================================================================== */
 
 const GRADE_LEVELS = [
-  { id: 'gl-7',  name: 'Grade 7',  ordinal: 7 },
-  { id: 'gl-8',  name: 'Grade 8',  ordinal: 8 },
-  { id: 'gl-9',  name: 'Grade 9',  ordinal: 9 },
-  { id: 'gl-10', name: 'Grade 10', ordinal: 10 },
+  { id: 'gl-7',  name: 'Grade 7',  ordinal: 7,  keyStage: 'KS3' },
+  { id: 'gl-8',  name: 'Grade 8',  ordinal: 8,  keyStage: 'KS3' },
+  { id: 'gl-9',  name: 'Grade 9',  ordinal: 9,  keyStage: 'KS3' },
+  { id: 'gl-10', name: 'Grade 10', ordinal: 10, keyStage: 'KS3' },
+  // Senior High. Empty on purpose: a school that has just been given
+  // Grades 11 and 12 has nobody in them yet, and the directory has to
+  // render that honestly — an empty grade level is a state, not a bug.
+  { id: 'gl-11', name: 'Grade 11', ordinal: 11, keyStage: 'SHS' },
+  { id: 'gl-12', name: 'Grade 12', ordinal: 12, keyStage: 'SHS' },
 ];
 
 interface FixtureSection {
@@ -373,20 +379,100 @@ const ENROLMENTS: StoredEnrolment[] = ROSTER.map((r, i) => ({
   dateEnrolled: '2026-06-08',
 }));
 
-/** The directory view: one row per ENROLMENT in the chosen year. */
-function directory(yearId: string): DirectoryStudent[] {
+/*
+ * Learners who are NOT in the Grade 10 Pearl class the rest of these
+ * fixtures are built around.
+ *
+ * Without them every learner in the demo sits in one grade level, and a
+ * screen whose whole job is "choose a grade level" has exactly one
+ * button that does nothing observable. That is the shape of fixture
+ * that has now hidden five separate real features in this codebase, so:
+ * two in Grade 9 Ruby, and one in Grade 7 with no section at all —
+ * because a learner admitted before sectioning is a real state the
+ * registrar sees, and it should not be the one case nobody tried.
+ */
+const OFF_ROSTER: Array<{
+  studentId: string; displayName: string; studentNumber: string; lrn: string | null;
+  sex: string; gradeLevelId: string; gradeLevel: string;
+  sectionId: string | null; section: string | null;
+}> = [
+  { studentId: 'st-r1', displayName: 'Ilagan, Marife Uy', studentNumber: '2026-0101',
+    lrn: '136789010101', sex: 'female',
+    gradeLevelId: 'gl-9', gradeLevel: 'Grade 9', sectionId: 'sec-ruby', section: 'Ruby' },
+  { studentId: 'st-r2', displayName: 'Sarmiento, Elias Tan', studentNumber: '2026-0102',
+    lrn: '136789010102', sex: 'male',
+    gradeLevelId: 'gl-9', gradeLevel: 'Grade 9', sectionId: 'sec-ruby', section: 'Ruby' },
+  { studentId: 'st-g7', displayName: 'Domingez, Philip G', studentNumber: '2026-0103',
+    lrn: null, sex: 'male',
+    gradeLevelId: 'gl-7', gradeLevel: 'Grade 7', sectionId: null, section: null },
+];
+
+for (const o of OFF_ROSTER) {
+  STUDENTS.push({
+    studentId: o.studentId, displayName: o.displayName,
+    firstName: o.displayName.split(', ')[1] ?? o.displayName,
+    middleName: null,
+    lastName: o.displayName.split(', ')[0] ?? o.displayName,
+    suffix: null,
+    studentNumber: o.studentNumber, lrn: o.lrn, sex: o.sex,
+    birthDate: null, birthPlace: null, motherTongue: null, religion: null,
+    addressLine: null, barangay: null, municipality: null, province: null,
+    contactNumber: null, email: null,
+    status: 'active', hasPortalAccount: false,
+  });
+  ENROLMENTS.push({
+    studentId: o.studentId, enrollmentId: `en-${o.studentId}`,
+    academicYearId: 'year-anhs', academicYear: '2026-2027', yearStatus: 'active',
+    gradeLevel: o.gradeLevel, gradeLevelId: o.gradeLevelId,
+    section: o.section, sectionId: o.sectionId,
+    status: 'enrolled', promotionStatus: null, generalAverage: null,
+    dateEnrolled: '2026-06-08',
+  });
+}
+
+/**
+ * The directory view: one row per ENROLMENT in the chosen year.
+ *
+ * The filtering happens HERE rather than in the screen, because against
+ * the real database it happens in Postgres — and a fixture that hands
+ * back everything and lets the caller narrow it would let a broken
+ * filter pass every test.
+ */
+function directory(yearId: string, query?: StudentQuery): DirectoryStudent[] {
+  const needle = query?.search?.trim().toLowerCase() ?? '';
   return ENROLMENTS
     .filter((e) => e.academicYearId === yearId)
+    .filter((e) => !query?.gradeLevelId || e.gradeLevelId === query.gradeLevelId)
+    .filter((e) => !query?.sectionId || e.sectionId === query.sectionId)
     .map((e) => {
       const st = STUDENTS.find((x) => x.studentId === e.studentId)!;
       return {
         studentId: st.studentId, displayName: st.displayName,
         studentNumber: st.studentNumber, lrn: st.lrn, sex: st.sex,
-        gradeLevel: e.gradeLevel, section: e.section,
+        gradeLevelId: e.gradeLevelId ?? '', gradeLevel: e.gradeLevel,
+        sectionId: e.sectionId ?? null, section: e.section,
         enrollmentStatus: e.status, generalAverage: e.generalAverage,
       };
     })
-    .sort((a, b) => a.displayName.localeCompare(b.displayName));
+    .filter((r) => !needle
+      || r.displayName.toLowerCase().includes(needle)
+      || (r.lrn ?? '').toLowerCase().includes(needle)
+      || (r.studentNumber ?? '').toLowerCase().includes(needle))
+    .sort((a, b) => a.displayName.localeCompare(b.displayName))
+    .slice(0, query?.limit ?? 500);
+}
+
+/** Grade levels with a live count, matching rds.grade_level_census. */
+function gradeLevelCensus(yearId: string): GradeLevelCensus[] {
+  return GRADE_LEVELS.map((g) => ({
+    id: g.id, code: `G${g.ordinal}`, name: g.name, ordinal: g.ordinal,
+    keyStage: g.keyStage,
+    enrolled: ENROLMENTS.filter((e) => e.academicYearId === yearId
+      && e.gradeLevelId === g.id
+      && (e.status === 'enrolled' || e.status === 'transferred_in')).length,
+    sections: SECTIONS.filter((sec) => sec.academicYearId === yearId
+      && sec.gradeLevelId === g.id).length,
+  })).sort((a, b) => a.ordinal - b.ordinal);
 }
 
 /** Mutable in-memory scores, so edits persist for the length of a session. */
@@ -669,11 +755,12 @@ export function createFixtureSource(): DataSource {
       })) satisfies ClassStudent[];
     },
 
-    async getStudents(yearId, search) {
-      const q = (search ?? '').trim().toLowerCase();
-      const all = directory(yearId);
-      return q ? all.filter((s) => s.displayName.toLowerCase().includes(q)
-        || (s.lrn ?? '').includes(q) || (s.studentNumber ?? '').includes(q)) : all;
+    async getStudents(yearId, query) {
+      return directory(yearId, query);
+    },
+
+    async getGradeLevelCensus(yearId) {
+      return gradeLevelCensus(yearId);
     },
 
     async getStudentRecord(studentId) {

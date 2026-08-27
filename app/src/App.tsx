@@ -560,6 +560,7 @@ export default function App() {
             yearId={year.id}
             yearLabel={year.label}
             load={source.getStudents}
+            loadCensus={source.getGradeLevelCensus}
             loadOptions={source.getEnrollmentOptions}
             admit={source.admitStudent}
             onOpenStudent={(studentId) => setRoute({ id: 'student', studentId })}
@@ -584,7 +585,8 @@ export default function App() {
       case 'student':
         if (!route.studentId) return <Students
           yearId={year.id} yearLabel={year.label}
-          load={source.getStudents} loadOptions={source.getEnrollmentOptions}
+          load={source.getStudents} loadCensus={source.getGradeLevelCensus}
+          loadOptions={source.getEnrollmentOptions}
           admit={source.admitStudent}
           onOpenStudent={(studentId) => setRoute({ id: 'student', studentId })}
           canAdmit={role === 'registrar' || role === 'school_admin'}

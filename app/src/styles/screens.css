@@ -639,3 +639,75 @@
 }
 .form-preview b { font-family: var(--font-display); font-size: 16px; color: var(--ink); }
 .form-preview span { font-size: 12.5px; color: var(--muted); }
+
+/* ------------------------------------------------------------------ *
+ * GRADE LEVEL BAR  (Students)
+ *
+ * The way into the learner directory. Chips rather than a dropdown,
+ * because the count is the information — a registrar deciding where to
+ * look reads "Grade 10 · 412" and goes there, which a <select> cannot
+ * show without being opened first.
+ * ------------------------------------------------------------------ */
+
+.level-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.level-chip {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: 'name count' 'meta count';
+  align-items: center;
+  gap: 0 12px;
+  min-width: 148px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--panel);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .12s ease, background .12s ease;
+}
+
+.level-chip:hover { border-color: var(--accent); }
+.level-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.level-chip[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-tint);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+/* Present, but visibly not where the learners are. A school that has
+   just been given Grades 11 and 12 must see them sitting there empty
+   rather than conclude they are missing. */
+.level-chip[data-empty='true'] .level-count { color: var(--muted); }
+.level-chip[data-empty='true'] { border-style: dashed; }
+
+.level-name  { grid-area: name; font-weight: 600; }
+.level-count {
+  grid-area: count;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.level-meta {
+  grid-area: meta;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.level-tag {
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  font-size: 10px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}

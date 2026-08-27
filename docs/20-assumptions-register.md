@@ -652,3 +652,77 @@ the real database:**
    cannot return the same object twice — so the bug lived only in the
    fixture, which is precisely the kind that ships. It now returns a
    fresh clone, like any real source.
+
+---
+
+## Senior High School, and the learner directory (migration 0036)
+
+Both items came from the user testing the registrar role on production,
+not from a plan. Recording them here because one is a genuine gap in
+what we have modelled, and the other is a decision that changed a screen
+people had already learned.
+
+### A17 — Grades 11 and 12 exist; Senior High does not
+
+**Status: partly built, and the remainder REQUIRES VALIDATION.**
+
+`grade_levels` has been rows rather than a fixed `Grade 7-12 <select>`
+since migration 0003, and 0003 says so in a comment. But only G7-G10
+were ever seeded, so every grade level dropdown in the product — add a
+section, add a class, admit a learner — stopped at Grade 10. A school
+running Senior High could not enter Senior High. **"Configurable" is
+worth nothing to the person in front of the screen if nobody configured
+it**, and that is the lesson worth keeping from this one.
+
+0036 seeds G11 and G12 for every school that already reaches Grade 10,
+with `key_stage = 'SHS'`. Anything that later needs to ask "is this
+Senior High?" should ask that column rather than `ordinal >= 11` —
+ordinal is a school's own numbering and need not mean what we assume.
+
+What is **not** built, and must be confirmed with the school before any
+Senior High grade is computed or printed:
+
+| Item | Why it is not just more of the same |
+|---|---|
+| **Semestral calendar** | SHS runs two semesters of two quarters, not three terms. `academic_periods` are already rows, so this is data entry rather than a rewrite — but nobody has entered it, and a Grade 11 class created today would inherit the junior high term structure silently. |
+| **Tracks and strands** | Academic (STEM, ABM, HUMSS, GAS), TVL, Sports, Arts and Design. Not modelled at all. A Grade 11 section today is just a section with a name. |
+| **Subject types** | Core, Applied and Specialized subjects are weighted differently from the Grades 4-10 order, and differently from each other by track. `grading_schemes` can express it; no scheme has been written. |
+| **SHS transmutation / SF forms** | SF9 and SF10 for SHS are different documents from the JHS ones we have built against. |
+
+**Open question for the school:** does ANHS run Senior High at all, and
+if so on which tracks? If it does not, none of the above is worth
+building and the seeded G11/G12 do no harm sitting empty. If it does,
+this is a milestone, not a follow-up.
+
+### A18 — The directory no longer opens on a list
+
+**Status: decided and built. Flagged because it changes a habit.**
+
+`Students` used to load every learner enrolled in the year the moment
+the menu item was clicked, then let dropdowns hide most of them again.
+Against seven demo learners that reads as instant. Against a school of
+1,500 it is a slow screen that has also shipped every learner's LRN to
+the browser so the browser could decline to display them. RLS permitted
+the read, so this was never a hole — but there was no reason to make it.
+
+It now opens on the school's grade levels with a count each, and loads
+one level at a time, filtered in Postgres. Search stays school-wide,
+because searching by name or LRN is exactly the case where you do not
+know which grade level the learner is in.
+
+**The assumption:** that a registrar nearly always wants one grade level
+rather than the whole school. That matches how the screen was being used
+in the screenshots we were sent, and how SF1/SF2 are filed — by section,
+inside a grade. **Worth checking with the school's actual registrar**,
+because if they routinely want a whole-school alphabetical list (for
+example when reconciling against a division office file), that is a
+different screen and should be built as an export rather than by
+reverting this one.
+
+`p_limit` defaults to 500 rows and is a safety net, not a paging model.
+A single grade level in a large school can exceed it. **Paging is not
+built.** The screen detects the cap and says so in a banner rather than
+truncating quietly — a registrar concluding a learner is not enrolled
+because row 501 was dropped is exactly the kind of quiet wrong answer
+this product exists to stop. Real paging still needs building before we
+onboard a school with more than 500 learners in one grade level.

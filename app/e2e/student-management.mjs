@@ -28,9 +28,23 @@ page.on('console', (m) => {
   }
 });
 
-const openStudents = async () => {
+// The directory no longer opens on a list — it opens on the school's
+// grade levels and asks which one. Every count below is therefore a
+// count WITHIN a level, which is what a registrar is ever actually
+// looking at.
+// Idempotent on purpose: clicking the chip that is already chosen
+// deselects it, which is right for a person and wrong for a helper.
+const pickGrade = async (name = 'Grade 10') => {
+  const chip = page.locator('.level-bar')
+    .getByRole('button', { name: new RegExp(`^${name}\\b`) });
+  if (await chip.getAttribute('aria-pressed') === 'true') return;
+  await chip.click();
+  await page.waitForTimeout(700);
+};
+const openStudents = async (grade = 'Grade 10') => {
   await page.getByRole('button', { name: /Students/ }).first().click();
   await page.waitForTimeout(700);
+  if (grade) await pickGrade(grade);
 };
 const rowCount = () => page.locator('tbody tr').count();
 
@@ -40,7 +54,7 @@ await page.goto('http://localhost:5199/', { waitUntil: 'networkidle' });
 await page.getByRole('button', { name: 'Subject', exact: true }).click();
 await page.waitForTimeout(400);
 await openStudents();
-check('a teacher sees the directory',
+check('a teacher sees the directory once they choose a grade level',
   (await rowCount()) > 0, `${await rowCount()} learners`);
 check('a teacher is NOT offered Add student',
   (await page.getByRole('button', { name: /Add student/i }).count()) === 0);
@@ -89,6 +103,7 @@ check('a first-year learner has no earlier years',
 /* ---- 4. the directory grew by exactly one ---------------------------- */
 await page.getByRole('button', { name: /← Students/ }).click();
 await page.waitForTimeout(800);
+await pickGrade();
 check('the directory grew by exactly one',
   (await rowCount()) === before + 1, `${before} → ${await rowCount()}`);
 
@@ -109,6 +124,7 @@ check('the refusal names the learner it clashes with',
 
 await page.getByRole('button', { name: /Cancel/ }).click();
 await page.waitForTimeout(600);
+await pickGrade();
 check('the refused attempt created nothing',
   (await rowCount()) === before + 1, `still ${await rowCount()}`);
 
