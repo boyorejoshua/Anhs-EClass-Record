@@ -443,6 +443,7 @@ export default function App() {
             saveAttendance={source.saveAttendance}
             onWorkflowChange={bumpRevision}
             loadLoaCohort={source.getLoaCohort}
+            loadGradebook={source.getGradebook}
           />
         );
 

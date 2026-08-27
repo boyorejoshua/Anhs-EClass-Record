@@ -430,3 +430,41 @@ invented subject, a cross-tenant year and a colleague's existing class
 were all refused with sentences. `e2e/teacher-add-class.mjs` (19 checks)
 re-proves the capitalisation case through the UI, since that is the
 defect the old gate was justified by.
+
+---
+
+## Fixed in passing: Student Detail showed one period's marks under another's heading (27 Aug 2026)
+
+Found while building the legacy Student Detail picker (Phase 2), not
+reported by anyone — which is the point worth recording.
+
+`ClassWorkspace` held the drilled-into learner as a `SummaryRow`
+**snapshot**, taken from whichever period's gradebook was loaded at the
+moment their name was clicked. A comment on the state declared it was
+"cleared whenever the tab or the period changes". Only the tab buttons
+cleared it; the period buttons called `onPeriodChange` directly. So
+opening a learner in Term 1 and then clicking Term 2 rendered Term 1's
+initial grade, period grade, descriptor, missing-score count and full
+component breakdown under a heading that read "Term 2" — with no error,
+no blank, and nothing to notice.
+
+Fixed by holding the **class-enrolment id** instead and re-deriving the
+row from the currently loaded gradebook on every render. That works
+precisely because a `class_enrollment` identifies an enrolment rather
+than a name or a period — the same property that lets a learner be
+renamed without orphaning their marks. A learner absent from the new
+period's roster now resolves to null and falls back to Summary, rather
+than rendering a detail screen for somebody not in the class.
+
+`e2e/student-detail.mjs` check 4c is the regression test: it reads the
+stat row before and after a period switch and fails if the numbers do
+not move.
+
+⚠️ **A5 surfaced again.** The new year strip shows a FINAL tile, and
+the only rule available for it is assumption A5 — *the final grade is
+the simple mean of the period grades* — which is still unconfirmed with
+the school. The strip therefore labels a partial mean rather than
+presenting it as final: with two of three terms graded it reads
+"Final (2 of 3)" and prints "Provisional — the mean of the 2 periods
+graded so far, not the final grade." **Confirm A5 before any final
+grade is issued on a document.**

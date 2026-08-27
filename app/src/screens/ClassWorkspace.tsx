@@ -10,7 +10,7 @@ import { Gradebook } from './Gradebook';
 import { RecordBookSummary, RecordBookAnalytics, RecordBookLoa } from './RecordBook';
 import { RecordBookSetup } from './RecordBookSetup';
 import { StudentDetail } from './StudentDetail';
-import type { SummaryRow } from '../lib/recordbook';
+import { summaryRows } from '../lib/recordbook';
 import type { CohortSection } from '../lib/loa';
 import type { AssessmentDraft } from '../data/source';
 import { ClassSubmission } from './ClassSubmission';
@@ -48,6 +48,8 @@ interface Props {
   loadLoaCohort: (
     academicYearId: string, classId: string, periodId: string,
   ) => Promise<CohortSection[]>;
+  /** Another period's gradebook, for Student Detail's year strip. */
+  loadGradebook: (classId: string, periodId: string) => Promise<GradebookData>;
 }
 
 /**
@@ -91,15 +93,28 @@ export function ClassWorkspace(props: Props) {
   const {
     cls, year, periodId, tab, onTabChange, onPeriodChange, gradebook, retryGradebook,
     recorded, onSaveScores, onBack, validateSubmission, submitGrades, recallSubmission,
-    loadStudents, loadLoaCohort,
+    loadStudents, loadLoaCohort, loadGradebook,
     loadAttendance, saveAttendance, onWorkflowChange, saveAssessments,
   } = props;
 
   const [exportOpen, setExportOpen] = useState(false);
-  // Which learner the Summary drilled into. Cleared whenever the tab or
-  // the period changes, so it can never show one period's breakdown under
-  // another period's heading.
-  const [detail, setDetail] = useState<SummaryRow | null>(null);
+  /**
+   * Which learner the Summary drilled into — held as a CLASS ENROLMENT
+   * ID, not as the SummaryRow itself.
+   *
+   * It used to hold the row, and the comment here claimed it was
+   * "cleared whenever the tab or the period changes". Only the tab
+   * cleared it. Switching period therefore left a snapshot of the OLD
+   * period's marks rendered under the NEW period's heading — Term 1's
+   * numbers labelled Term 2, silently, with no error.
+   *
+   * An id cannot go stale that way: the row is re-derived from
+   * whichever period's gradebook is currently loaded. That works
+   * precisely because a class_enrollment identifies an ENROLMENT rather
+   * than a name or a period — the same property that lets a learner be
+   * renamed without orphaning their marks.
+   */
+  const [detailId, setDetailId] = useState<string | null>(null);
   const status = displayStatus(cls, periodId);
   const period = year.periods.find((p) => p.id === periodId);
   const done = cls.completeness[periodId];
@@ -209,7 +224,7 @@ export function ClassWorkspace(props: Props) {
                   data-group={t.group}
                   aria-selected={tab === t.key}
                   aria-controls={`panel-${t.key}`}
-                  onClick={() => { setDetail(null); onTabChange(t.key); }}
+                  onClick={() => { setDetailId(null); onTabChange(t.key); }}
                 >
                   {t.label}
                   {t.key === 'submission' && missing > 0 && (
@@ -247,20 +262,36 @@ export function ClassWorkspace(props: Props) {
 
         {tab === 'summary' && period && (
           <Async state={gradebook} retry={retryGradebook} rows={8}>
-            {(g) => (detail ? (
-              <StudentDetail
-                cls={cls} period={period} yearLabel={year.label} data={g} row={detail}
-                onBack={() => setDetail(null)}
-                onGoGradebook={() => { setDetail(null); onTabChange('gradebook'); }}
-              />
-            ) : (
-              <RecordBookSummary
-                cls={cls} period={period} yearLabel={year.label} data={g}
-                recorded={recorded.status === 'ready' ? recorded.data : {}}
-                onOpenStudent={setDetail}
-                onGoGradebook={() => onTabChange('setup')}
-              />
-            ))}
+            {(g) => {
+              // Re-derived from THIS period's gradebook every render.
+              // A learner not on this period's roster resolves to null
+              // and falls back to Summary, rather than rendering a
+              // detail screen for somebody who is not in the class.
+              const detail = detailId
+                ? summaryRows(g).find((r) => r.classEnrollmentId === detailId) ?? null
+                : null;
+              return detail ? (
+                <StudentDetail
+                  cls={cls} period={period} yearLabel={year.label} data={g} row={detail}
+                  onBack={() => setDetailId(null)}
+                  onGoGradebook={() => { setDetailId(null); onTabChange('gradebook'); }}
+                  periods={year.periods}
+                  // Both keep the learner and change one axis. Neither
+                  // clears the selection, because the row is derived
+                  // rather than snapshotted.
+                  onSelectPeriod={onPeriodChange}
+                  onSelectStudent={(r) => setDetailId(r.classEnrollmentId)}
+                  loadGradebook={loadGradebook}
+                />
+              ) : (
+                <RecordBookSummary
+                  cls={cls} period={period} yearLabel={year.label} data={g}
+                  recorded={recorded.status === 'ready' ? recorded.data : {}}
+                  onOpenStudent={(r) => setDetailId(r.classEnrollmentId)}
+                  onGoGradebook={() => onTabChange('setup')}
+                />
+              );
+            }}
           </Async>
         )}
 
