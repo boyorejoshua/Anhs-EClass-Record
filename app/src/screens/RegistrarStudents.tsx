@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import type { DirectoryStudent } from '../data/types';
+import type { DirectoryStudent, StudentQuery } from '../data/types';
 import { Async, EmptyState, useAsync } from '../components/Async';
 
 interface Props {
   yearId: string;
-  load: (yearId: string, search?: string) => Promise<DirectoryStudent[]>;
+  load: (yearId: string, query?: StudentQuery) => Promise<DirectoryStudent[]>;
   onOpenRecord: (studentId: string) => void;
   /** Set when this screen is being used to pick a learner for SF10. */
   purpose?: string;
@@ -22,7 +22,11 @@ interface Props {
 export function RegistrarStudents({ yearId, load, onOpenRecord, purpose }: Props) {
   const [query, setQuery] = useState('');
   const [submitted, setSubmitted] = useState('');
-  const [state, retry] = useAsync(() => load(yearId, submitted), [yearId, submitted]);
+  // This screen exists to FIND one named learner for an SF10, so it
+  // stays a search box rather than a grade level bar. The cap is the
+  // safeguard the old unbounded call did not have.
+  const [state, retry] = useAsync(
+    () => load(yearId, { search: submitted, limit: 200 }), [yearId, submitted]);
 
   return (
     <div className="page">

@@ -1,13 +1,22 @@
 import { useMemo, useState } from 'react';
 import type {
-  DirectoryStudent, EnrollmentDraft, EnrollmentOptions, StudentDraft,
+  DirectoryStudent, EnrollmentDraft, EnrollmentOptions, GradeLevelCensus,
+  StudentDraft, StudentQuery,
 } from '../data/types';
 import { Async, EmptyState, useAsync } from '../components/Async';
+
+/**
+ * How many rows one request may return. A safety net rather than a page
+ * size — there is no paging yet, and the screen says so out loud when it
+ * hits this rather than quietly dropping the rest.
+ */
+const PAGE_LIMIT = 500;
 
 interface Props {
   yearId: string;
   yearLabel: string;
-  load: (yearId: string, search?: string) => Promise<DirectoryStudent[]>;
+  load: (yearId: string, query?: StudentQuery) => Promise<DirectoryStudent[]>;
+  loadCensus: (yearId: string) => Promise<GradeLevelCensus[]>;
   loadOptions: (yearId: string) => Promise<EnrollmentOptions>;
   admit: (
     student: StudentDraft, enrollment: EnrollmentDraft,
@@ -20,37 +29,72 @@ interface Props {
 /**
  * The learner directory, and the way in.
  *
- * Search runs on the server, not against a client-side array: a school
- * with 1,500 learners cannot ship the whole directory to the browser to
- * filter it, and doing so would hand every LRN to anyone who opens
- * devtools. RLS would have permitted the read; there is no reason to
- * make it.
+ * THE SCREEN DOES NOT OPEN ON A LIST. It opens on the school's grade
+ * levels with a count each, and asks which one you want.
  *
- * Grade level and section filter in the browser, because those come back
- * with the rows already and a round trip to narrow a list the user can
- * see is worse than useless.
+ * That is a deliberate reversal. The first version loaded every learner
+ * enrolled in the year the moment the menu item was clicked, then let
+ * three dropdowns hide most of them again. Against seven demo learners
+ * that reads as instant; against a real school of 1,500 it is a slow
+ * screen that has also shipped every learner's LRN to the browser so
+ * that the browser could decline to display them. RLS permitted the
+ * read, so this was never a hole — but there was no reason to make it,
+ * and no registrar has ever opened this screen wanting all 1,500 at
+ * once. They want one grade level, and usually one section inside it.
+ *
+ * So: grade level first, and the filter runs in Postgres.
+ *
+ * Search is the exception and stays global — searching by name or LRN
+ * is exactly the case where you do NOT know which grade level the
+ * learner is in, and making someone guess before they may search would
+ * be a worse screen than the one this replaces.
  */
 export function Students({
-  yearId, yearLabel, load, loadOptions, admit, onOpenStudent, canAdmit,
+  yearId, yearLabel, load, loadCensus, loadOptions, admit, onOpenStudent, canAdmit,
 }: Props) {
   const [query, setQuery] = useState('');
   const [submitted, setSubmitted] = useState('');
-  const [grade, setGrade] = useState('');
+  const [gradeId, setGradeId] = useState('');
   const [section, setSection] = useState('');
   const [adding, setAdding] = useState(false);
-  const [state, retry] = useAsync(() => load(yearId, submitted), [yearId, submitted]);
+
+  const [census, retryCensus] = useAsync(() => loadCensus(yearId), [yearId, loadCensus]);
+
+  // A search is school-wide and ignores the chosen grade level; without
+  // one, nothing is fetched until a grade level is picked. `enabled` is
+  // what keeps the "no list yet" state from being an empty-looking list.
+  const enabled = !!gradeId || !!submitted;
+  const [state, retry] = useAsync(
+    () => (enabled
+      ? load(yearId, {
+        search: submitted || undefined,
+        gradeLevelId: submitted ? undefined : gradeId,
+        limit: PAGE_LIMIT,
+      })
+      : Promise.resolve([] as DirectoryStudent[])),
+    [yearId, submitted, gradeId, load],
+  );
+
+  const levels = census.status === 'ready' ? census.data : [];
+  const total = levels.reduce((n, g) => n + g.enrolled, 0);
+  const chosen = levels.find((g) => g.id === gradeId);
 
   const rows = state.status === 'ready' ? state.data : [];
-  const grades = useMemo(
-    () => [...new Set(rows.map((r) => r.gradeLevel))].sort(), [rows],
-  );
+  // Section still narrows in the browser, and that is correct now: the
+  // rows in hand are one grade level, so the list being filtered is
+  // already the list on screen. This is the round trip that would be
+  // worse than useless, as opposed to the one that was.
   const sections = useMemo(
-    () => [...new Set(rows.filter((r) => !grade || r.gradeLevel === grade)
-      .map((r) => r.section).filter((s): s is string => !!s))].sort(),
-    [rows, grade],
+    () => [...new Set(rows.map((r) => r.section).filter((x): x is string => !!x))].sort(),
+    [rows],
   );
-  const shown = rows.filter((r) =>
-    (!grade || r.gradeLevel === grade) && (!section || r.section === section));
+  const shown = rows.filter((r) => !section || r.section === section);
+
+  // The cap is a safety net, not a paging model, and a truncated list
+  // that does not say it is truncated is the worst of both. A registrar
+  // concluding a learner is not enrolled because row 501 was dropped is
+  // exactly the kind of quiet wrong answer this product exists to stop.
+  const capped = rows.length >= PAGE_LIMIT;
 
   if (adding) {
     return (
@@ -81,49 +125,138 @@ export function Students({
         )}
       </div>
 
+      {/*
+        The grade level bar. Every level the school runs, in order, with
+        its own count — including the ones with nobody in them, because a
+        school that has just been given Grades 11 and 12 needs to see
+        that they are there and empty rather than assume they are
+        missing.
+      */}
+      <div className="panel">
+        <div className="panel-head">
+          <div>
+            <h2>Grade levels</h2>
+            <p className="page-sub">
+              {total} learner{total === 1 ? '' : 's'} enrolled across the school.
+              Choose a level to open its list.
+            </p>
+          </div>
+        </div>
+        <Async state={census} retry={retryCensus} rows={1}>
+          {(all) => (
+            <div className="panel-body">
+              <div className="level-bar" role="group" aria-label="Grade level">
+                {all.map((g) => (
+                  <button
+                    key={g.id}
+                    type="button"
+                    className="level-chip"
+                    aria-pressed={gradeId === g.id}
+                    data-empty={g.enrolled === 0 ? 'true' : undefined}
+                    onClick={() => {
+                      // Choosing a level clears a running search, because
+                      // the two answer different questions and showing a
+                      // search result under a level heading would be a lie
+                      // about what is on screen.
+                      setGradeId(gradeId === g.id ? '' : g.id);
+                      setSection('');
+                      setQuery('');
+                      setSubmitted('');
+                    }}
+                  >
+                    <span className="level-name">{g.name}</span>
+                    <span className="level-count mono">{g.enrolled}</span>
+                    <span className="level-meta">
+                      {g.sections} section{g.sections === 1 ? '' : 's'}
+                      {g.keyStage === 'SHS' && <span className="level-tag">Senior High</span>}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </Async>
+      </div>
+
       <div className="panel">
         <div className="gb-toolbar">
           <form
-            onSubmit={(e) => { e.preventDefault(); setSubmitted(query); }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              // A search is school-wide, so it drops the level: the
+              // learner you are hunting for is very often not in the
+              // level you were last looking at.
+              setSubmitted(query);
+              if (query.trim()) { setGradeId(''); setSection(''); }
+            }}
             style={{ display: 'contents' }}
           >
             <input
               className="input" type="search" value={query}
-              placeholder="Search name, LRN or student number"
+              placeholder="Search the whole school by name, LRN or student number"
               aria-label="Search learners"
               onChange={(e) => setQuery(e.target.value)}
             />
             <button className="btn btn-sm" type="submit">Search</button>
           </form>
 
-          <select
-            className="input" value={grade} aria-label="Filter by grade level"
-            onChange={(e) => { setGrade(e.target.value); setSection(''); }}
-          >
-            <option value="">All grade levels</option>
-            {grades.map((g) => <option key={g} value={g}>{g}</option>)}
-          </select>
+          {(submitted || gradeId) && (
+            <button
+              className="btn btn-sm" type="button"
+              onClick={() => {
+                setQuery(''); setSubmitted(''); setGradeId(''); setSection('');
+              }}
+            >
+              Clear
+            </button>
+          )}
 
           <select
             className="input" value={section} aria-label="Filter by section"
+            disabled={!gradeId || sections.length === 0}
             onChange={(e) => setSection(e.target.value)}
           >
-            <option value="">All sections</option>
+            <option value="">
+              {gradeId ? 'All sections' : 'Choose a grade level first'}
+            </option>
             {sections.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
 
           <div className="spacer" />
           <span className="faint mono">
-            {shown.length}{shown.length !== rows.length ? ` of ${rows.length}` : ''}
+            {enabled
+              ? `${shown.length}${shown.length !== rows.length ? ` of ${rows.length}` : ''}`
+              : '—'}
           </span>
         </div>
 
+        {capped && (
+          <div className="err-banner" data-tone="warning" role="status">
+            <span>
+              Showing the first {PAGE_LIMIT} by name — there are more. Narrow this
+              by section, or search for the learner you want. (Paging this list
+              properly is not built yet.)
+            </span>
+          </div>
+        )}
+
+        {!enabled ? (
+          <EmptyState title="Choose a grade level">
+            Pick one above to see the learners in it, or search by name or LRN to
+            look across the whole school. Nothing is loaded until you do —
+            a school of 1,500 has no business sending all 1,500 to a screen
+            showing forty.
+          </EmptyState>
+        ) : (
         <Async state={state} retry={retry} rows={8}>
           {() => (shown.length === 0 ? (
-            <EmptyState title="No learners match">
-              {submitted || grade || section
-                ? 'Try a wider search, or clear the filters.'
-                : 'Nobody is enrolled for this school year yet.'}
+            <EmptyState title={submitted ? 'No learner matches' : `Nobody in ${chosen?.name ?? 'this level'} yet`}>
+              {submitted
+                ? `Nothing in SY ${yearLabel} matches “${submitted}”.`
+                : section
+                  ? 'Nobody in that section. Try another, or clear the section filter.'
+                  : 'This grade level exists but has no learners enrolled this year. '
+                    + 'Add one with “+ Add student”, or import a class list.'}
             </EmptyState>
           ) : (
             <div className="tbl-wrap">
@@ -158,6 +291,7 @@ export function Students({
             </div>
           ))}
         </Async>
+        )}
       </div>
     </div>
   );

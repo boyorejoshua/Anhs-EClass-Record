@@ -229,6 +229,13 @@ insert into public.grade_levels (id, school_id, code, name, ordinal, key_stage) 
   ('a4000000-0000-0000-0000-000000000008','11111111-1111-1111-1111-111111111111','G8','Grade 8',8,'KS3'),
   ('a4000000-0000-0000-0000-000000000009','11111111-1111-1111-1111-111111111111','G9','Grade 9',9,'KS3'),
   ('a4000000-0000-0000-0000-000000000010','11111111-1111-1111-1111-111111111111','G10','Grade 10',10,'KS3'),
+  -- Senior High is its own cycle, not KS3 + 2: semestral calendar,
+  -- tracks and strands, different subject weights. Seeded empty so a
+  -- school that runs it can set it up, and one that does not simply
+  -- never uses these two rows. See migration 0036 and assumption A17 —
+  -- the grade levels exist; the SHS calendar and weights do not yet.
+  ('a4000000-0000-0000-0000-000000000011','11111111-1111-1111-1111-111111111111','G11','Grade 11',11,'SHS'),
+  ('a4000000-0000-0000-0000-000000000012','11111111-1111-1111-1111-111111111111','G12','Grade 12',12,'SHS'),
   ('b4000000-0000-0000-0000-000000000010','22222222-2222-2222-2222-222222222222','G10','Grade 10',10,'KS3');
 
 insert into public.subject_categories (id, school_id, code, name, ordinal) values

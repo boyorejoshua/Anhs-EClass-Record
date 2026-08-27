@@ -13,7 +13,7 @@
  */
 import type {
   AdvisorySection, AttendanceDay, AttendanceMark, ClassDraft, ClassStudent, ClassSummary,
-  ConsolidatedGrades, DirectoryStudent,
+  ConsolidatedGrades, DirectoryStudent, GradeLevelCensus, StudentQuery,
   EnrollmentDraft, EnrollmentOptions, GradebookData, LearnerNameFix, LearnerToAdd,
   MyAccount, MyClassDraft,
   MyClassRoster, MyClassSetupOptions, NewAccount,
@@ -133,7 +133,17 @@ export interface DataSource {
 
   /* ---- roster & directory ---------------------------------------- */
   getClassStudents(classId: string): Promise<ClassStudent[]>;
-  getStudents(academicYearId: string, search?: string): Promise<DirectoryStudent[]>;
+  /**
+   * The learner directory, narrowed in the database.
+   *
+   * `query` is not optional convenience — it is the whole point. The
+   * screen asks for one grade level at a time, so a school of 1,500
+   * never sends 1,500 rows to a browser that will show forty of them.
+   */
+  getStudents(academicYearId: string, query?: StudentQuery): Promise<DirectoryStudent[]>;
+
+  /** Grade levels with an enrolled count — what the directory shows before any learner. */
+  getGradeLevelCensus(academicYearId: string): Promise<GradeLevelCensus[]>;
 
   /* ---- student management ------------------------------------------ *
    * A STUDENT is a person; an ENROLLMENT is one school year of their

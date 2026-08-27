@@ -23,7 +23,7 @@ import type {
 } from './types';
 import type { ImportResolution } from '../lib/import/plan';
 import type {
-  AttendanceDay, ClassStudent, ClassSummary, DirectoryStudent,
+  AttendanceDay, ClassStudent, ClassSummary, DirectoryStudent, GradeLevelCensus,
   EnrollmentOptions, GradebookData, PersistedGrade, StudentGradeRow, StudentHistoryRow,
   StudentProfile, StudentRecord, SubmissionRow, ValidationReport,
 } from './types';
@@ -150,11 +150,24 @@ export function createSupabaseSource(): DataSource {
       return (data ?? []) as ClassStudent[];
     },
 
-    async getStudents(academicYearId, search) {
+    async getStudents(academicYearId, query) {
       const { data, error } = await requireSupabase()
-        .rpc('students_directory', { p_year_id: academicYearId, p_search: search ?? null });
+        .rpc('students_directory', {
+          p_year_id: academicYearId,
+          p_search: query?.search ?? null,
+          p_grade_level_id: query?.gradeLevelId ?? null,
+          p_section_id: query?.sectionId ?? null,
+          p_limit: query?.limit ?? 500,
+        });
       if (error) fail('Searching learners', error);
       return (data ?? []) as DirectoryStudent[];
+    },
+
+    async getGradeLevelCensus(academicYearId) {
+      const { data, error } = await requireSupabase()
+        .rpc('grade_level_census', { p_year_id: academicYearId });
+      if (error) fail('Loading grade levels', error);
+      return (data ?? []) as GradeLevelCensus[];
     },
 
     /* ---- attendance ------------------------------------------------ */

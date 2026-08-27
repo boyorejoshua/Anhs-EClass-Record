@@ -106,10 +106,48 @@ export interface DirectoryStudent {
   studentNumber: string | null;
   lrn: string | null;
   sex: string | null;
+  gradeLevelId: string;
   gradeLevel: string;
+  sectionId: string | null;
   section: string | null;
   enrollmentStatus: string;
   generalAverage: number | null;
+}
+
+/**
+ * How the directory is narrowed. Every field here is applied by the
+ * DATABASE, not by the browser after the fact — a school of 1,500 should
+ * not ship every learner's LRN to the client so the client can hide most
+ * of them.
+ */
+export interface StudentQuery {
+  search?: string;
+  gradeLevelId?: string;
+  sectionId?: string;
+  limit?: number;
+}
+
+/**
+ * One grade level the school runs, and how full it is this year.
+ *
+ * This is what the directory shows FIRST, in place of a list of every
+ * learner. Six rows instead of fifteen hundred, and it answers the
+ * question a registrar actually opens the screen with — which is nearly
+ * always about one grade level, not about the whole school.
+ *
+ * A level with `enrolled: 0` is still returned. Somebody setting up
+ * Grade 11 for the first time needs to see that it exists and is empty,
+ * not wonder where it went.
+ */
+export interface GradeLevelCensus {
+  id: string;
+  code: string;
+  name: string;
+  ordinal: number;
+  /** 'SHS' marks Senior High, which is a different cycle — not KS3 + 2. */
+  keyStage: string | null;
+  enrolled: number;
+  sections: number;
 }
 
 export interface AttendanceStatusOption {
