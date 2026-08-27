@@ -15,7 +15,8 @@ import type {
   AssessmentDraft, DataSource, ImportRecord, ImportResult, ScoreEdit, SessionContext,
 } from './source';
 import type {
-  AdvisorySection, ClassDraft, ConsolidatedGrades, MyAccount, NewAccount,
+  AdvisorySection, ClassDraft, ConsolidatedGrades, MyAccount, MyClassDraft,
+  MyClassSetupOptions, NewAccount,
   SectionDraft, SectionSetupOptions, StaffDirectory,
 } from './types';
 import type { ImportResolution } from '../lib/import/plan';
@@ -455,6 +456,29 @@ export function createSupabaseSource(): DataSource {
         p_section_id: draft.sectionId,
         p_subject_id: draft.subjectId,
         p_teacher_user_id: draft.teacherUserId ?? null,
+        p_schedule_note: draft.scheduleNote ?? null,
+        p_room: draft.room ?? null,
+      });
+      if (error) throw new Error(error.message);
+      return data as string;
+    },
+
+    /* ---- a teacher's own class -------------------------------------- */
+
+    async getMyClassSetupOptions(academicYearId: string) {
+      const { data, error } = await requireSupabase()
+        .rpc('my_class_setup_options', { p_year_id: academicYearId });
+      if (error) throw new Error(error.message);
+      return data as MyClassSetupOptions;
+    },
+
+    async createMyClass(draft: MyClassDraft) {
+      const { data, error } = await requireSupabase().rpc('create_my_class', {
+        p_academic_year_id: draft.academicYearId,
+        p_subject_id: draft.subjectId,
+        p_section_id: draft.sectionId ?? null,
+        p_grade_level_id: draft.gradeLevelId ?? null,
+        p_section_name: draft.sectionName ?? null,
         p_schedule_note: draft.scheduleNote ?? null,
         p_room: draft.room ?? null,
       });

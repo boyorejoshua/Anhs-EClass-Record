@@ -416,6 +416,41 @@ export interface ConsolidatedGrades {
   }>;
 }
 
+/**
+ * What a TEACHER's own "add a class" form offers.
+ *
+ * Deliberately not `SectionSetupOptions`, which is the registrar's and
+ * carries a `teachers` list. This one has no teacher field at all — the
+ * answer is always "you" — and it carries `myClasses` so the form can
+ * say "you already teach this" instead of silently resolving to it.
+ */
+export interface MyClassSetupOptions {
+  gradeLevels: Array<{ id: string; name: string; ordinal: number }>;
+  subjects: Array<{ id: string; code: string; title: string }>;
+  sections: Array<{
+    id: string; name: string; gradeLevelId: string; gradeLevel: string;
+    learnerCount: number;
+  }>;
+  myClasses: Array<{ id: string; sectionId: string; subjectId: string }>;
+  permissions: { canCreateOwn: boolean };
+}
+
+/**
+ * A class a teacher creates for themselves. The section is given EITHER
+ * by id (picked from the list) or by grade level + name (typed because
+ * it does not exist yet) — never both, and the server resolves a typed
+ * name case-insensitively onto an existing section.
+ */
+export interface MyClassDraft {
+  academicYearId: string;
+  subjectId: string;
+  sectionId?: string | null;
+  gradeLevelId?: string | null;
+  sectionName?: string | null;
+  scheduleNote?: string | null;
+  room?: string | null;
+}
+
 /* ==================================================================== *
  * ACCOUNTS
  *

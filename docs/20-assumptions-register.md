@@ -381,3 +381,52 @@ the repository.** `VERCEL.md` publishes `MendtrixDemo2026!` for seven
 project holds only seeded data and is exactly wrong the moment it holds
 a real learner record. Rotating or deleting them is a prerequisite for
 the school demo, not a follow-up.
+
+---
+
+## Reversed: class creation is no longer registrar-only (27 Aug 2026)
+
+Asked for three separate times against the live site. The third time
+settled it, and the earlier answer was wrong — but only half wrong, and
+the half matters.
+
+**The 26 Aug decision** (migration 0029, recorded above) was
+registrar/admin only. Two questions got answered as one:
+
+- *Data integrity* — will teachers typing section names produce
+  "PEARL", "Pearl" and "pearl" as three Grade 7 sections?
+- *Authority* — whose act is it to say a class exists?
+
+The integrity answer was already handled and never depended on the
+permission: `create_section` lower-cases and compares before inserting,
+and `sections` carries a unique key on
+`(academic_year_id, grade_level_id, name)`. Gating the act behind the
+registrar was not what prevented the duplicate.
+
+On authority, the reversal: on a DepEd class record the subject teacher
+IS the authority for their own class — they sign it. Making them wait
+for a registrar before entering a single mark is precisely the friction
+that keeps a school on Excel.
+
+Closed by migration 0032 (`classes.create.own`, granted to teacher and
+adviser; `rds.my_class_setup_options`; `public.create_my_class`) and a
+**+ Add class** button on My Classes.
+
+**Where the boundary moved to.** `create_my_class` forces
+`primary_teacher_id` to the caller — it is not a parameter — so a
+teacher cannot create a class for anybody else. They still cannot:
+appoint a section's **adviser** (that carries the right to read every
+subject's grades for the section, migration 0030, and stays the
+registrar's appointment); create a **subject** or **grade level** (the
+school's curriculum, where a near-miss like "Math 10" next to
+"Mathematics 10" cannot be deduped by lower-casing); or **admit a
+learner** (enrolment stays registrar work — the roster fills from the
+section's existing enrolment).
+
+Verified against the live database in one rolled-back transaction (11
+checks): a typed "sampaguita" resolved onto the existing "Sampaguita"
+with no new section; a new section came out with a null adviser; an
+invented subject, a cross-tenant year and a colleague's existing class
+were all refused with sentences. `e2e/teacher-add-class.mjs` (19 checks)
+re-proves the capitalisation case through the UI, since that is the
+defect the old gate was justified by.
