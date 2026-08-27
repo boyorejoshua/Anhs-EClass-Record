@@ -14,7 +14,9 @@ import { requireSupabase } from '../lib/supabase';
 import type {
   AssessmentDraft, DataSource, ImportRecord, ImportResult, ScoreEdit, SessionContext,
 } from './source';
-import type { ClassDraft, SectionDraft, SectionSetupOptions } from './types';
+import type {
+  AdvisorySection, ClassDraft, ConsolidatedGrades, SectionDraft, SectionSetupOptions,
+} from './types';
 import type { ImportResolution } from '../lib/import/plan';
 import type {
   AttendanceDay, ClassStudent, ClassSummary, DirectoryStudent,
@@ -356,6 +358,22 @@ export function createSupabaseSource(): DataSource {
         .rpc('adviser_queue', { p_year_id: academicYearId });
       if (error) fail('Loading the adviser queue', error);
       return (data ?? []) as SubmissionRow[];
+    },
+
+    async getMyAdvisorySections(academicYearId) {
+      const { data, error } = await requireSupabase()
+        .rpc('my_advisory_sections', { p_year_id: academicYearId });
+      if (error) fail('Loading your advisory sections', error);
+      return (data ?? []) as AdvisorySection[];
+    },
+
+    async getConsolidatedGrades(sectionId, periodId) {
+      const { data, error } = await requireSupabase()
+        .rpc('consolidated_grades', { p_section_id: sectionId, p_period_id: periodId });
+      // The function's own refusal ("you do not advise this section")
+      // is written for the person reading it; show it as written.
+      if (error) throw new Error(error.message);
+      return data as ConsolidatedGrades;
     },
 
     async returnSubmission(submissionId, reason) {

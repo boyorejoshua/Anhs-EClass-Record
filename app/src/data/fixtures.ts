@@ -9,8 +9,8 @@
  * These are FIXTURES, not defaults. Nothing here ships to a school.
  */
 import type {
-  AcademicYear, AttendanceDay, AttendanceMark, ClassStudent, ClassSummary, CurrentUser,
-  DirectoryStudent, GradebookData, PersistedGrade, RosterStudent, StudentGradeRow,
+  AcademicYear, AttendanceDay, AttendanceMark, ClassStudent, ClassSummary, ConsolidatedGradeCell,
+  CurrentUser, DirectoryStudent, GradebookData, PersistedGrade, RosterStudent, StudentGradeRow,
   EnrollmentRow, StudentHistoryRow, StudentIdentity, StudentProfile, SubmissionRow,
   SubmissionStatus, ValidationReport,
 } from './types';
@@ -252,7 +252,10 @@ interface FixtureSection {
   academicYearId: string;
 }
 const SECTIONS: FixtureSection[] = [
-  { id: 'sec-pearl',   name: 'Pearl',   gradeLevelId: 'gl-10', gradeLevel: 'Grade 10', adviserUserId: null, room: 'Room 204', capacity: 40, academicYearId: 'year-anhs' },
+  // Pearl's adviser is the fixture's own signed-in identity, the same
+  // way Juan Dela Cruz advises Pearl on the real ANHS data — otherwise
+  // Consolidated Grades would have no section to demonstrate against.
+  { id: 'sec-pearl',   name: 'Pearl',   gradeLevelId: 'gl-10', gradeLevel: 'Grade 10', adviserUserId: CURRENT_USER.id, room: 'Room 204', capacity: 40, academicYearId: 'year-anhs' },
   { id: 'sec-diamond', name: 'Diamond', gradeLevelId: 'gl-10', gradeLevel: 'Grade 10', adviserUserId: null, room: 'Room 205', capacity: 40, academicYearId: 'year-anhs' },
   { id: 'sec-ruby',    name: 'Ruby',    gradeLevelId: 'gl-9',  gradeLevel: 'Grade 9',  adviserUserId: null, room: 'Room 201', capacity: 40, academicYearId: 'year-anhs' },
 ];
@@ -932,6 +935,48 @@ export function createFixtureSource(): DataSource {
             returnReason: st === 'returned' ? '5 missing scores in Written Works' : null,
           })),
       ) satisfies SubmissionRow[];
+    },
+
+    async getMyAdvisorySections(academicYearId) {
+      return SECTIONS
+        .filter((s) => s.adviserUserId === CURRENT_USER.id && s.academicYearId === academicYearId)
+        .map((s) => ({ id: s.id, name: s.name, gradeLevel: s.gradeLevel, gradeLevelId: s.gradeLevelId }));
+    },
+
+    /**
+     * Mirrors `rds.consolidated_grades`: one row per learner in the
+     * section, one cell per subject taught in it, read from the SAME
+     * `persistedGrades` store `submitGrades` writes — never recomputed
+     * here, so a subject the adviser doesn't teach still shows the grade
+     * its own teacher filed, exactly as the real RPC's SECURITY DEFINER
+     * bypass does.
+     */
+    async getConsolidatedGrades(sectionId, periodId) {
+      const section = SECTIONS.find((s) => s.id === sectionId);
+      if (!section) throw new Error('Section not found.');
+      const classesInSection = CLASSES.filter(
+        (c) => c.gradeLevel === section.gradeLevel && c.section === section.name,
+      );
+      const subjects = classesInSection.map((c) => ({ id: c.subjectCode, title: c.subject, classId: c.id }));
+      const rows = ROSTER.map((student) => {
+        const grades: Record<string, ConsolidatedGradeCell> = {};
+        for (const c of classesInSection) {
+          const persisted = persistedGrades.get(`${c.id}|${periodId}`)?.[student.classEnrollmentId];
+          grades[c.subjectCode] = {
+            classId: c.id,
+            grade: persisted?.periodGrade ?? null,
+            descriptor: persisted?.descriptor ?? null,
+            passed: persisted?.passed ?? null,
+            statusCode: null,
+          };
+        }
+        return { studentId: student.studentId, displayName: student.displayName, grades };
+      });
+      return {
+        section: { id: section.id, name: section.name, gradeLevel: section.gradeLevel },
+        subjects,
+        rows,
+      };
     },
 
     async recallSubmission(classId, periodId) {
