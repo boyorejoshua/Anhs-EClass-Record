@@ -21,6 +21,8 @@ import { Students } from './screens/Students';
 import { ClassesAndSections } from './screens/ClassesAndSections';
 import { GlobalAnalytics, GlobalLoaReports } from './screens/GlobalReports';
 import { ConsolidatedGrades } from './screens/ConsolidatedGrades';
+import { Users } from './screens/Users';
+import { MyAccount, PasswordForm } from './screens/MyAccount';
 import { StudentRecordScreen } from './screens/StudentRecordScreen';
 import { StudentGrades, StudentProfileScreen, StudentHistory } from './screens/StudentPortal';
 import { Sf10Preview } from './screens/Sf10Preview';
@@ -67,6 +69,12 @@ export default function App() {
   const [periodId, setPeriodId] = useState<string | null>(null);
   /** Bumped after a workflow action so dependent reads refetch. */
   const [revision, setRevision] = useState(0);
+  /**
+   * Whether this person is still holding a password an administrator
+   * set for them. Null until the check has run, so the app never
+   * flashes the whole shell and then yanks it away.
+   */
+  const [mustChangePassword, setMustChangePassword] = useState<boolean | null>(null);
 
   /* ---- session ---------------------------------------------------- */
   const loadSession = useCallback(async () => {
@@ -80,6 +88,16 @@ export default function App() {
         if (active) {
           setYearId(active.id);
           setPeriodId((active.periods.find((x) => x.status === 'active') ?? active.periods[0])?.id ?? null);
+        }
+        // Whether they are still on an administrator-issued password.
+        // Never fatal: a school must not be locked out of a working
+        // gradebook because one extra read failed, so an error here
+        // means "assume they are fine" rather than "block the app".
+        try {
+          const account = await source.getMyAccount();
+          setMustChangePassword(account.mustChangePassword === true);
+        } catch {
+          setMustChangePassword(false);
         }
       }
     } catch (e) {
@@ -233,6 +251,39 @@ export default function App() {
         </p>
         <button className="btn" onClick={() => void source.signOut()}>Sign out</button>
       </div></div>
+    );
+  }
+
+  /**
+   * The temporary-password gate.
+   *
+   * An administrator issued this password and therefore knows it, so
+   * until the person replaces it there is no meaningful distinction
+   * between them and their administrator — every grade they submit
+   * would be attributable to two people. That is a chain-of-custody
+   * problem, not a nagging preference, which is why this blocks rather
+   * than showing a banner.
+   *
+   * Sign out stays reachable: somebody who realises they are on the
+   * wrong account must not be trapped here.
+   */
+  if (mustChangePassword) {
+    return (
+      <div className="app-state">
+        <div className="app-state-card" style={{ maxWidth: 620 }}>
+          <h2>Choose your own password</h2>
+          <p>
+            You signed in with a temporary password that an administrator set
+            for you. Choose one only you know before you go any further.
+          </p>
+          <PasswordForm
+            mustChange
+            changePassword={source.changeMyPassword}
+            onChanged={() => setMustChangePassword(false)}
+          />
+          <button className="btn" onClick={() => void source.signOut()}>Sign out</button>
+        </div>
+      </div>
     );
   }
 
@@ -502,6 +553,27 @@ export default function App() {
           );
         }
         return <Sf10Screen studentId={route.studentId} onBack={() => go('records')} />;
+
+      case 'users':
+        return (
+          <Users
+            load={source.getStaffDirectory}
+            createAccount={source.createAccount}
+            resetPassword={source.resetPassword}
+            setUserRoles={source.setUserRoles}
+            setUserStatus={source.setUserStatus}
+          />
+        );
+
+      case 'account':
+        return (
+          <MyAccount
+            load={source.getMyAccount}
+            save={source.updateMyProfile}
+            changePassword={source.changeMyPassword}
+            onPasswordChanged={() => setMustChangePassword(false)}
+          />
+        );
 
       case 'profile':
         return <StudentProfileScreen load={source.getMyProfile} />;

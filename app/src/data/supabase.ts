@@ -15,7 +15,8 @@ import type {
   AssessmentDraft, DataSource, ImportRecord, ImportResult, ScoreEdit, SessionContext,
 } from './source';
 import type {
-  AdvisorySection, ClassDraft, ConsolidatedGrades, SectionDraft, SectionSetupOptions,
+  AdvisorySection, ClassDraft, ConsolidatedGrades, MyAccount, NewAccount,
+  SectionDraft, SectionSetupOptions, StaffDirectory,
 } from './types';
 import type { ImportResolution } from '../lib/import/plan';
 import type {
@@ -459,6 +460,93 @@ export function createSupabaseSource(): DataSource {
       });
       if (error) throw new Error(error.message);
       return data as string;
+    },
+
+    /* ---- accounts --------------------------------------------------- */
+
+    async getStaffDirectory() {
+      const { data, error } = await requireSupabase().rpc('staff_directory');
+      if (error) throw new Error(error.message);
+      return data as StaffDirectory;
+    },
+
+    /**
+     * Through the Edge Function, not an RPC: creating an account means
+     * creating an AUTH IDENTITY with the tenant in app_metadata, and
+     * only service_role may do that. A client holding the anon key must
+     * never be able to mint accounts.
+     */
+    async createAccount(draft: NewAccount) {
+      const { data, error } = await requireSupabase().functions.invoke(
+        'manage-users',
+        { body: { action: 'create', ...draft } },
+      );
+      if (error) {
+        const detail = await readFunctionError(error);
+        throw new Error(detail ?? 'Creating the account failed. Please try again.');
+      }
+      const result = data as { ok?: boolean; userId?: string; error?: string; warning?: string } | null;
+      if (!result?.ok || !result.userId) {
+        throw new Error(result?.error ?? 'Creating the account failed.');
+      }
+      return { userId: result.userId, warning: result.warning };
+    },
+
+    async resetPassword(userId, password) {
+      const { data, error } = await requireSupabase().functions.invoke(
+        'manage-users',
+        { body: { action: 'reset_password', userId, password } },
+      );
+      if (error) {
+        const detail = await readFunctionError(error);
+        throw new Error(detail ?? 'Resetting the password failed. Please try again.');
+      }
+      const result = data as { ok?: boolean; error?: string } | null;
+      if (!result?.ok) throw new Error(result?.error ?? 'Resetting the password failed.');
+    },
+
+    async setUserRoles(userId, roleCodes) {
+      const { error } = await requireSupabase()
+        .rpc('set_user_roles', { p_user_id: userId, p_role_codes: roleCodes });
+      if (error) throw new Error(error.message);
+    },
+
+    async setUserStatus(userId, status) {
+      const { error } = await requireSupabase()
+        .rpc('set_user_status', { p_user_id: userId, p_status: status });
+      if (error) throw new Error(error.message);
+    },
+
+    async getMyAccount() {
+      const { data, error } = await requireSupabase().rpc('my_account');
+      if (error) fail('Loading your account', error);
+      return data as MyAccount;
+    },
+
+    async updateMyProfile(edit) {
+      const { error } = await requireSupabase().rpc('update_my_profile', {
+        p_first_name: edit.firstName,
+        p_last_name: edit.lastName,
+        p_middle_name: edit.middleName ?? null,
+        p_suffix: edit.suffix ?? null,
+        p_position: edit.position ?? null,
+        p_qualifications: edit.qualifications ?? null,
+      });
+      if (error) throw new Error(error.message);
+    },
+
+    /**
+     * Auth first, THEN the flag. If the order were reversed, a rejected
+     * password (too short, say) would still clear must_change_password
+     * and the person would keep the temporary one their administrator
+     * knows — silently, with the app reporting success.
+     */
+    async changeMyPassword(password) {
+      const sb = requireSupabase();
+      const { error: authError } = await sb.auth.updateUser({ password });
+      if (authError) throw new Error(authError.message);
+      const { error } = await sb.rpc('clear_must_change_password');
+      if (error) throw new Error(error.message);
     },
 
     /* ---- the Import Center ---------------------------------------- */
