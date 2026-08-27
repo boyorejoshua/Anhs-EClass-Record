@@ -22,6 +22,7 @@ import { ClassesAndSections } from './screens/ClassesAndSections';
 import { GlobalAnalytics, GlobalLoaReports } from './screens/GlobalReports';
 import { ConsolidatedGrades } from './screens/ConsolidatedGrades';
 import { Users } from './screens/Users';
+import { SchoolSetup } from './screens/SchoolSetup';
 import { MyAccount, PasswordForm } from './screens/MyAccount';
 import { StudentRecordScreen } from './screens/StudentRecordScreen';
 import { StudentGrades, StudentProfileScreen, StudentHistory } from './screens/StudentPortal';
@@ -107,6 +108,25 @@ export default function App() {
     }
   }, [source]);
 
+  /**
+   * Re-read the session WITHOUT the boot flag.
+   *
+   * `loadSession` sets `booting`, which swaps the whole shell for the
+   * "Loading" card — right on first paint, wrong after a save: the
+   * screen that triggered it unmounts, taking its "Saved." confirmation
+   * with it, and the person is told nothing happened. This is for the
+   * cases where something the shell displays (the school name in the
+   * sidebar, on every form) changed underneath it.
+   */
+  const refreshSession = useCallback(async () => {
+    try {
+      setSession(await source.getSession());
+    } catch {
+      // A failed refresh must not tear down a working session — the
+      // save already succeeded, and the stale name is cosmetic.
+    }
+  }, [source]);
+
   useEffect(() => { void loadSession(); }, [loadSession]);
   useEffect(() => source.onAuthChange(() => { void loadSession(); }), [source, loadSession]);
 
@@ -139,6 +159,21 @@ export default function App() {
     })),
     [session],
   );
+
+  /**
+   * The school as it prints on a form.
+   *
+   * Derived here rather than reached for inside the route switch, where
+   * TypeScript cannot see the `if (!session)` guard — the same reason
+   * `allYears` is built up here.
+   */
+  const schoolInfo = useMemo(() => ({
+    name: session?.school.name ?? '',
+    govtSchoolId: session?.school.govtSchoolId ?? null,
+    region: session?.school.region ?? null,
+    division: session?.school.division ?? null,
+    district: session?.school.district ?? null,
+  }), [session]);
 
   const activePeriod = useMemo(() => {
     if (!year) return null;
@@ -444,6 +479,8 @@ export default function App() {
             onWorkflowChange={bumpRevision}
             loadLoaCohort={source.getLoaCohort}
             loadGradebook={source.getGradebook}
+            school={schoolInfo}
+            teacherName={session?.user.name ?? ''}
             // Teaching roles only. add_learner_to_my_class checks
             // app.teaches_class itself and refuses anyone else, so this
             // only spares a registrar a panel they would be refused —
@@ -575,6 +612,18 @@ export default function App() {
           );
         }
         return <Sf10Screen studentId={route.studentId} onBack={() => go('records')} />;
+
+      case 'setup':
+        return (
+          <SchoolSetup
+            load={source.getSchoolProfile}
+            save={source.updateSchoolProfile}
+            // The school name is in the sidebar and on every form, so a
+            // change to it has to reach the whole shell, not just this
+            // screen. Silently — see refreshSession.
+            onSaved={() => { void refreshSession(); }}
+          />
+        );
 
       case 'users':
         return (

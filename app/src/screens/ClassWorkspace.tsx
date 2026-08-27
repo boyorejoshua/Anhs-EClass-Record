@@ -17,6 +17,7 @@ import { ClassSubmission } from './ClassSubmission';
 import { ClassAttendance } from './ClassAttendance';
 import { ClassStudents } from './ClassStudents';
 import { ClassRoster } from './ClassRoster';
+import { SchoolInformation } from './SchoolSetup';
 import { CLASS_TABS, type ClassTab } from '../nav';
 import { displayStatus, isEditable, missingCount, pct } from '../lib/status';
 import { downloadCsv, gradebookCsv, slug, summaryCsv } from '../lib/export';
@@ -51,6 +52,12 @@ interface Props {
   ) => Promise<CohortSection[]>;
   /** Another period's gradebook, for Student Detail's year strip. */
   loadGradebook: (classId: string, periodId: string) => Promise<GradebookData>;
+  /** Printed at the head of this class's forms. Read-only here. */
+  school: {
+    name: string; govtSchoolId: string | null;
+    region: string | null; division: string | null; district: string | null;
+  };
+  teacherName: string;
   /* The roster editor. Absent for a role that may only read the list. */
   roster?: {
     load: (classId: string) => Promise<MyClassRoster>;
@@ -102,7 +109,7 @@ export function ClassWorkspace(props: Props) {
   const {
     cls, year, periodId, tab, onTabChange, onPeriodChange, gradebook, retryGradebook,
     recorded, onSaveScores, onBack, validateSubmission, submitGrades, recallSubmission,
-    loadStudents, loadLoaCohort, loadGradebook, roster,
+    loadStudents, loadLoaCohort, loadGradebook, roster, school, teacherName,
     loadAttendance, saveAttendance, onWorkflowChange, saveAssessments,
   } = props;
 
@@ -255,6 +262,15 @@ export function ClassWorkspace(props: Props) {
           <Async state={gradebook} retry={retryGradebook} rows={6}>
             {(g) => (
               <>
+                {/*
+                  The legacy Setup screen opened with a School
+                  Information block a teacher typed into — which is how
+                  one school ended up with three spellings of its own
+                  name across three teachers' files. Same block, shown
+                  rather than typed, and it says where each part is
+                  actually edited.
+                */}
+                <SchoolInformation school={school} teacherName={teacherName} />
                 <RecordBookSetup
                   cls={cls} period={period} yearLabel={year.label} data={g} status={status}
                   save={(items) => saveAssessments(cls.id, periodId, items)}

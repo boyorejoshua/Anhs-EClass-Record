@@ -510,6 +510,49 @@ export interface LearnerToAdd {
   confirmNewPerson?: boolean;
 }
 
+/**
+ * The school's own printable details.
+ *
+ * These head every SF form the school files, which is why they stopped
+ * being an onboarding-only concern: a typo in the division name is a
+ * typo on filed documents.
+ *
+ * `code` and `status` are returned but NOT editable. `code` is the
+ * tenant slug — the subdomain, and part of how the tenant is resolved —
+ * so a school renaming it would lock its own users out mid-session.
+ * `status` is Mendtrix's lever; a suspended school must not be able to
+ * un-suspend itself.
+ */
+export interface SchoolProfile {
+  id: string;
+  /** Read-only: the tenant slug. */
+  code: string;
+  name: string;
+  govtSchoolId: string | null;
+  schoolType: string | null;
+  region: string | null;
+  division: string | null;
+  district: string | null;
+  address: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  /** Read-only. */
+  status: string;
+  permissions: { canWrite: boolean };
+}
+
+/** The editable half of SchoolProfile. Deliberately omits code and status. */
+export interface SchoolProfileEdit {
+  name: string;
+  govtSchoolId?: string | null;
+  region?: string | null;
+  division?: string | null;
+  district?: string | null;
+  address?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+}
+
 /* ==================================================================== *
  * ACCOUNTS
  *
