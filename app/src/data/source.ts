@@ -18,6 +18,7 @@ import type {
   MyAccount, MyClassDraft,
   MyClassRoster, MyClassSetupOptions, NewAccount,
   PersistedGrade, ProfileEdit, SectionDraft,
+  SchoolProfile, SchoolProfileEdit,
   SectionSetupOptions, StaffDirectory, StudentDraft,
   StudentGradeRow, StudentHistoryRow, StudentProfile, StudentRecord,
   SubmissionRow, ValidationReport,
@@ -302,6 +303,14 @@ export interface DataSource {
    * Everything else here is a plain RPC — the database can authorize
    * roles, status and self-edits by itself.
    * ------------------------------------------------------------------ */
+  /* ---- the school's own details ------------------------------------ *
+   * `school.config.read` / `school.config.write` were seeded in
+   * migration 0002 and called by nothing for the whole build. These
+   * are the screen they existed for.
+   * ------------------------------------------------------------------ */
+  getSchoolProfile(): Promise<SchoolProfile>;
+  updateSchoolProfile(edit: SchoolProfileEdit): Promise<void>;
+
   getStaffDirectory(): Promise<StaffDirectory>;
   createAccount(draft: NewAccount): Promise<{ userId: string; warning?: string }>;
   /** Issues a temporary password and re-arms the must-change flag. */

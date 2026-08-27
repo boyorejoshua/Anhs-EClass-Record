@@ -584,7 +584,18 @@ export function createFixtureSource(): DataSource {
   const src: DataSource = {
     kind: 'fixtures',
 
-    async getSession() { return FIXTURE_SESSION; },
+    /**
+     * A FRESH object each call, like any real remote source.
+     *
+     * It used to return the shared FIXTURE_SESSION reference. Anything
+     * that re-read the session to pick up a change — the school name
+     * after School Setup saves it — got back an object React considered
+     * identical, bailed out of the render, and showed the old value
+     * with no error. Against Supabase this never happened, because a
+     * network read cannot return the same object twice; so the bug
+     * existed only in the fixture, which is exactly the kind that ships.
+     */
+    async getSession() { return structuredClone(FIXTURE_SESSION); },
     async signIn() { /* no auth against fixtures */ },
     async signOut() { /* no-op */ },
     onAuthChange() { return () => {}; },
@@ -999,6 +1010,37 @@ export function createFixtureSource(): DataSource {
     },
 
     /* ---- accounts ------------------------------------------------- */
+
+    async getSchoolProfile() {
+      return {
+        id: CURRENT_USER.schoolId,
+        code: CURRENT_USER.schoolCode.toLowerCase(),
+        name: FIXTURE_SESSION.school.name,
+        govtSchoolId: FIXTURE_SESSION.school.govtSchoolId,
+        schoolType: 'public',
+        region: FIXTURE_SESSION.school.region,
+        division: FIXTURE_SESSION.school.division,
+        district: FIXTURE_SESSION.school.district,
+        address: 'Manila East Road, Angono, Rizal',
+        contactEmail: 'office@anhs.deped.gov.ph',
+        contactPhone: '(02) 8651-1234',
+        status: 'active',
+        permissions: { canWrite: true },
+      };
+    },
+
+    async updateSchoolProfile(edit) {
+      if (!edit.name.trim()) throw new Error('the school needs a name');
+      // Mutating FIXTURE_SESSION rather than a copy, so the change is
+      // visible everywhere the school is printed — the header, the
+      // class Setup panel, and the SF forms — exactly as it would be
+      // against the real database, where all of them read one row.
+      FIXTURE_SESSION.school.name = edit.name.trim();
+      FIXTURE_SESSION.school.govtSchoolId = edit.govtSchoolId?.trim() || null;
+      FIXTURE_SESSION.school.region = edit.region?.trim() || null;
+      FIXTURE_SESSION.school.division = edit.division?.trim() || null;
+      FIXTURE_SESSION.school.district = edit.district?.trim() || null;
+    },
 
     async getStaffDirectory() {
       return {

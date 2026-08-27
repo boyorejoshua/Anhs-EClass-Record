@@ -18,6 +18,7 @@ import type {
   AdvisorySection, ClassDraft, ConsolidatedGrades, LearnerNameFix, LearnerToAdd,
   MyAccount, MyClassDraft,
   MyClassRoster, MyClassSetupOptions, NewAccount,
+  SchoolProfile, SchoolProfileEdit,
   SectionDraft, SectionSetupOptions, StaffDirectory,
 } from './types';
 import type { ImportResolution } from '../lib/import/plan';
@@ -526,6 +527,26 @@ export function createSupabaseSource(): DataSource {
     },
 
     /* ---- accounts --------------------------------------------------- */
+
+    async getSchoolProfile() {
+      const { data, error } = await requireSupabase().rpc('school_profile');
+      if (error) throw new Error(error.message);
+      return data as SchoolProfile;
+    },
+
+    async updateSchoolProfile(edit: SchoolProfileEdit) {
+      const { error } = await requireSupabase().rpc('update_school_profile', {
+        p_name: edit.name,
+        p_govt_school_id: edit.govtSchoolId ?? null,
+        p_region: edit.region ?? null,
+        p_division: edit.division ?? null,
+        p_district: edit.district ?? null,
+        p_address: edit.address ?? null,
+        p_contact_email: edit.contactEmail ?? null,
+        p_contact_phone: edit.contactPhone ?? null,
+      });
+      if (error) throw new Error(error.message);
+    },
 
     async getStaffDirectory() {
       const { data, error } = await requireSupabase().rpc('staff_directory');

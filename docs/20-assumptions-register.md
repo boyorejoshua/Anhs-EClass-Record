@@ -593,3 +593,62 @@ test.** Demo mode signs in from fixtures and never renders the sign-in
 screen, so there is no way to drive it from the e2e suite; the check
 skips itself honestly rather than passing vacuously. It is covered by
 typecheck and build only. **Worth one manual look on the deployed site.**
+
+---
+
+## Closed: School Setup, and the School Information block a teacher can no longer mistype (27 Aug 2026)
+
+`nav.ts` carried `setup` as `planned` for the whole build, with the note
+"School profile and settings are currently configured during
+onboarding". That was true, and it stopped being good enough the moment
+these fields started **printing**: school name, government school ID,
+region and division head every SF form the school files, so a typo set
+at onboarding was a support ticket rather than an edit.
+
+`school.config.read` and `school.config.write` have sat in the
+permission catalogue since migration 0002 and were called by nothing.
+Migration 0035 (`rds.school_profile`, `update_school_profile`) is the
+screen they were seeded for.
+
+**What the school cannot change about itself.** `code` — the tenant
+slug, which is the subdomain and part of how the tenant resolves; a
+school renaming it would sign its own users out mid-session. And
+`status`, which is Mendtrix's lever: a suspended school must not be able
+to un-suspend itself. Neither is a parameter, so this is not a rule the
+function enforces but a change it cannot express. Both are still
+**shown**, labelled as fixed — somebody hunting for "change our
+subdomain" needs telling it is not theirs, not left concluding the field
+is missing.
+
+**Region and division stay free text.** DepEd's own spellings vary
+between issuances ("IV-A CALABARZON" / "Region IV-A"), schools copy
+whatever their division office uses, and a dropdown built from our guess
+would be wrong for somebody. Instead the screen shows a live preview of
+the printed heading — the check that actually matters.
+
+**The legacy trap, closed.** The old Setup screen let a teacher type
+School Name / School ID / Region / Division into their own record book.
+That is how one school ends up with three spellings of its own name
+across three teachers' files. The same block now appears on the class
+Setup tab **read-only**, showing exactly what will print and naming
+where each part is edited (School Setup for the school, My Account for
+the teacher's own name). `e2e/school-setup.mjs` check 6d asserts none of
+it is typeable there.
+
+⚠️ **Two client bugs found while building this, both invisible against
+the real database:**
+
+1. **Saving flipped the whole app into its loading state.** `onSaved`
+   called `loadSession()`, which sets `booting` — swapping the shell for
+   the "Loading" card, unmounting the form that triggered it, and taking
+   its "Saved." confirmation with it. The person was told nothing had
+   happened. Added `refreshSession`, which re-reads without the boot
+   flag.
+2. **A fifth lying fixture.** `getSession()` returned the shared
+   `FIXTURE_SESSION` object reference every call, so anything re-reading
+   the session to pick up a change got back an object React considered
+   identical, bailed out of the render, and displayed the old value with
+   no error. Against Supabase this could never happen — a network read
+   cannot return the same object twice — so the bug lived only in the
+   fixture, which is precisely the kind that ships. It now returns a
+   fresh clone, like any real source.

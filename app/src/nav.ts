@@ -145,10 +145,7 @@ export const NAV: Record<Role, NavItem[]> = {
   school_admin: [
     { key: 'dashboard', label: 'Dashboard', glyph: '▤', readiness: 'ready' },
     { key: 'import',    label: 'Import',    glyph: '⇥', readiness: 'ready' },
-    {
-      key: 'setup', label: 'School Setup', glyph: '⚙', readiness: 'planned',
-      note: 'School profile and settings are currently configured during onboarding.',
-    },
+    { key: 'setup', label: 'School Setup', glyph: '⚙', readiness: 'ready' },
     {
       key: 'years', label: 'Academic Years', glyph: '◷', readiness: 'planned',
       note:
