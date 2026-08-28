@@ -148,9 +148,13 @@ export interface DataSource {
    * administrator. `canWrite` comes back on the payload so the screen
    * can hide a form that would only be refused.
    * -------------------------------------------------------------------- */
-  getSubjectCatalogue(): Promise<SubjectCatalogue>;
-  createSubject(draft: SubjectDraft): Promise<string>;
+  getSubjectCatalogue(academicYearId: string): Promise<SubjectCatalogue>;
+  createSubject(academicYearId: string, draft: SubjectDraft): Promise<string>;
   setSubjectActive(subjectId: string, isActive: boolean): Promise<void>;
+  /** The whole set for that year, not a delta — see set_subject_grade_levels. */
+  setSubjectGradeLevels(
+    subjectId: string, academicYearId: string, gradeLevelIds: string[],
+  ): Promise<void>;
 
   /** Grade levels with an enrolled count — what the directory shows before any learner. */
   getGradeLevelCensus(academicYearId: string): Promise<GradeLevelCensus[]>;

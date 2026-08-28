@@ -113,7 +113,15 @@ check('5b. and states you do not become its adviser',
 
 await page.getByLabel('Grade level *').selectOption({ label: 'Grade 7' });
 await page.getByLabel('Section name *').fill('Sampaguita');
-await page.getByLabel('Subject *').selectOption({ label: 'Science 10' });
+// The subject list narrows to the grade chosen above (0040). Science 10
+// used to be selectable here, for a Grade 7 section.
+const g7Menu = await page.getByLabel('Subject *').innerText();
+check('5b2. the subject list follows the grade level chosen',
+  /Araling Panlipunan 7/.test(g7Menu) && !/Science 10|Mathematics 10/.test(g7Menu),
+  g7Menu.replace(/\n/g, ' | '));
+check('5b3. and an unmapped subject stays offered at every grade',
+  /Filipino/.test(g7Menu));
+await page.getByLabel('Subject *').selectOption({ label: 'Araling Panlipunan 7' });
 await page.getByRole('button', { name: /^Add class$/ }).click();
 await page.waitForTimeout(900);
 check('5c. the class in the brand-new section was created',
@@ -134,7 +142,7 @@ await page.getByLabel('Section *').selectOption('__new');
 await page.waitForTimeout(200);
 await page.getByLabel('Grade level *').selectOption({ label: 'Grade 7' });
 await page.getByLabel('Section name *').fill('SAMPAGUITA');
-await page.getByLabel('Subject *').selectOption({ label: 'Mathematics 9' });
+await page.getByLabel('Subject *').selectOption({ label: 'Filipino' });
 await page.getByRole('button', { name: /^Add class$/ }).click();
 await page.waitForTimeout(900);
 

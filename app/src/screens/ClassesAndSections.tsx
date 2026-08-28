@@ -14,9 +14,11 @@ interface Props {
   /* The subject list, mounted here as well as on School Setup — this is
      where a registrar discovers a subject is missing, mid-way through
      creating the class that needs it. */
-  loadSubjects: () => Promise<SubjectCatalogue>;
-  addSubject: (draft: SubjectDraft) => Promise<string>;
+  loadSubjects: (yearId: string) => Promise<SubjectCatalogue>;
+  addSubject: (yearId: string, draft: SubjectDraft) => Promise<string>;
   setSubjectActive: (subjectId: string, isActive: boolean) => Promise<void>;
+  setSubjectGradeLevels: (
+    subjectId: string, yearId: string, gradeLevelIds: string[]) => Promise<void>;
 }
 
 /**
@@ -38,7 +40,7 @@ interface Props {
  */
 export function ClassesAndSections({
   yearId, yearLabel, load, createSection, createClass,
-  loadSubjects, addSubject, setSubjectActive,
+  loadSubjects, addSubject, setSubjectActive, setSubjectGradeLevels,
 }: Props) {
   const [state, retry] = useAsync(() => load(yearId), [yearId]);
   const [addingSection, setAddingSection] = useState(false);
@@ -198,7 +200,13 @@ export function ClassesAndSections({
         subject list is readable by more people than that — hiding it
         behind a refusal about something else would be its own small lie.
       */}
-      <Subjects load={loadSubjects} add={addSubject} setActive={setSubjectActive} />
+      <Subjects
+        yearId={yearId}
+        load={loadSubjects} add={addSubject} setActive={setSubjectActive}
+        setGradeLevels={setSubjectGradeLevels}
+        // The class picker above holds its own copy of the subject list.
+        onChanged={retry}
+      />
     </div>
   );
 }
@@ -299,7 +307,20 @@ function AddClass({ section, options, onCancel, onCreate }: {
   onCancel: () => void;
   onCreate: (draft: Omit<ClassDraft, 'academicYearId' | 'sectionId'>) => Promise<void>;
 }) {
-  const available = options.subjects.filter((s) =>
+  /*
+    Two filters, and the second one is new. "Not already in this
+    section" was the only test, so a Grade 7 section was offered
+    Mathematics 10 and every other grade's subjects alongside its own —
+    a dropdown that grows with the school and gets harder to use the
+    more grades it serves.
+
+    A subject with NO grades mapped is offered everywhere. That is the
+    reading that keeps a school working before it has entered a
+    curriculum, and it is what the server does with an empty row set.
+  */
+  const forThisGrade = options.subjects.filter(
+    (s) => s.gradeLevelIds.length === 0 || s.gradeLevelIds.includes(section.gradeLevelId));
+  const available = forThisGrade.filter((s) =>
     !options.classes.some((c) => c.sectionId === section.id && c.subjectId === s.id));
   const [subjectId, setSubjectId] = useState(available[0]?.id ?? '');
   const [teacherUserId, setTeacherUserId] = useState('');
@@ -338,8 +359,14 @@ function AddClass({ section, options, onCancel, onCreate }: {
         )}
         {available.length === 0 ? (
           <div className="panel-body">
-            <EmptyState title="Every subject already has a class here">
-              This section already has a class for each subject this school offers.
+            <EmptyState title={forThisGrade.length === 0
+              ? 'No subject is set up for this grade'
+              : 'Every subject already has a class here'}>
+              {forThisGrade.length === 0
+                ? `Nothing in the subject list is taught at ${section.gradeLevel}. `
+                  + 'Set the grades a subject is taught at on the Subjects list below.'
+                : `This section already has a class for each subject offered at `
+                  + `${section.gradeLevel}.`}
             </EmptyState>
           </div>
         ) : (

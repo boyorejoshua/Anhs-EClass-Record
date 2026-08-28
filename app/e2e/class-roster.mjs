@@ -49,7 +49,8 @@ await page.getByLabel('Section *').selectOption('__new');
 await page.waitForTimeout(200);
 await page.getByLabel('Grade level *').selectOption({ label: 'Grade 7' });
 await page.getByLabel('Section name *').fill('Rosal');
-await page.getByLabel('Subject *').selectOption({ label: 'English 10' });
+// Rosal is Grade 7, so the picker offers Grade 7 subjects only (0040).
+await page.getByLabel('Subject *').selectOption({ label: 'Araling Panlipunan 7' });
 await page.getByRole('button', { name: /^Add class$/ }).click();
 await page.waitForTimeout(1000);
 
@@ -153,10 +154,12 @@ await page.getByLabel('Section *').selectOption('__new');
 await page.waitForTimeout(200);
 await page.getByLabel('Grade level *').selectOption({ label: 'Grade 7' });
 await page.getByLabel('Section name *').fill('Rosal');
-await page.getByLabel('Subject *').selectOption({ label: 'Science 10' });
+// Filipino is unmapped in the curriculum, so it is offered at every
+// grade — including this Grade 7 section.
+await page.getByLabel('Subject *').selectOption({ label: 'Filipino' });
 await page.getByRole('button', { name: /^Add class$/ }).click();
 await page.waitForTimeout(1000);
-await page.locator('.class-card', { hasText: 'Science 10' }).first()
+await page.locator('.class-card', { hasText: 'Filipino' }).first()
   .getByRole('button', { name: 'Open class' }).click();
 await page.waitForTimeout(600);
 await openStudentsTab();

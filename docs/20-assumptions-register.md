@@ -1118,3 +1118,83 @@ Teachers remain refused, from reading as well as writing. A teacher
 typing "Math 10" beside the school's "Mathematics 10" is the duplicate
 the case-insensitive guard cannot resolve; it can only refuse the second
 one, which helps nobody standing in front of a class.
+
+---
+
+## A24 — A subject belongs to grades, and the map was already in the schema
+
+**Status:** ✅ BUILT — migration 0040, `Subjects` panel, both class pickers
+
+The school asked the question that exposed it:
+
+> "Where can we enter the subject? since we have grade7 to 12 and it has
+> different subject so where can we enter a subject for different grade"
+
+There was no answer. `subjects` is a flat school-wide list, and every
+picker in the product offered all of it: a Grade 7 section was shown
+Mathematics 10, and a Senior High section would be shown both. The
+dropdown gets worse the more grades a school serves, which is the exact
+opposite of what growing into SHS should feel like.
+
+### The table already existed
+
+`grade_level_subjects (school_id, academic_year_id, grade_level_id,
+subject_id)` has been in the schema since **migration 0003**, with RLS,
+grants and a composite key — and was read by nothing. The first draft of
+0040 added a `subjects.grade_level_id` column before that turned up,
+which would have been a worse duplicate of it: one column can say
+"Mathematics is Grade 10", the existing table can say "Mathematics is
+Grades 7, 8, 9 and 10 this year and Grades 8–10 next year".
+
+**Third structure in this build that was seeded and never read** — after
+the `school.config.*` permissions (Phase 5) and `classes.create.own`
+below. Worth a habit: before adding a column, grep the schema for the
+concept.
+
+### An empty map means EVERY grade
+
+Not "no grade". A school that has not entered a curriculum keeps working
+exactly as it did, and every screen renders the state as *"Every grade"*
+rather than as missing data. Both readings are defensible; only one of
+them leaves an existing school able to create a class.
+
+### Where it is entered
+
+- **Add subject** carries a "Taught at" row of grade checkboxes, with
+  "leave every box unticked and it is offered at all grades" said in the
+  form rather than assumed.
+- **The subject list** gains a *Taught at* column and a **Grades** button
+  per row, opening an inline editor. It writes the WHOLE SET, not a
+  delta — a delta would need the server to guess what unticking meant.
+- Both are mounted for the registrar (Classes & Sections) and the
+  administrator (School Setup), as `subjects.write` is held by both.
+
+### What it narrows
+
+`section_setup_options` and `my_class_setup_options` both now carry
+`gradeLevelIds`, and both Add-class forms filter on it. The teacher's
+form additionally CLEARS a chosen subject when the section changes under
+it — otherwise a Grade 10 subject could be submitted against a Grade 7
+section simply because the dropdown had stopped showing it.
+
+### ⚠️ The seed-ordering trap, a second time
+
+Verifying this found that **`classes.create.own` (0032) was granted to
+`teacher` and `adviser` by a migration that runs before seed.sql creates
+those roles** — so on a *fresh* database no teacher could add the class
+they teach. Production is unaffected (the roles pre-date the migration),
+but every new environment was quietly wrong.
+
+That is the rule from A23 firing for real, one migration after it was
+written down. Both roles now carry the permission in the seed whitelist.
+
+### Still open
+
+- Subject **categories** remain seed-only. Adding one means adding a
+  grading scheme, which is a bigger decision than adding a subject.
+- Senior High needs more than grades: semesters, tracks and strands, and
+  Core/Applied/Specialised weights (A17). The curriculum map is the
+  foundation for that, not the whole of it.
+- The school has not yet given us their subject list per grade. Until
+  they do, the map is a control with nothing entered into it — worth
+  asking for alongside the year's sections.

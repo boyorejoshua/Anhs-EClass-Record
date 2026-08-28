@@ -305,8 +305,48 @@ const FIXTURE_SUBJECTS: FixtureSubject[] = [
   { id: 'sub-mapeh10', code: 'MAPEH10', title: 'MAPEH 10',     categoryId: 'cat-mapeh', units: 1, isActive: true },
   { id: 'sub-eng10',  code: 'ENG10',  title: 'English 10',     categoryId: 'cat-core',  units: 1, isActive: true },
   { id: 'sub-sci10',  code: 'SCI10',  title: 'Science 10',     categoryId: 'cat-core',  units: 1, isActive: true },
+  // Two subjects that are NOT Grade 10, because a demo where every
+  // subject belongs to one grade cannot show what the curriculum map is
+  // for. Filipino is deliberately left unmapped below — it is the
+  // "offered at every grade" state, which the screens have to render as
+  // a state rather than as missing data.
+  { id: 'sub-ap7',    code: 'AP7',    title: 'Araling Panlipunan 7', categoryId: 'cat-core', units: 1, isActive: true },
+  { id: 'sub-fil',    code: 'FIL',    title: 'Filipino',       categoryId: 'cat-core',  units: 1, isActive: true },
 ];
 const INITIAL_SUBJECT_COUNT = FIXTURE_SUBJECTS.length;
+
+/**
+ * The curriculum map — which subjects are taught at which grade.
+ *
+ * Mirrors `grade_level_subjects`, keyed by subject. The seeded subjects
+ * all carry their grade in the name (MATH10, SCI10), so they map to
+ * Grade 10; anything unmapped is offered at every grade, exactly as the
+ * server reads an empty set.
+ */
+const CURRICULUM = new Map<string, string[]>([
+  ['sub-math10', ['gl-10']],
+  ['sub-math9', ['gl-9']],
+  ['sub-mapeh10', ['gl-10']],
+  ['sub-eng10', ['gl-10']],
+  ['sub-sci10', ['gl-10']],
+  ['sub-ap7', ['gl-7']],
+  // 'sub-fil' is absent on purpose — unmapped means every grade.
+]);
+const INITIAL_CURRICULUM = new Map(
+  [...CURRICULUM].map(([k, v]) => [k, [...v]] as const));
+
+/** Distinct, and in grade order — the server returns the map sorted. */
+const dedupeLevels = (ids: string[]) =>
+  GRADE_LEVELS.filter((g) => ids.includes(g.id)).map((g) => g.id);
+
+/** The shape both class-setup forms read: what grades offer this subject. */
+const offeredSubjects = () => FIXTURE_SUBJECTS
+  .filter((x) => x.isActive)
+  .map((x) => ({
+    id: x.id, code: x.code, title: x.title,
+    gradeLevelIds: [...(CURRICULUM.get(x.id) ?? [])],
+  }))
+  .sort((a, b) => a.title.localeCompare(b.title));
 
 /* ==================================================================== *
  * THE STAFF STORE
@@ -698,6 +738,8 @@ const INITIAL_STATUS: Array<Record<string, SubmissionStatus>> =
 function resetFixtureState(): void {
   CLASSES.forEach((c, i) => { c.status = { ...INITIAL_STATUS[i]! }; });
   FIXTURE_SUBJECTS.length = INITIAL_SUBJECT_COUNT;
+  CURRICULUM.clear();
+  for (const [k, v] of INITIAL_CURRICULUM) CURRICULUM.set(k, [...v]);
   FIXTURE_SUBJECTS.forEach((x) => { x.isActive = true; });
   STUDENTS.length = INITIAL_STUDENT_COUNT;
   ENROLMENTS.length = INITIAL_ENROLMENT_COUNT;
@@ -834,19 +876,30 @@ export function createFixtureSource(): DataSource {
             .map((x) => `${x.code} ${Math.round(x.weight)}%`)
             .join(' · '),
         })),
-        subjects: FIXTURE_SUBJECTS.map((x) => ({
-          id: x.id, code: x.code, title: x.title,
-          categoryId: x.categoryId,
-          category: FIXTURE_CATEGORIES.find((c) => c.id === x.categoryId)?.name ?? '',
-          units: x.units,
-          isActive: x.isActive,
-          classCount: CLASSES.filter((c) => c.subjectCode === x.code).length,
-        })).sort((a, b) => a.title.localeCompare(b.title)),
+        gradeLevels: GRADE_LEVELS.map(
+          (g) => ({ id: g.id, name: g.name, ordinal: g.ordinal })),
+        subjects: FIXTURE_SUBJECTS.map((x) => {
+          const ids = CURRICULUM.get(x.id) ?? [];
+          return {
+            id: x.id, code: x.code, title: x.title,
+            categoryId: x.categoryId,
+            category: FIXTURE_CATEGORIES.find((c) => c.id === x.categoryId)?.name ?? '',
+            units: x.units,
+            isActive: x.isActive,
+            classCount: CLASSES.filter((c) => c.subjectCode === x.code).length,
+            gradeLevelIds: [...ids],
+            // Null, not "", when unmapped: the screen says "every grade"
+            // there, and an empty string would read as missing data.
+            gradeLevels: ids.length === 0 ? null
+              : GRADE_LEVELS.filter((g) => ids.includes(g.id))
+                  .map((g) => g.name).join(', '),
+          };
+        }).sort((a, b) => a.title.localeCompare(b.title)),
         permissions: { canWrite: true },
       };
     },
 
-    async createSubject(draft) {
+    async createSubject(_yearId, draft) {
       const code = draft.code.trim().toUpperCase();
       const title = draft.title.trim();
       if (!code) throw new Error('A subject needs a code.');
@@ -868,6 +921,8 @@ export function createFixtureSource(): DataSource {
         id, code, title, categoryId: draft.categoryId,
         units: draft.units ?? null, isActive: true,
       });
+      const levels = draft.gradeLevelIds ?? [];
+      if (levels.length) CURRICULUM.set(id, dedupeLevels(levels));
       return id;
     },
 
@@ -875,6 +930,21 @@ export function createFixtureSource(): DataSource {
       const found = FIXTURE_SUBJECTS.find((x) => x.id === subjectId);
       if (!found) throw new Error('No such subject in this school.');
       found.isActive = isActive;
+    },
+
+    // The whole set, not a delta: ticking Grade 7 and unticking Grade 9
+    // is one call carrying what the subject is taught at afterwards.
+    async setSubjectGradeLevels(subjectId, _yearId, gradeLevelIds) {
+      if (!FIXTURE_SUBJECTS.some((x) => x.id === subjectId)) {
+        throw new Error('No such subject in this school.');
+      }
+      const unknown = gradeLevelIds.find(
+        (id) => !GRADE_LEVELS.some((g) => g.id === id));
+      if (unknown) {
+        throw new Error('One of those grade levels does not belong to this school.');
+      }
+      if (gradeLevelIds.length === 0) CURRICULUM.delete(subjectId);
+      else CURRICULUM.set(subjectId, dedupeLevels(gradeLevelIds));
     },
 
     async getGradeLevelCensus(yearId) {
@@ -908,7 +978,7 @@ export function createFixtureSource(): DataSource {
       const sections = SECTIONS.filter((sec) => sec.academicYearId === yearId);
       return {
         gradeLevels: GRADE_LEVELS,
-        subjects: FIXTURE_SUBJECTS,
+        subjects: offeredSubjects(),
         teachers: teachingStaff(),
         sections: sections.map((sec) => ({
           id: sec.id, name: sec.name, gradeLevelId: sec.gradeLevelId,
@@ -996,7 +1066,7 @@ export function createFixtureSource(): DataSource {
     async getMyClassSetupOptions(yearId) {
       return {
         gradeLevels: GRADE_LEVELS.map((g) => ({ id: g.id, name: g.name, ordinal: g.ordinal })),
-        subjects: FIXTURE_SUBJECTS,
+        subjects: offeredSubjects(),
         sections: SECTIONS
           .filter((s) => s.academicYearId === yearId)
           .map((s) => ({
