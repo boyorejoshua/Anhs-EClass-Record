@@ -158,3 +158,41 @@ describe('role resolution', () => {
     expect(defaultRole(['janitor'])).toBeNull();
   });
 });
+
+/* ==================================================================== *
+ * THE ADMINISTRATOR IS A SUPERSET OF THE REGISTRAR
+ *
+ * The school's rule: "administrator is the main admin of the system"
+ * with "the same access as the registrar". The database always agreed —
+ * every registrar permission is granted to school_admin too, and has
+ * been since 0002. The MENU did not: Grade Submissions, Students and
+ * Academic Records were missing from an account fully entitled to use
+ * them, so the capability existed and could not be reached.
+ *
+ * Asserted structurally rather than by listing the expected keys, so
+ * this keeps holding as either menu grows.
+ * ==================================================================== */
+describe('the administrator menu', () => {
+  const keys = (role: Role) => NAV[role].map((i) => i.key);
+
+  it('reaches everything the registrar reaches', () => {
+    const missing = keys('registrar').filter((k) => !keys('school_admin').includes(k));
+    expect(missing, `hidden from the administrator: ${missing.join(', ')}`).toEqual([]);
+  });
+
+  it('adds the administration the registrar does not hold', () => {
+    const extra = keys('school_admin').filter((k) => !keys('registrar').includes(k));
+    expect(extra).toEqual(expect.arrayContaining(['setup', 'users']));
+  });
+
+  it('keeps My Account last, and lists it once', () => {
+    const k = keys('school_admin');
+    expect(k[k.length - 1]).toBe('account');
+    expect(k.filter((x) => x === 'account')).toHaveLength(1);
+  });
+
+  it('lists no route twice', () => {
+    const k = keys('school_admin');
+    expect(new Set(k).size, `duplicates in: ${k.join(', ')}`).toBe(k.length);
+  });
+});
