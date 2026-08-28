@@ -191,3 +191,63 @@ describe('the official grading data', () => {
     expect(OFFICIAL_DESCRIPTORS[4]?.generalDescription).toBe(at('H44'));
   });
 });
+
+/* ==================================================================== *
+ * A FIELD THE TEACHER LEFT BLANK
+ *
+ * From a real GMRC 9 workbook sent in by a teacher at the school. Its
+ * SUBJECT TEACHER cell was empty — the class details are filled by
+ * whoever sets the file up, and that one had not been.
+ *
+ * The parser returned `"13"`.
+ *
+ * The official INPUT DATA sheet puts the class details on the LEFT and
+ * the roster on the RIGHT of the same rows, so the scan for a value ran
+ * through five empty columns and landed on the roster ordinal of the
+ * thirteenth boy. Nothing stopped it: the "another label" guard tests
+ * for a trailing colon, and in this layout the colon lives in its own
+ * column, so no label ever ends in one.
+ *
+ * The fixture could not catch it because the fixture FILLS every field.
+ * A blank one is the ordinary case in the wild and the untested one here.
+ * ==================================================================== */
+describe('a blank class-detail field', () => {
+  /** The official fixture with one cell emptied, re-serialised. */
+  const withoutCell = (address: string) => {
+    const book = XLSX.read(readFileSync(FIXTURE), { cellFormula: false });
+    const sheet = book.Sheets['INPUT DATA']!;
+    delete sheet[address];
+    const bytes = XLSX.write(book, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer;
+    return parseThreeTermWorkbook(bytes, 'blank-field.xlsx');
+  };
+
+  it('keeps the merged value cells that make the fix structural', () => {
+    // The fix reads the merge when there is one, so if re-serialising
+    // dropped the merges the tests below would pass for the wrong
+    // reason. Assert the geometry survived the round trip.
+    const book = XLSX.read(readFileSync(FIXTURE), { cellFormula: false });
+    const out = XLSX.read(
+      XLSX.write(book, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer,
+      { type: 'array', cellFormula: false });
+    expect((out.Sheets['INPUT DATA']!['!merges'] ?? []).length).toBeGreaterThan(0);
+  });
+
+  it('reads a blank SUBJECT TEACHER as blank, not as a roster number', () => {
+    const parsed = withoutCell('E23');
+    expect(parsed.identity.teacherName).toBeNull();
+    // The specific wrong answer, named so a regression is unmistakable.
+    expect(parsed.identity.teacherName).not.toBe('13');
+  });
+
+  it('reads a blank REGION as blank, not as the roster heading beside it', () => {
+    // REGION sits on the same row as the MALE column heading.
+    expect(withoutCell('E10').identity.region).toBeNull();
+  });
+
+  it('still reads the fields that ARE filled', () => {
+    const parsed = withoutCell('E23');
+    expect(parsed.identity.schoolName).toBe('Angono National High School');
+    expect(parsed.identity.subjectText).toBe('EPP');
+    expect(parsed.identity.sectionText).toBe('Masipag');
+  });
+});
