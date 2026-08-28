@@ -597,8 +597,20 @@ function LoaTableView({ table }: { table: LoaTable }) {
                 )}
                 {r.counts.map((c) => (
                   <Fragment key={c.band.key}>
-                    <td className="num mono">{c.count}</td>
-                    <td className="num mono faint">{c.percent}</td>
+                    {/*
+                      Not `faint`. This is a learner count and the share
+                      of the section it represents — the substance of the
+                      whole report — and it was being rendered in a grey
+                      that measured 2.37:1 against the row behind it. A
+                      teacher who cannot read a number has not been shown
+                      it. Zeros dim; everything else reads.
+                    */}
+                    <td className="num mono" data-zero={c.count === 0 || undefined}>
+                      {c.count}
+                    </td>
+                    <td className="num mono pct" data-zero={c.count === 0 || undefined}>
+                      {c.percent}
+                    </td>
                   </Fragment>
                 ))}
                 <td className="num mono" data-warn={r.total !== 100 && r.learners > 0 ? 'true' : undefined}>

@@ -4,6 +4,15 @@
  * Print-first: this is a legal document that gets filed on paper, so the
  * screen view is the print view. One template, four outputs — screen,
  * print, PDF (headless Chromium over this same markup) and XLSX.
+ *
+ * DELIBERATELY NOT ON THE --fs-* SCALE, and the only stylesheet that is
+ * not. Every other surface follows the reader's Text size preference,
+ * because a teacher who needs 20px should get 20px. This one follows the
+ * PAPER: an SF10 has a fixed number of rows that must fit a fixed sheet,
+ * and a division office receiving a form that reflowed because the
+ * encoder had set large text would reject it. Somebody who cannot read
+ * the form on screen should zoom the page, which scales the whole sheet
+ * together and keeps it printable.
  */
 
 .sf10 {
