@@ -82,7 +82,18 @@ export function SchoolSetup({
  * creates sections, the administrator holds school-wide configuration.
  * ==================================================================== */
 
-function Subjects({ load, add, setActive }: {
+/**
+ * Exported, because the registrar needs it too and does not have School
+ * Setup in their menu.
+ *
+ * Granting `subjects.write` to the registrar (0039) without giving them
+ * a screen would have repeated the defect this panel was built to fix —
+ * a capability with no route to it. So the same component is mounted in
+ * both places: here for the administrator, and on Classes & Sections
+ * for the registrar, which is where a missing subject actually stops
+ * someone. `SchoolInformation` below is shared the same way.
+ */
+export function Subjects({ load, add, setActive }: {
   load: () => Promise<SubjectCatalogue>;
   add: (draft: SubjectDraft) => Promise<string>;
   setActive: (subjectId: string, isActive: boolean) => Promise<void>;

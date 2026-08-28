@@ -60,6 +60,11 @@ where r.code = 'registrar' and p.code in (
   'grades.read.all','grades.return','grades.approve','grades.finalize','grades.publish',
   'grades.reopen','grades.correct','attendance.read.all',
   'documents.generate','documents.issue','documents.reprint',
+  -- The registrar adds subjects as well as the administrator (0039).
+  -- Listed here too because THIS FILE creates the roles, and a
+  -- migration that grants to a role cannot run before the role exists
+  -- — see the note at the head of 0039.
+  'subjects.write',
   'reports.read.school','audit.read','imports.execute');
 
 insert into public.role_permissions (role_id, permission_code)

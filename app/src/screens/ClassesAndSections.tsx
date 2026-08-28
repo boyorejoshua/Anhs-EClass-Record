@@ -1,6 +1,9 @@
 import { useState } from 'react';
-import type { ClassDraft, SectionDraft, SectionSetupOptions } from '../data/types';
+import type {
+  ClassDraft, SectionDraft, SectionSetupOptions, SubjectCatalogue, SubjectDraft,
+} from '../data/types';
 import { Async, EmptyState, useAsync } from '../components/Async';
+import { Subjects } from './SchoolSetup';
 
 interface Props {
   yearId: string;
@@ -8,6 +11,12 @@ interface Props {
   load: (yearId: string) => Promise<SectionSetupOptions>;
   createSection: (draft: SectionDraft) => Promise<string>;
   createClass: (draft: ClassDraft) => Promise<string>;
+  /* The subject list, mounted here as well as on School Setup — this is
+     where a registrar discovers a subject is missing, mid-way through
+     creating the class that needs it. */
+  loadSubjects: () => Promise<SubjectCatalogue>;
+  addSubject: (draft: SubjectDraft) => Promise<string>;
+  setSubjectActive: (subjectId: string, isActive: boolean) => Promise<void>;
 }
 
 /**
@@ -27,7 +36,10 @@ interface Props {
  * does not create those — that is a one-time curriculum/onboarding
  * step, not something a registrar does mid-term.
  */
-export function ClassesAndSections({ yearId, yearLabel, load, createSection, createClass }: Props) {
+export function ClassesAndSections({
+  yearId, yearLabel, load, createSection, createClass,
+  loadSubjects, addSubject, setSubjectActive,
+}: Props) {
   const [state, retry] = useAsync(() => load(yearId), [yearId]);
   const [addingSection, setAddingSection] = useState(false);
   const [addingClassFor, setAddingClassFor] = useState<string | null>(null);
@@ -179,6 +191,14 @@ export function ClassesAndSections({ yearId, yearLabel, load, createSection, cre
           </div>
         ))}
       </Async>
+
+      {/*
+        Outside the Async above on purpose. That block renders "Not
+        permitted" for an account that cannot create classes, and the
+        subject list is readable by more people than that — hiding it
+        behind a refusal about something else would be its own small lie.
+      */}
+      <Subjects load={loadSubjects} add={addSubject} setActive={setSubjectActive} />
     </div>
   );
 }
