@@ -581,6 +581,9 @@ export default function App() {
             load={source.getSectionSetupOptions}
             createSection={source.createSection}
             createClass={source.createClass}
+            loadSubjects={source.getSubjectCatalogue}
+            addSubject={source.createSubject}
+            setSubjectActive={source.setSubjectActive}
           />
         );
 

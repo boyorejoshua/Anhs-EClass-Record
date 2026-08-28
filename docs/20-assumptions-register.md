@@ -1061,3 +1061,60 @@ Built as a Subjects panel under School Setup (migration 0038), owned by
   needing a third category (SHS Specialized, say) still cannot create
   one. Same gap one level up, and the one that will bite when Senior
   High is set up properly — see A17.
+
+---
+
+## A23 — Both the registrar and the administrator add subjects
+
+A22 gave `subjects.write` to the administrator alone. The school's
+correction: *"the registrar and administrator should be able to add a
+subjects as well"* — and it is the better rule.
+
+The reason is where the need arises. A registrar setting up the year
+opens Classes & Sections, goes to create a class, and finds the subject
+missing. Under A22 they stopped and waited for someone else. **The
+person who is blocked and the person who can unblock them should be the
+same person unless there is a reason they should not be**, and "a
+subject is school configuration" is a category argument, not a reason.
+
+### The half that was nearly missed
+
+The registrar has no School Setup in their menu. Granting the permission
+without giving them a screen would have reproduced *exactly* the defect
+the panel was built to fix — a capability with no route to it, for the
+fourth time in this build.
+
+So the same `Subjects` component is mounted twice: School Setup for the
+administrator, Classes & Sections for the registrar. `SchoolInformation`
+was already shared that way, so the pattern is not new.
+
+### ⚠️ A MIGRATION CANNOT GRANT TO A ROLE THAT DOES NOT EXIST YET
+
+Caught only by running it. `public.roles` rows are created by
+**seed.sql**, which runs *after* the migrations on a fresh database — so
+0039's `insert … select from public.roles where code = 'registrar'`
+matched **zero rows** locally and silently did nothing. On an existing
+database (production, staging) the roles are already there and it
+applies.
+
+Two paths, different outcomes, no error on either. The seed's registrar
+whitelist now carries `subjects.write` as well.
+
+**The administrator never showed the problem**, because the seed grants
+that role every permission by `cross join permissions` — it picks up
+anything new for free. That asymmetry is what hid the bug, and it will
+hide the next one too: **any future migration granting a permission to a
+non-admin role must also be added to seed.sql**, or fresh environments
+will quietly differ from production.
+
+### What did not change
+
+The category is still a required choice and still decides the grading
+weights. Widening who may add a subject widens who may set 20/50/30
+against 20/60/20 for everyone who takes it — which is why the weights
+are printed in the option text rather than left to a footnote.
+
+Teachers remain refused, from reading as well as writing. A teacher
+typing "Math 10" beside the school's "Mathematics 10" is the duplicate
+the case-insensitive guard cannot resolve; it can only refuse the second
+one, which helps nobody standing in front of a class.

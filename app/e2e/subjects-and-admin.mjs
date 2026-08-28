@@ -161,6 +161,27 @@ if (await restored.getByRole('button', { name: 'Restore' }).count()) {
 check('14. GMRC is active again and available to a class',
   !/retired/i.test(await page.locator('tr', { hasText: 'Good Manners' }).first().innerText()));
 
+/* ---- 15-17. the registrar reaches it too ---------------------------- */
+// Granting subjects.write to the registrar without a screen would have
+// repeated the very defect this panel was built to fix. The registrar
+// has no School Setup in their menu, so the same panel is mounted on
+// Classes & Sections — where a missing subject actually stops them,
+// halfway through creating the class that needs it.
+await asRole('Registrar');
+check('15. the registrar has no School Setup',
+  !(await menu()).includes('School Setup'),
+  'which is why the panel could not live only there');
+
+await page.getByRole('button', { name: /^Classes & Sections$/ }).first().click();
+await page.waitForTimeout(900);
+body = await page.locator('body').innerText();
+check('16. the registrar finds the subject list on Classes & Sections',
+  /Subjects/.test(body) && /Mathematics 10/.test(body),
+  'the screen they are on when they discover the subject is missing');
+
+check('17. and can add one from there',
+  (await page.getByRole('button', { name: /\+ Add subject/ }).count()) === 1);
+
 await browser.close();
 console.log('PASS:'); for (const o of ok) console.log('  ✓', o);
 if (fails.length) { console.log('FAIL:'); for (const f of fails) console.log('  ✗', f); process.exit(1); }
