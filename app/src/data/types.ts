@@ -561,6 +561,49 @@ export interface LearnerToAdd {
  * `status` is Mendtrix's lever; a suspended school must not be able to
  * un-suspend itself.
  */
+/* ------------------------------------------------------------------ *
+ * THE SUBJECT CATALOGUE
+ *
+ * Adding a subject is not the plain CRUD it looks like. A subject must
+ * belong to a category, and the category carries the grading scheme —
+ * so choosing "Core Subject" rather than "MAPEH / EPP-TLE" is choosing
+ * 20/50/30 over 20/60/20 for every learner who ever takes it. The
+ * weights travel with the category for exactly that reason.
+ * ------------------------------------------------------------------ */
+
+export interface SubjectCategory {
+  id: string;
+  code: string;
+  name: string;
+  /** "WW 20% · PT 50% · EX 30%", or null when the category has no scheme. */
+  weights: string | null;
+}
+
+export interface CatalogueSubject {
+  id: string;
+  code: string;
+  title: string;
+  categoryId: string;
+  category: string;
+  units: number | null;
+  isActive: boolean;
+  /** Classes already running this subject — what retiring it would leave behind. */
+  classCount: number;
+}
+
+export interface SubjectCatalogue {
+  categories: SubjectCategory[];
+  subjects: CatalogueSubject[];
+  permissions: { canWrite: boolean };
+}
+
+export interface SubjectDraft {
+  code: string;
+  title: string;
+  categoryId: string;
+  units?: number | null;
+}
+
 export interface SchoolProfile {
   id: string;
   /** Read-only: the tenant slug. */

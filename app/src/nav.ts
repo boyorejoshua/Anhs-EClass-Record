@@ -97,20 +97,30 @@ const TEACHING: NavItem[] = [
   { key: 'help',        label: 'Help',        glyph: '?', readiness: 'ready' },
 ];
 
-export const NAV: Record<Role, NavItem[]> = {
-  teacher: TEACHING,
-
-  adviser: [
-    ...TEACHING.slice(0, 4),
-    // The adviser's half of the chain of custody. Subject teachers hand
-    // their section's grades here; the adviser signs for each one and
-    // passes the section on to the registrar.
-    { key: 'incoming', label: 'Incoming Grades', glyph: '⇤', readiness: 'ready' },
-    { key: 'consolidated', label: 'Consolidated Grades', glyph: '◍', readiness: 'ready' },
-    ...TEACHING.slice(4),
-  ],
-
-  registrar: [
+/* ------------------------------------------------------------------ *
+ * The registrar's menu, named so the ADMINISTRATOR can be defined as a
+ * superset of it rather than as a hand-kept copy.
+ *
+ * The school's rule, in their words: the registrar creates sections,
+ * and "administrator is the main admin of the system" with "the same
+ * access as the registrar".
+ *
+ * The database already agreed. Every one of the registrar's forty
+ * permissions is granted to school_admin as well, and has been since
+ * 0002 — there was nothing to grant. Only the MENU disagreed, hiding
+ * Grade Submissions, Students and Academic Records from an account
+ * fully entitled to use them.
+ *
+ * That inverts this file's own rule. "A role never sees an item it
+ * cannot use" is a courtesy. An account that cannot SEE an item it CAN
+ * use is a defect, and the harder of the two to notice: nothing errors,
+ * the screen simply is never offered.
+ *
+ * Spread rather than copied, so a screen added to the registrar reaches
+ * the administrator in the same commit. Two hand-kept lists would have
+ * drifted the first time either changed.
+ * ------------------------------------------------------------------ */
+const REGISTRAR: NavItem[] = [
     { key: 'dashboard', label: 'Dashboard',          glyph: '▤', readiness: 'ready' },
     { key: 'queue',     label: 'Grade Submissions',  glyph: '↑', readiness: 'ready' },
     { key: 'students',  label: 'Students',           glyph: '▦', readiness: 'ready' },
@@ -140,11 +150,28 @@ export const NAV: Record<Role, NavItem[]> = {
         'stored artifacts. SF10 can already be previewed under Academic Records.',
     },
     { key: 'account',   label: 'My Account',          glyph: '☺', readiness: 'ready' },
+];
+
+export const NAV: Record<Role, NavItem[]> = {
+  teacher: TEACHING,
+
+  adviser: [
+    ...TEACHING.slice(0, 4),
+    // The adviser's half of the chain of custody. Subject teachers hand
+    // their section's grades here; the adviser signs for each one and
+    // passes the section on to the registrar.
+    { key: 'incoming', label: 'Incoming Grades', glyph: '⇤', readiness: 'ready' },
+    { key: 'consolidated', label: 'Consolidated Grades', glyph: '◍', readiness: 'ready' },
+    ...TEACHING.slice(4),
   ],
 
+  registrar: REGISTRAR,
+
   school_admin: [
-    { key: 'dashboard', label: 'Dashboard', glyph: '▤', readiness: 'ready' },
-    { key: 'import',    label: 'Import',    glyph: '⇥', readiness: 'ready' },
+    // Everything the registrar reaches …
+    ...REGISTRAR.filter((i) => i.key !== 'account'),
+
+    // … plus the administration the registrar does not hold.
     { key: 'setup', label: 'School Setup', glyph: '⚙', readiness: 'ready' },
     {
       key: 'years', label: 'Academic Years', glyph: '◷', readiness: 'planned',
@@ -154,7 +181,6 @@ export const NAV: Record<Role, NavItem[]> = {
         'during onboarding rather than edited live.',
     },
     { key: 'users', label: 'Users', glyph: '▦', readiness: 'ready' },
-    { key: 'sections',  label: 'Classes & Sections', glyph: '◫', readiness: 'ready' },
     {
       key: 'grading', label: 'Grading Configuration', glyph: '◍', readiness: 'planned',
       note:

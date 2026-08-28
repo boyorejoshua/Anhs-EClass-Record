@@ -279,13 +279,34 @@ const SECTIONS: FixtureSection[] = [
 ];
 
 /** The subjects a "create class" form offers. */
-const FIXTURE_SUBJECTS = [
-  { id: 'sub-math10', code: 'MATH10', title: 'Mathematics 10' },
-  { id: 'sub-math9',  code: 'MATH9',  title: 'Mathematics 9' },
-  { id: 'sub-mapeh10', code: 'MAPEH10', title: 'MAPEH 10' },
-  { id: 'sub-eng10',  code: 'ENG10',  title: 'English 10' },
-  { id: 'sub-sci10',  code: 'SCI10',  title: 'Science 10' },
+/**
+ * The school's subject categories.
+ *
+ * Each carries a grading scheme, which is the whole reason the category
+ * is a required choice when adding a subject rather than a defaulted
+ * one: filing GMRC under Core grades it 20/50/30, under MAPEH/TLE it is
+ * 20/60/20, and nobody would notice the difference until the term
+ * grades came out wrong.
+ */
+const FIXTURE_CATEGORIES = [
+  { id: 'cat-core',  code: 'CORE',  name: 'Core Subject',      scheme: DO015_CORE },
+  { id: 'cat-mapeh', code: 'MAPEH', name: 'MAPEH / EPP-TLE',   scheme: DO015_MAPEH },
 ];
+
+interface FixtureSubject {
+  id: string; code: string; title: string;
+  categoryId: string; units: number | null; isActive: boolean;
+}
+
+/** Mutable: the administrator can add to this from School Setup. */
+const FIXTURE_SUBJECTS: FixtureSubject[] = [
+  { id: 'sub-math10', code: 'MATH10', title: 'Mathematics 10', categoryId: 'cat-core',  units: 1, isActive: true },
+  { id: 'sub-math9',  code: 'MATH9',  title: 'Mathematics 9',  categoryId: 'cat-core',  units: 1, isActive: true },
+  { id: 'sub-mapeh10', code: 'MAPEH10', title: 'MAPEH 10',     categoryId: 'cat-mapeh', units: 1, isActive: true },
+  { id: 'sub-eng10',  code: 'ENG10',  title: 'English 10',     categoryId: 'cat-core',  units: 1, isActive: true },
+  { id: 'sub-sci10',  code: 'SCI10',  title: 'Science 10',     categoryId: 'cat-core',  units: 1, isActive: true },
+];
+const INITIAL_SUBJECT_COUNT = FIXTURE_SUBJECTS.length;
 
 /* ==================================================================== *
  * THE STAFF STORE
@@ -676,6 +697,8 @@ const INITIAL_STATUS: Array<Record<string, SubmissionStatus>> =
  */
 function resetFixtureState(): void {
   CLASSES.forEach((c, i) => { c.status = { ...INITIAL_STATUS[i]! }; });
+  FIXTURE_SUBJECTS.length = INITIAL_SUBJECT_COUNT;
+  FIXTURE_SUBJECTS.forEach((x) => { x.isActive = true; });
   STUDENTS.length = INITIAL_STUDENT_COUNT;
   ENROLMENTS.length = INITIAL_ENROLMENT_COUNT;
   receipts.clear();
@@ -793,6 +816,65 @@ export function createFixtureSource(): DataSource {
 
     async getStudents(yearId, query) {
       return directory(yearId, query);
+    },
+
+    /* ---- the subject catalogue ------------------------------------ *
+     * `canWrite` is true here because the fixture source has no notion
+     * of the signed-in role — the demo switcher changes the MENU and
+     * never what the data layer returns, exactly as the sidebar note
+     * says. The refusal path (registrar reads, cannot write) is tested
+     * against real Postgres, where the permission actually lives.
+     * ---------------------------------------------------------------- */
+    async getSubjectCatalogue() {
+      return {
+        categories: FIXTURE_CATEGORIES.map((c) => ({
+          id: c.id, code: c.code, name: c.name,
+          weights: c.scheme.components
+            .filter((x) => !x.parentId)
+            .map((x) => `${x.code} ${Math.round(x.weight)}%`)
+            .join(' · '),
+        })),
+        subjects: FIXTURE_SUBJECTS.map((x) => ({
+          id: x.id, code: x.code, title: x.title,
+          categoryId: x.categoryId,
+          category: FIXTURE_CATEGORIES.find((c) => c.id === x.categoryId)?.name ?? '',
+          units: x.units,
+          isActive: x.isActive,
+          classCount: CLASSES.filter((c) => c.subjectCode === x.code).length,
+        })).sort((a, b) => a.title.localeCompare(b.title)),
+        permissions: { canWrite: true },
+      };
+    },
+
+    async createSubject(draft) {
+      const code = draft.code.trim().toUpperCase();
+      const title = draft.title.trim();
+      if (!code) throw new Error('A subject needs a code.');
+      if (!title) throw new Error('A subject needs a title.');
+      if (!FIXTURE_CATEGORIES.some((c) => c.id === draft.categoryId)) {
+        throw new Error('That subject category does not belong to this school.');
+      }
+      // Case-insensitively, the way the server does it — otherwise the
+      // demo would accept "gmrc" beside "GMRC" and the duplicate guard
+      // would look broken the first time it mattered.
+      const clash = FIXTURE_SUBJECTS.find(
+        (x) => normaliseName(x.code) === normaliseName(code)
+            || normaliseName(x.title) === normaliseName(title));
+      if (clash) {
+        throw new Error(`This school already has that subject (${clash.code} — ${clash.title}).`);
+      }
+      const id = `sub-${Date.now()}-${FIXTURE_SUBJECTS.length}`;
+      FIXTURE_SUBJECTS.push({
+        id, code, title, categoryId: draft.categoryId,
+        units: draft.units ?? null, isActive: true,
+      });
+      return id;
+    },
+
+    async setSubjectActive(subjectId, isActive) {
+      const found = FIXTURE_SUBJECTS.find((x) => x.id === subjectId);
+      if (!found) throw new Error('No such subject in this school.');
+      found.isActive = isActive;
     },
 
     async getGradeLevelCensus(yearId) {

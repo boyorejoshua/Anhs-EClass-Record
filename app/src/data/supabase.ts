@@ -24,6 +24,7 @@ import type {
 import type { ImportResolution } from '../lib/import/plan';
 import type {
   AttendanceDay, ClassStudent, ClassSummary, DirectoryStudent, GradeLevelCensus,
+  SubjectCatalogue,
   EnrollmentOptions, GradebookData, PersistedGrade, StudentGradeRow, StudentHistoryRow,
   StudentProfile, StudentRecord, SubmissionRow, ValidationReport,
 } from './types';
@@ -161,6 +162,30 @@ export function createSupabaseSource(): DataSource {
         });
       if (error) fail('Searching learners', error);
       return (data ?? []) as DirectoryStudent[];
+    },
+
+    async getSubjectCatalogue() {
+      const { data, error } = await requireSupabase().rpc('subject_catalogue');
+      if (error) fail('Loading the subject list', error);
+      return data as SubjectCatalogue;
+    },
+
+    async createSubject(draft) {
+      const { data, error } = await requireSupabase().rpc('create_subject', {
+        p_code: draft.code,
+        p_title: draft.title,
+        p_category_id: draft.categoryId,
+        p_units: draft.units ?? null,
+      });
+      if (error) fail('Adding the subject', error);
+      return data as string;
+    },
+
+    async setSubjectActive(subjectId, isActive) {
+      const { error } = await requireSupabase().rpc('set_subject_active', {
+        p_subject_id: subjectId, p_is_active: isActive,
+      });
+      if (error) fail(isActive ? 'Restoring the subject' : 'Retiring the subject', error);
     },
 
     async getGradeLevelCensus(academicYearId) {

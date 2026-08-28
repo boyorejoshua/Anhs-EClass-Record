@@ -622,6 +622,9 @@ export default function App() {
           <SchoolSetup
             load={source.getSchoolProfile}
             save={source.updateSchoolProfile}
+            loadSubjects={source.getSubjectCatalogue}
+            addSubject={source.createSubject}
+            setSubjectActive={source.setSubjectActive}
             // The school name is in the sidebar and on every form, so a
             // change to it has to reach the whole shell, not just this
             // screen. Silently — see refreshSession.

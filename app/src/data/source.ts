@@ -14,6 +14,7 @@
 import type {
   AdvisorySection, AttendanceDay, AttendanceMark, ClassDraft, ClassStudent, ClassSummary,
   ConsolidatedGrades, DirectoryStudent, GradeLevelCensus, StudentQuery,
+  SubjectCatalogue, SubjectDraft,
   EnrollmentDraft, EnrollmentOptions, GradebookData, LearnerNameFix, LearnerToAdd,
   MyAccount, MyClassDraft,
   MyClassRoster, MyClassSetupOptions, NewAccount,
@@ -141,6 +142,15 @@ export interface DataSource {
    * never sends 1,500 rows to a browser that will show forty of them.
    */
   getStudents(academicYearId: string, query?: StudentQuery): Promise<DirectoryStudent[]>;
+
+  /* ---- the subject catalogue ---------------------------------------- *
+   * Readable by anyone who sets up a class; writable only by the
+   * administrator. `canWrite` comes back on the payload so the screen
+   * can hide a form that would only be refused.
+   * -------------------------------------------------------------------- */
+  getSubjectCatalogue(): Promise<SubjectCatalogue>;
+  createSubject(draft: SubjectDraft): Promise<string>;
+  setSubjectActive(subjectId: string, isActive: boolean): Promise<void>;
 
   /** Grade levels with an enrolled count — what the directory shows before any learner. */
   getGradeLevelCensus(academicYearId: string): Promise<GradeLevelCensus[]>;

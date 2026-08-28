@@ -1,11 +1,16 @@
 import { useState } from 'react';
-import type { SchoolProfile, SchoolProfileEdit } from '../data/types';
+import type {
+  SchoolProfile, SchoolProfileEdit, SubjectCatalogue, SubjectDraft,
+} from '../data/types';
 import { Async, useAsync } from '../components/Async';
 
 interface Props {
   load: () => Promise<SchoolProfile>;
   save: (edit: SchoolProfileEdit) => Promise<void>;
   onSaved?: () => void;
+  loadSubjects: () => Promise<SubjectCatalogue>;
+  addSubject: (draft: SubjectDraft) => Promise<string>;
+  setSubjectActive: (subjectId: string, isActive: boolean) => Promise<void>;
 }
 
 /**
@@ -23,7 +28,9 @@ interface Props {
  * permission catalogue since migration 0002 and were called by nothing.
  * This is the screen they were seeded for.
  */
-export function SchoolSetup({ load, save, onSaved }: Props) {
+export function SchoolSetup({
+  load, save, onSaved, loadSubjects, addSubject, setSubjectActive,
+}: Props) {
   const [state, retry] = useAsync(load, [load]);
 
   return (
@@ -54,7 +61,236 @@ export function SchoolSetup({ load, save, onSaved }: Props) {
           />
         )}
       </Async>
+
+      <Subjects
+        load={loadSubjects} add={addSubject} setActive={setSubjectActive}
+      />
     </div>
+  );
+}
+
+/* ==================================================================== *
+ * THE SUBJECT CATALOGUE
+ *
+ * A teacher imported their real GMRC workbook and was told "ask an
+ * administrator to add it". The administrator had no way to add it
+ * either — there was no create-subject anywhere in the product, and
+ * subjects existed only because they were seeded. This is the screen
+ * that makes that sentence true.
+ *
+ * It lives under School Setup because the school said so: the registrar
+ * creates sections, the administrator holds school-wide configuration.
+ * ==================================================================== */
+
+function Subjects({ load, add, setActive }: {
+  load: () => Promise<SubjectCatalogue>;
+  add: (draft: SubjectDraft) => Promise<string>;
+  setActive: (subjectId: string, isActive: boolean) => Promise<void>;
+}) {
+  const [state, retry] = useAsync(load, [load]);
+  const [adding, setAdding] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function toggle(id: string, next: boolean) {
+    setBusyId(id);
+    setError(null);
+    try {
+      await setActive(id, next);
+      retry();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'That could not be changed.');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <Async state={state} retry={retry} rows={4}>
+      {(cat) => (
+        <div className="panel">
+          <div className="panel-head">
+            <div>
+              <h2>Subjects</h2>
+              <p className="page-sub">
+                What this school teaches. A class can only be created for a subject
+                on this list, and an import will never invent one — a typo would
+                become a subject and then a column on somebody's report card.
+              </p>
+            </div>
+            <div className="spacer" />
+            {cat.permissions.canWrite && !adding && (
+              <button className="btn btn-primary" onClick={() => setAdding(true)}>
+                + Add subject
+              </button>
+            )}
+          </div>
+
+          {error && <div className="err-banner" role="alert"><span>{error}</span></div>}
+
+          {adding && (
+            <AddSubject
+              categories={cat.categories}
+              add={add}
+              onCancel={() => setAdding(false)}
+              onAdded={() => { setAdding(false); retry(); }}
+            />
+          )}
+
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th scope="col">Subject</th>
+                  <th scope="col">Code</th>
+                  <th scope="col">Category — and how it is graded</th>
+                  <th scope="col" className="num">Classes</th>
+                  <th scope="col"><span className="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {cat.subjects.map((s) => {
+                  const weights = cat.categories.find((c) => c.id === s.categoryId)?.weights;
+                  return (
+                    <tr key={s.id} data-retired={!s.isActive || undefined}>
+                      <th scope="row">
+                        {s.title}
+                        {!s.isActive && <span className="tbl-sub">retired — kept for the records that use it</span>}
+                      </th>
+                      <td className="mono">{s.code}</td>
+                      <td>
+                        {s.category}
+                        {weights && <span className="tbl-sub mono">{weights}</span>}
+                      </td>
+                      <td className="num mono">{s.classCount}</td>
+                      <td>
+                        {/*
+                          The flex lives on a DIV inside the cell, not on
+                          the cell. `display: flex` on a <td> takes it out
+                          of the table layout algorithm, and the column
+                          renders as a floating block over the rows —
+                          which is exactly what it did until this comment.
+                        */}
+                        <div className="row-actions">
+                          {cat.permissions.canWrite && (
+                            <button
+                              className="btn btn-sm"
+                              disabled={busyId === s.id}
+                              onClick={() => toggle(s.id, !s.isActive)}
+                            >
+                              {busyId === s.id ? '…' : s.isActive ? 'Retire' : 'Restore'}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {!cat.permissions.canWrite && (
+            <p className="menu-note">
+              You can see this list but not change it — adding a subject is an
+              administrator's, because the category chosen decides how every
+              learner taking it is graded.
+            </p>
+          )}
+        </div>
+      )}
+    </Async>
+  );
+}
+
+function AddSubject({ categories, add, onCancel, onAdded }: {
+  categories: SubjectCatalogue['categories'];
+  add: (draft: SubjectDraft) => Promise<string>;
+  onCancel: () => void;
+  onAdded: () => void;
+}) {
+  const [code, setCode] = useState('');
+  const [title, setTitle] = useState('');
+  const [categoryId, setCategoryId] = useState('');
+  const [units, setUnits] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const ready = code.trim() && title.trim() && categoryId;
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await add({
+        code: code.trim(),
+        title: title.trim(),
+        categoryId,
+        units: units.trim() ? Number(units) : null,
+      });
+      onAdded();
+    } catch (err) {
+      // "This school already has that subject (GMRC — Good Manners…)"
+      // is written for an administrator. Show it as written.
+      setError(err instanceof Error ? err.message : 'That subject could not be added.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form className="inline-form" onSubmit={submit}>
+      {error && <div className="err-banner" role="alert"><span>{error}</span></div>}
+
+      <div className="form-grid">
+        <label className="field">
+          <span className="field-label">Title *</span>
+          <input className="input" value={title} disabled={busy}
+                 placeholder="Good Manners and Right Conduct"
+                 onChange={(e) => setTitle(e.target.value)} required />
+        </label>
+        <label className="field">
+          <span className="field-label">Code *</span>
+          <input className="input mono" value={code} disabled={busy}
+                 placeholder="GMRC"
+                 onChange={(e) => setCode(e.target.value)} required />
+          <span className="field-hint">Short, and unique in this school. Stored uppercase.</span>
+        </label>
+        <label className="field">
+          <span className="field-label">Category *</span>
+          <select className="input" value={categoryId} disabled={busy}
+                  onChange={(e) => setCategoryId(e.target.value)} required>
+            <option value="">Choose…</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}{c.weights ? ` — ${c.weights}` : ' — no grading scheme'}
+              </option>
+            ))}
+          </select>
+          {/*
+            The weights are IN the option text, not in a footnote. This
+            choice sets how every learner taking the subject is graded,
+            and a bare list of category names would hide that.
+          */}
+          <span className="field-hint">
+            This decides the grading weights. It cannot be changed from here later.
+          </span>
+        </label>
+        <label className="field">
+          <span className="field-label">Units</span>
+          <input className="input" value={units} disabled={busy} inputMode="decimal"
+                 onChange={(e) => setUnits(e.target.value)} />
+        </label>
+      </div>
+
+      <div className="row-actions">
+        <button className="btn" type="button" onClick={onCancel} disabled={busy}>Cancel</button>
+        <button className="btn btn-primary" type="submit" disabled={!ready || busy}>
+          {busy ? 'Adding…' : 'Add subject'}
+        </button>
+      </div>
+    </form>
   );
 }
 

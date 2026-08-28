@@ -978,3 +978,86 @@ the habit.
   subjects will answer the same subject question six times. Acceptable
   now; if the school imports in bulk, remembering the last choice per
   file name would be the cheap improvement.
+
+---
+
+## A22 — Who owns what: the school's answer, and one gap it exposed
+
+Settled by the school after importing a real workbook:
+
+> "the Registrar will create the section and administrator, administrator
+> will be the main who can access things in the system"
+> "administrator should have the same access as the registrar"
+
+### Sections: already correct
+
+Registrar → **Classes & Sections → + Add section**. No change needed.
+
+### The administrator's reach: the permissions were never the problem
+
+Checked before building anything: **every one of the registrar's forty
+permissions is already granted to `school_admin`**, and has been since
+migration 0002. There was nothing to grant.
+
+**Only the menu disagreed.** `nav.ts` withheld Grade Submissions,
+Students and Academic Records from an account fully entitled to all
+three. That inverts the file's own stated rule — *"a role never sees an
+item it cannot use"* is a courtesy, but an account that cannot **see**
+an item it **can** use is a defect, and the harder of the two to notice:
+nothing errors, the screen is simply never offered.
+
+Fixed structurally rather than by copying entries across. The registrar
+menu is now a named `REGISTRAR` const and the administrator is defined
+as `[...REGISTRAR, …administration]`, so a screen added to the registrar
+reaches the administrator in the same commit. Four tests in
+`nav.test.ts` assert the superset relation without listing keys, so they
+keep holding as either menu grows.
+
+**Worth stating plainly:** this widens what an administrator can reach,
+by design and at the school's request. An administrator can now approve,
+finalize and publish grades, and admit learners. If ANHS later wants
+separation of duties — the person who publishes not being the person who
+configures — that is a policy decision to revisit, and the permission
+rows already support it.
+
+### Subjects: the gap
+
+There was no way to add a subject. No `create_subject` RPC, no
+permission, no screen, nothing in the DataSource. The import's
+*"or ask an administrator to add it"* was false — the administrator had
+no route either. Subjects existed only because eight were seeded, all
+Grade 10.
+
+**Third instance of one pattern** in this build, after the empty class
+roster and the import's "Choose one" with no chooser. Naming it so it
+stops recurring: **a message that prescribes an action is a promise that
+the action exists.** Worth grepping the UI copy for imperatives and
+checking each one resolves to a control.
+
+Built as a Subjects panel under School Setup (migration 0038), owned by
+`subjects.write` on `school_admin`. Two design points worth keeping:
+
+- **The category is a required choice, and its weights are printed in
+  the option text.** `subject_category_id` is NOT NULL and the category
+  carries the grading scheme, so filing GMRC under Core grades it
+  20/50/30 and under MAPEH/TLE 20/60/20. Whoever adds a subject is
+  deciding how every learner taking it is graded; a bare dropdown of
+  category names would hide that completely.
+- **Retire, never delete.** `classes.subject_id` is ON DELETE RESTRICT
+  and a deleted subject would orphan every grade recorded under it.
+
+### Still open
+
+- **The school's full subject list.** We seed eight. GMRC now exists on
+  staging because it was added while testing; ANHS should enter the rest
+  themselves, which is the point of the screen — but a first pass from
+  their curriculum would save them an afternoon.
+- **A subject's category cannot be changed after creation.** Deliberate
+  for now: changing it silently re-weights every grade already computed
+  under the old scheme. If a school miscategorises one, the current
+  answer is retire and re-add, which loses nothing because classes keep
+  pointing at the original. Revisit if it happens twice.
+- **Subject categories themselves are still seed-only.** A school
+  needing a third category (SHS Specialized, say) still cannot create
+  one. Same gap one level up, and the one that will bite when Senior
+  High is set up properly — see A17.
