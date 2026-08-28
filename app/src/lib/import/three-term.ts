@@ -367,6 +367,38 @@ function readIdentity(sheet: Sheet, sheetName: string, issues: ParseIssue[]): Cl
     return valueAfter(sheet, at.row, at.col);
   };
 
+  /**
+   * The first of several spellings of one field.
+   *
+   * A LABEL THAT IS PRESENT BUT EMPTY IS NOT A MISSING LABEL. The two
+   * workbooks call this field different things — "SUBJECT TEACHER" in
+   * the official one, "TEACHER" in the other — and chaining `find` with
+   * `??` meant a blank official field fell through to a search for
+   * "TEACHER", failed, and reported "This workbook has no TEACHER
+   * label". A real teacher's file said exactly that while displaying
+   * SUBJECT TEACHER on screen, which is the kind of message that makes
+   * a person distrust everything else on the page.
+   *
+   * So: warn only when NONE of the spellings appears anywhere.
+   */
+  const findAny = (labels: string[], required = true): string | null => {
+    for (const label of labels) {
+      const at = labelCell(sheet, label);
+      if (at) return valueAfter(sheet, at.row, at.col);
+    }
+    if (required) {
+      issues.push({
+        severity: 'warning',
+        code: 'missing-label',
+        message:
+          `This workbook has no "${labels[0]}" label, so that value could not `
+          + 'be read.',
+        where: sheetName,
+      });
+    }
+    return null;
+  };
+
   // The official workbook keeps these apart, which is better — a
   // combined string can only be split by guessing.
   let gradeLevelText = find('GRADE LEVEL', false);
@@ -408,7 +440,9 @@ function readIdentity(sheet: Sheet, sheetName: string, issues: ParseIssue[]): Cl
     gradeLevelText,
     sectionText,
     // "SUBJECT TEACHER" in the official file, "TEACHER" in the other.
-    teacherName: find('SUBJECT TEACHER', false) ?? find('TEACHER'),
+    // Not chained with `??`: a blank official field is a blank field,
+    // not a reason to go looking for a label that layout never had.
+    teacherName: findAny(['SUBJECT TEACHER', 'TEACHER'], false),
     subjectText: find('SUBJECT'),
   };
 }

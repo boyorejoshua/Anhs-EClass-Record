@@ -3,7 +3,9 @@ import type { ParsedWorkbook } from '../lib/import/three-term';
 import {
   assessmentCount, buildPlan, canCommit, defaultChoices, markCount, summarise,
 } from '../lib/import/plan';
-import type { Choices, ImportResolution, PlanSummary } from '../lib/import/plan';
+import type {
+  Choices, ImportOverrides, ImportResolution, PlanSummary,
+} from '../lib/import/plan';
 import type { ImportRecord, ImportResult } from '../data/source';
 import { Async, EmptyState, useAsync } from '../components/Async';
 
@@ -35,6 +37,9 @@ type Stage =
   | { at: 'failed'; message: string }
   | { at: 'review'; parsed: ParsedWorkbook; resolution: ImportResolution }
   | { at: 'importing'; parsed: ParsedWorkbook; resolution: ImportResolution }
+  // Re-resolving after a choice, with the last good view still on screen
+  // so the panel does not blink out from under the person using it.
+  | { at: 'rechecking'; parsed: ParsedWorkbook; resolution: ImportResolution }
   | { at: 'done'; result: ImportResult; parsed: ParsedWorkbook };
 
 export function ImportCenter({
@@ -42,6 +47,12 @@ export function ImportCenter({
 }: Props) {
   const [stage, setStage] = useState<Stage>({ at: 'idle' });
   const [choices, setChoices] = useState<Choices>({});
+  /**
+   * What the person chose when the workbook could not be resolved on its
+   * own. Sent back with the file on every re-check, so the server
+   * resolves against the choice rather than against the spreadsheet.
+   */
+  const [overrides, setOverrides] = useState<ImportOverrides>({});
   const [history, retryHistory] = useAsync(
     () => getImportHistory(20),
     // Reloaded whenever an import finishes, so the list below is not a
@@ -59,6 +70,7 @@ export function ImportCenter({
       const { parseThreeTermWorkbook } = await import('../lib/import/three-term');
       const parsed = parseThreeTermWorkbook(await file.arrayBuffer(), file.name);
       const resolution = await resolveImport(parsed);
+      setOverrides({});
       setChoices(defaultChoices(resolution));
       setStage({ at: 'review', parsed, resolution });
     } catch (err) {
@@ -68,6 +80,33 @@ export function ImportCenter({
         // for a teacher — "This workbook has no INPUT sheet…" — so pass
         // it through rather than replacing it with a generic line.
         message: err instanceof Error ? err.message : 'That file could not be read.',
+      });
+    }
+  }
+
+  /**
+   * Ask the server again, with the choices made so far.
+   *
+   * A full re-resolution rather than a local patch: choosing a grade
+   * level changes which sections are relevant, choosing a subject
+   * decides the grading scheme and therefore which components exist,
+   * and choosing a section changes which learners are candidates for
+   * matching. Working any of that out in the browser would be a second
+   * implementation of the resolver, and the two would drift.
+   */
+  async function recheck(next: ImportOverrides) {
+    if (stage.at !== 'review' && stage.at !== 'rechecking') return;
+    const { parsed } = stage;
+    setOverrides(next);
+    setStage({ at: 'rechecking', parsed, resolution: stage.resolution });
+    try {
+      const resolution = await resolveImport({ ...parsed, overrides: next });
+      setChoices(defaultChoices(resolution));
+      setStage({ at: 'review', parsed, resolution });
+    } catch (err) {
+      setStage({
+        at: 'failed',
+        message: err instanceof Error ? err.message : 'That choice could not be checked.',
       });
     }
   }
@@ -89,12 +128,15 @@ export function ImportCenter({
         <Upload stage={stage} onFile={onFile} onReset={() => setStage({ at: 'idle' })} />
       ) : null}
 
-      {(stage.at === 'review' || stage.at === 'importing') && (
+      {(stage.at === 'review' || stage.at === 'importing' || stage.at === 'rechecking') && (
         <Review
           parsed={stage.parsed}
           resolution={stage.resolution}
           choices={choices}
           setChoices={setChoices}
+          overrides={overrides}
+          onChoose={recheck}
+          rechecking={stage.at === 'rechecking'}
           busy={stage.at === 'importing'}
           onCancel={() => setStage({ at: 'idle' })}
           onConfirm={async () => {
@@ -216,11 +258,17 @@ function Upload({ stage, onFile, onReset }: {
 
 /* ------------------------------------------------------------------ */
 
-function Review({ parsed, resolution, choices, setChoices, busy, onCancel, onConfirm }: {
+function Review({
+  parsed, resolution, choices, setChoices, overrides, onChoose, rechecking,
+  busy, onCancel, onConfirm,
+}: {
   parsed: ParsedWorkbook;
   resolution: ImportResolution;
   choices: Choices;
   setChoices: (c: Choices) => void;
+  overrides: ImportOverrides;
+  onChoose: (next: ImportOverrides) => void;
+  rechecking: boolean;
   busy: boolean;
   onCancel: () => void;
   onConfirm: () => void;
@@ -258,6 +306,12 @@ function Review({ parsed, resolution, choices, setChoices, busy, onCancel, onCon
           </dl>
         </div>
       </div>
+
+      <WhichClass
+        parsed={parsed} resolution={resolution}
+        overrides={overrides} onChoose={onChoose}
+        busy={busy || rechecking}
+      />
 
       <Issues summary={summary} />
 
@@ -308,6 +362,132 @@ function Review({ parsed, resolution, choices, setChoices, busy, onCancel, onCon
         </button>
       </div>
     </>
+  );
+}
+
+/* ==================================================================== *
+ * WHICH CLASS IS THIS?
+ *
+ * The panel that was missing. Every "Choose one." the resolver emits
+ * used to be addressed at somebody with nothing to choose with: the
+ * server has always accepted `overrides`, and the client never sent
+ * any. A teacher importing their real GMRC 9 workbook got six red
+ * errors and no control anywhere on the page — the screen was telling
+ * the truth and offering no way to act on it.
+ *
+ * Shown whenever the class is not matched, and ALSO once it is, because
+ * a workbook that resolved to the wrong class is the more dangerous
+ * case and the person needs to see what it picked.
+ * ==================================================================== */
+
+function WhichClass({ parsed, resolution, overrides, onChoose, busy }: {
+  parsed: ParsedWorkbook;
+  resolution: ImportResolution;
+  overrides: ImportOverrides;
+  onChoose: (next: ImportOverrides) => void;
+  busy: boolean;
+}) {
+  const { options, class: cls } = resolution;
+  const gradeLevelId = overrides.gradeLevelId ?? cls.gradeLevelId ?? '';
+  const subjectId = overrides.subjectId ?? cls.subjectId ?? '';
+  const sectionId = overrides.sectionId ?? cls.sectionId ?? '';
+
+  // Only this grade's sections. Offering the whole year's would invite
+  // dropping Grade 9 marks into a Grade 7 register.
+  const sections = options.sections.filter(
+    (x) => !gradeLevelId || x.gradeLevelId === gradeLevelId);
+
+  const set = (patch: ImportOverrides) => {
+    const next: ImportOverrides = { ...overrides, ...patch };
+    // A new grade level invalidates the section chosen under the old one.
+    if (patch.gradeLevelId !== undefined) delete next.sectionId;
+    for (const k of Object.keys(next) as (keyof ImportOverrides)[]) {
+      if (!next[k]) delete next[k];
+    }
+    onChoose(next);
+  };
+
+  return (
+    <div className="panel">
+      <div className="panel-head">
+        <div>
+          <h2>Which class is this?</h2>
+          <p className="page-sub">
+            {cls.status === 'matched'
+              ? 'Matched from the workbook. Change any of these if it picked the wrong one.'
+              : 'The workbook could not be matched on its own. Choose below and it '
+                + 'will be checked again.'}
+          </p>
+        </div>
+        <div className="spacer" />
+        {busy && <span className="faint" role="status">Checking…</span>}
+      </div>
+
+      <div className="panel-body form-grid">
+        <Choose
+          label="Grade level" value={gradeLevelId} disabled={busy}
+          said={parsed.identity.gradeLevelText}
+          onChange={(v) => set({ gradeLevelId: v })}
+          options={options.gradeLevels.map((g) => ({ id: g.id, label: g.name }))}
+        />
+        <Choose
+          label="Section" value={sectionId} disabled={busy || !gradeLevelId}
+          said={parsed.identity.sectionText}
+          hint={gradeLevelId ? undefined : 'Choose a grade level first'}
+          onChange={(v) => set({ sectionId: v })}
+          options={sections.map((x) => ({ id: x.id, label: x.name }))}
+        />
+        <Choose
+          label="Subject" value={subjectId} disabled={busy}
+          said={parsed.identity.subjectText}
+          onChange={(v) => set({ subjectId: v })}
+          options={options.subjects.map((x) => ({ id: x.id, label: `${x.title} · ${x.code}` }))}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * One picker, with what the WORKBOOK said underneath it.
+ *
+ * Showing the file's own word matters: a teacher choosing "Mathematics
+ * 10" for a workbook that says "GMRC" should see that is what they are
+ * doing, rather than discover it after the marks have landed.
+ */
+function Choose({ label, value, said, hint, options, disabled, onChange }: {
+  label: string;
+  value: string;
+  said: string | null;
+  hint?: string;
+  options: { id: string; label: string }[];
+  disabled: boolean;
+  onChange: (v: string) => void;
+}) {
+  const chosen = options.find((o) => o.id === value);
+  const flat = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const differs = !!chosen && !!said && !flat(chosen.label).includes(flat(said));
+  return (
+    <label className="field">
+      <span className="field-label">{label}</span>
+      <select
+        className="input" value={value} disabled={disabled}
+        // Named explicitly rather than by the wrapping label: the hint
+        // below carries a whole sentence about what the workbook said,
+        // and a screen reader would otherwise read all of it as the
+        // control's name.
+        aria-label={label}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        <option value="">Choose…</option>
+        {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+      </select>
+      <span className="field-hint">
+        {hint ?? (said
+          ? <>The workbook says <b>{said}</b>{differs && ' — you have chosen something else'}</>
+          : 'The workbook does not say')}
+      </span>
+    </label>
   );
 }
 

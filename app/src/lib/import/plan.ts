@@ -87,7 +87,34 @@ export interface ResolvedPeriod {
   editable: boolean;
 }
 
+/**
+ * What the person may choose from when a workbook cannot be resolved.
+ *
+ * Every "Choose one." in the resolver's error messages used to be
+ * addressed at somebody who had nothing to choose with: the server has
+ * always accepted `overrides`, and the client had no list to offer, so
+ * a real workbook naming a subject the school does not stock was simply
+ * a dead end. This is that list.
+ */
+export interface ImportOptions {
+  academicYears: { id: string; label: string }[];
+  /** Name is disambiguated server-side when two levels share one. */
+  gradeLevels: { id: string; name: string }[];
+  /** Every section in the year; narrow by `gradeLevelId` in the UI. */
+  sections: { id: string; name: string; gradeLevelId: string }[];
+  subjects: { id: string; code: string; title: string }[];
+}
+
+/** The choices sent back so the server can resolve what the file could not. */
+export interface ImportOverrides {
+  academicYearId?: string;
+  gradeLevelId?: string;
+  sectionId?: string;
+  subjectId?: string;
+}
+
 export interface ImportResolution {
+  options: ImportOptions;
   class: {
     status: 'matched' | 'willCreate' | 'unresolved';
     classId: string | null;
