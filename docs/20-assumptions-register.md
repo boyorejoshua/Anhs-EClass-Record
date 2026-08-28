@@ -901,3 +901,80 @@ DepEd's and we should say so in the UI rather than hide it.
   and our parser says so per component per term rather than failing the
   file. Terms 2 and 3 are empty in this file and produce six clear
   warnings.
+
+---
+
+## A21 — Importing the teacher's real workbook: six errors, one dead end
+
+The teacher's GMRC 9 Edison file was imported through the Import Center
+and produced six red errors with no control on the page to act on any of
+them. Three distinct faults, worth separating because only one of them
+was a matching bug.
+
+### 1. The official workbook writes the grade level as a bare number
+
+`INPUT DATA!E25` holds the **integer 9**, not `"Grade 9"`. We compared it
+against `grade_levels.name` (`Grade 9`) and `.code` (`G9`), neither of
+which normalises to `9`. **Every official DepEd workbook failed at the
+first hurdle**, and the demo never caught it because the demo's own
+fixture writes `Grade 10 - Pearl` in the anticipated layout's format.
+
+Now matched on the ordinal and on the digits of each side, so `9`,
+`Grade 9`, `GRADE 9`, `G9` and `Gr. 9` all find the same row.
+
+### 2. Four of the six errors were not real
+
+> The grading scheme for this subject has no "WW" component…
+> …no "PT"…  …no "ST1"…  …no "ST2"…
+
+The teacher's own reply was the diagnosis: *the template has the HPS for
+WW, PT and EX*. So does the school's scheme. Those four fired because the
+**subject** was unresolved, so no grading scheme was found, so every
+component in the workbook was reported missing. Four consequences of one
+cause, each dressed as its own failure, all of which vanish the moment
+the subject is chosen.
+
+A component can only be judged against a scheme. With no scheme, the
+resolver now says nothing about components at all.
+
+### 3. "Choose one." with nothing to choose from
+
+The worst of the three. `import_resolution` has accepted `overrides` for
+the year, section and subject since migration 0026 — **the client never
+sent any and rendered no picker.** Every "Choose one." in those messages
+was addressed at somebody who had no way to choose.
+
+This is the same shape of defect as the empty-class roster dead end
+earlier in the build: a screen that states a true problem and offers no
+route out of it. Worth naming as a pattern to watch for — *if a message
+tells someone to do something, something on the page has to let them do
+it.*
+
+### Found while fixing it
+
+**A school can hold two grade levels with the same name.** Our own seed
+does: `G9` and `G9P`, both called "Grade 9", the second for a prior
+year's SF10 history. The lookup was `select … into`, which takes
+whichever row the planner returns first — so a term of marks could have
+landed on the wrong register with nothing said. Ambiguity is now an
+explicit question, and where names collide the dropdown appends the code
+so the two are distinguishable.
+
+Found only because the migration was applied to a local Postgres loaded
+with the real seed before going near the live project. Worth keeping as
+the habit.
+
+### Still open
+
+- **GMRC is not in the school's subject list**, and an import will never
+  create one — a typo would become a subject. Either an administrator
+  adds GMRC (and Values Education, and whatever else the school teaches
+  that we have not seeded), or every GMRC import needs a manual choice.
+  **Ask the school for their full subject list**; the seed currently
+  carries eight subjects, all Grade 10.
+- **No section called EDISON exists** for SY 2026-2027. Same answer:
+  sections come from the registrar, not from a spreadsheet.
+- The picker resolves one workbook at a time. A teacher importing six
+  subjects will answer the same subject question six times. Acceptable
+  now; if the school imports in bulk, remembering the last choice per
+  file name would be the cheap improvement.

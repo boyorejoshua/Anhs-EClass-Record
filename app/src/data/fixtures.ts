@@ -593,6 +593,12 @@ interface ImportWorkbookInput {
     sectionText?: string | null;
     subjectText?: string | null;
   };
+  /** What the person chose when the workbook could not resolve itself. */
+  overrides?: {
+    gradeLevelId?: string;
+    sectionId?: string;
+    subjectId?: string;
+  };
   roster?: { row: number; raw: string; sex?: 'male' | 'female' }[];
   terms?: {
     ordinal: number;
@@ -615,13 +621,43 @@ function normaliseName(value: string): string {
  * subject — the same tuple the database is unique on, so the demo and
  * the server agree about what "the same class" means.
  */
+/**
+ * Which class this workbook is for.
+ *
+ * A CHOICE BEATS THE FILE. Everything the resolver reports as
+ * unresolved is meant to be answerable from the preview, and if the
+ * fixture ignored `overrides` the picker would appear to do nothing in
+ * demo mode — the fifth kind of lying fixture in this codebase.
+ */
 function resolveFixtureClass(wb: ImportWorkbookInput) {
   const want = (v: string | null | undefined) => normaliseName(v ?? '');
+  // The official DepEd workbook writes the grade level as a bare 9.
+  const num = (v: string | null | undefined) => {
+    const d = String(v ?? '').replace(/\D/g, '');
+    return d ? Number(d) : null;
+  };
+
+  const ov = wb.overrides ?? {};
+  const chosenGrade = ov.gradeLevelId
+    ? GRADE_LEVELS.find((g) => g.id === ov.gradeLevelId)?.name : null;
+  const chosenSection = ov.sectionId
+    ? SECTIONS.find((x) => x.id === ov.sectionId)?.name : null;
+  const chosenSubject = ov.subjectId
+    ? FIXTURE_SUBJECTS.find((x) => x.id === ov.subjectId) : null;
+
+  const gradeText = chosenGrade ?? wb.identity?.gradeLevelText;
+  const sectionText = chosenSection ?? wb.identity?.sectionText;
+  const gnum = num(gradeText);
+
   return CLASSES.find((c) =>
-    want(c.gradeLevel) === want(wb.identity?.gradeLevelText)
-    && want(c.section) === want(wb.identity?.sectionText)
-    && (want(c.subject) === want(wb.identity?.subjectText)
-        || want(c.subjectCode) === want(wb.identity?.subjectText)));
+    (want(c.gradeLevel) === want(gradeText)
+      || (gnum !== null && num(c.gradeLevel) === gnum))
+    && want(c.section) === want(sectionText)
+    && (chosenSubject
+      ? (want(c.subject) === want(chosenSubject.title)
+         || want(c.subjectCode) === want(chosenSubject.code))
+      : (want(c.subject) === want(wb.identity?.subjectText)
+         || want(c.subjectCode) === want(wb.identity?.subjectText))));
 }
 
 /** Every period's status as the fixture ships, so a reset is exact. */
@@ -1660,6 +1696,12 @@ export function createFixtureSource(): DataSource {
       const wb = workbook as ImportWorkbookInput;
       const cls = resolveFixtureClass(wb);
       const scheme = cls && cls.subjectCode.startsWith('MAPEH') ? DO015_MAPEH : DO015_CORE;
+      // No class means no subject means no grading scheme, and a
+      // component can only be judged against a scheme. The server
+      // returns [] here; reporting every component "missing" instead is
+      // what put four errors on the teacher's screen that were only
+      // consequences of the one real problem.
+      const schemeResolved = cls ? scheme : null;
 
       const wanted = new Set<string>();
       for (const t of wb.terms ?? []) {
@@ -1667,8 +1709,8 @@ export function createFixtureSource(): DataSource {
           for (const i of c.items ?? []) wanted.add(i.childComponentCode ?? c.key);
         }
       }
-      const components: ResolvedComponent[] = [...wanted].map((code) => {
-        const found = scheme.components.find((c) => c.code === code);
+      const components: ResolvedComponent[] = !schemeResolved ? [] : [...wanted].map((code) => {
+        const found = schemeResolved.components.find((c) => c.code === code);
         const parent = code === 'WW' || code === 'PT' || code === 'EX' ? code : 'EX';
         return {
           key: parent as ResolvedComponent['key'],
@@ -1740,15 +1782,31 @@ export function createFixtureSource(): DataSource {
         }
       }
 
+      const section = cls
+        ? SECTIONS.find((x) => x.gradeLevel === cls.gradeLevel && x.name === cls.section)
+        : undefined;
+
       return {
+        options: {
+          academicYears: [{ id: YEAR_TRIMESTER.id, label: YEAR_TRIMESTER.label }],
+          gradeLevels: GRADE_LEVELS.map((g) => ({ id: g.id, name: g.name })),
+          sections: SECTIONS.map((x) => ({
+            id: x.id, name: x.name, gradeLevelId: x.gradeLevelId,
+          })),
+          subjects: FIXTURE_SUBJECTS.map((x) => ({
+            id: x.id, code: x.code, title: x.title,
+          })),
+        },
         class: {
           status: cls ? 'matched' : 'unresolved',
           classId: cls?.id ?? null,
           academicYearId: YEAR_TRIMESTER.id,
-          gradeLevelId: null,
-          sectionId: null,
-          subjectId: null,
-          gradingSchemeId: scheme.id,
+          gradeLevelId: section?.gradeLevelId ?? null,
+          sectionId: section?.id ?? null,
+          subjectId: cls
+            ? (FIXTURE_SUBJECTS.find((x) => x.code === cls.subjectCode)?.id ?? null)
+            : null,
+          gradingSchemeId: schemeResolved?.id ?? null,
           label: cls ? `${cls.gradeLevel} – ${cls.section} · ${cls.subject}` : null,
           teacher: { userId: CURRENT_USER.id, displayName: CURRENT_USER.name },
         },

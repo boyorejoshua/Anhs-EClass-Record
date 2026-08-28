@@ -28,6 +28,12 @@ const TE = 'c-te';
  */
 function resolution(over: Partial<ImportResolution> = {}): ImportResolution {
   return {
+    options: {
+      academicYears: [{ id: 'yr-1', label: '2026-2027' }],
+      gradeLevels: [{ id: 'gl-7', name: 'Grade 7' }],
+      sections: [{ id: 'sec-1', name: 'Masipag', gradeLevelId: 'gl-7' }],
+      subjects: [{ id: 'sub-epp', code: 'EPP', title: 'EPP' }],
+    },
     class: {
       status: 'matched', classId: 'cls-1', academicYearId: 'yr-1',
       gradeLevelId: 'gl-7', sectionId: 'sec-1', subjectId: 'sub-epp',
