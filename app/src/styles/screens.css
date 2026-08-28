@@ -18,11 +18,11 @@
 .faint { color: var(--faint); }
 
 .page-head { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 14px; }
-.page-sub  { color: var(--muted); font-size: 13px; margin: 4px 0 0; }
+.page-sub  { color: var(--muted); font-size: var(--fs-md); margin: 4px 0 0; }
 
 .link-back {
   background: none; border: 0; padding: 0 0 6px;
-  color: var(--muted); font-size: 12px; cursor: pointer;
+  color: var(--muted); font-size: var(--fs-sm); cursor: pointer;
 }
 .link-back:hover { color: var(--accent); }
 
@@ -50,20 +50,20 @@
 /* --- not-available ------------------------------------------------- */
 
 .na { padding: 40px 28px; max-width: 62ch; }
-.na h2 { font-family: var(--font-display); font-size: 20px; margin: 10px 0 8px; }
-.na p  { color: var(--muted); font-size: 13.5px; line-height: 1.65; margin: 0 0 10px; }
-.na-doc { color: var(--faint); font-size: 12.5px; }
+.na h2 { font-family: var(--font-display); font-size: var(--fs-xl); margin: 10px 0 8px; }
+.na p  { color: var(--muted); font-size: var(--fs-md); line-height: 1.65; margin: 0 0 10px; }
+.na-doc { color: var(--faint); font-size: var(--fs-sm); }
 .na-tag {
   display: inline-block; padding: 2px 8px; border-radius: 999px;
   background: var(--panel-alt-2); color: var(--muted);
-  font-size: 11px; letter-spacing: .04em; text-transform: uppercase;
+  font-size: var(--fs-xs); letter-spacing: .04em; text-transform: uppercase;
 }
 
 /* --- sidebar additions --------------------------------------------- */
 
 .side-roles { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 10px; }
 .side-roles button {
-  flex: 1 1 auto; padding: 5px 8px; font-size: 11.5px;
+  flex: 1 1 auto; padding: 5px 8px; font-size: var(--fs-xs);
   border: 1px solid var(--border); border-radius: var(--r-sm);
   background: transparent; color: var(--side-label); cursor: pointer;
 }
@@ -72,7 +72,7 @@
 }
 .side-link[data-planned] { opacity: .62; }
 .side-planned {
-  margin-left: auto; font-size: 10px; letter-spacing: .05em;
+  margin-left: auto; font-size: var(--fs-2xs); letter-spacing: .05em;
   text-transform: uppercase; color: var(--side-label);
   border: 1px solid var(--border); border-radius: 999px; padding: 1px 6px;
 }
@@ -93,7 +93,7 @@
 
 .cc-meta {
   display: flex; flex-wrap: wrap; gap: 10px;
-  font-size: 12px; color: var(--muted); margin: 8px 0;
+  font-size: var(--fs-sm); color: var(--muted); margin: 8px 0;
 }
 .cc-progress { display: flex; align-items: center; gap: 8px; margin-top: auto; }
 .cc-bar {
@@ -105,34 +105,43 @@
   transition: width var(--dur-base) var(--ease);
 }
 .cc-bar > span[data-full="true"] { background: var(--success); }
-.cc-pct { font-size: 12px; color: var(--muted); min-width: 34px; text-align: right; }
+.cc-pct { font-size: var(--fs-sm); color: var(--muted); min-width: 34px; text-align: right; }
 .cc-actions { display: flex; gap: 8px; margin-top: 10px; }
 @media (prefers-reduced-motion: reduce) { .cc-bar > span { transition: none; } }
 
 /* --- tables --------------------------------------------------------- */
 
 .tbl-wrap { overflow-x: auto; }
-.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl { width: 100%; border-collapse: collapse; font-size: var(--fs-md); }
+/* Row height follows the type rather than sitting at a fixed 10px, so
+   turning Text size up gives the letters somewhere to go instead of
+   crowding them against the rule below. */
 .tbl th, .tbl td {
-  text-align: left; padding: 10px 14px;
+  text-align: left;
+  padding: calc(var(--fs-base) * 0.7) calc(var(--fs-base) * 0.9);
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
+  line-height: var(--lh-tight);
 }
+/* Uppercase costs legibility — it strips the ascender/descender shape
+   that lets a word be recognised without being read. Kept for column
+   heads because they are two words a person scans rather than reads,
+   but the tracking is looser and the weight heavier to pay it back. */
 .tbl thead th {
-  font-size: 11px; letter-spacing: .05em; text-transform: uppercase;
-  color: var(--muted); font-weight: 600; white-space: nowrap;
+  font-size: var(--fs-xs); letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); font-weight: 700; white-space: nowrap;
 }
 .tbl tbody tr:hover { background: var(--panel-alt); }
 .tbl th[scope="row"] { font-weight: 600; }
 .tbl .num { text-align: right; font-variant-numeric: tabular-nums; }
 .tbl td[data-warn="true"] { color: var(--warning); }
-.tbl-sub { display: block; font-size: 11.5px; color: var(--muted); font-weight: 400; }
-.tbl-date { white-space: nowrap; font-size: 12px; }
+.tbl-sub { display: block; font-size: var(--fs-xs); color: var(--muted); font-weight: 400; }
+.tbl-date { white-space: nowrap; font-size: var(--fs-sm); }
 .row-actions { display: flex; gap: 6px; justify-content: flex-end; }
 
 .pill {
   display: inline-block; padding: 2px 8px; border-radius: 999px;
-  font-size: 11px; background: var(--panel-alt-2); color: var(--muted);
+  font-size: var(--fs-xs); background: var(--panel-alt-2); color: var(--muted);
 }
 .pill[data-tone="ok"] { background: var(--success-tint); color: var(--success); }
 
@@ -149,15 +158,15 @@
 /* A one-line provenance banner, not a boxed warning: same colour
    language as the callouts, a fraction of the weight. */
 .callout[data-inline="true"] {
-  padding: 9px 12px; font-size: 12.5px; line-height: 1.5; margin-bottom: 12px;
+  padding: 9px 12px; font-size: var(--fs-sm); line-height: 1.5; margin-bottom: 12px;
 }
-.callout b { font-size: 13.5px; }
+.callout b { font-size: var(--fs-md); }
 .callout ul { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
-.callout li { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.callout li { display: flex; align-items: center; gap: 10px; font-size: var(--fs-md); }
 .callout li .btn { margin-left: auto; }
 
 .plain-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.plain-list li { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.plain-list li { display: flex; align-items: center; gap: 10px; font-size: var(--fs-md); }
 
 /* --- menus ----------------------------------------------------------- */
 
@@ -171,18 +180,18 @@
 .menu button {
   display: block; width: 100%; text-align: left; cursor: pointer;
   padding: 9px 10px; border: 0; border-radius: var(--r-sm);
-  background: none; color: var(--ink); font: inherit; font-size: 13px;
+  background: none; color: var(--ink); font: inherit; font-size: var(--fs-md);
 }
 .menu button:hover { background: var(--panel-alt); }
-.menu button span { display: block; font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.menu button span { display: block; font-size: var(--fs-xs); color: var(--muted); margin-top: 2px; }
 .menu-note {
   margin: 6px 4px 2px; padding-top: 8px; border-top: 1px solid var(--border);
-  font-size: 11.5px; color: var(--faint); line-height: 1.5;
+  font-size: var(--fs-xs); color: var(--faint); line-height: 1.5;
 }
 
 /* --- submission panel -------------------------------------------------- */
 
-.sub-meaning { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+.sub-meaning { color: var(--muted); font-size: var(--fs-md); margin: 0 0 14px; }
 .sub-grid {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px; margin-bottom: 16px;
@@ -192,11 +201,11 @@
   padding: 12px 14px; display: grid; gap: 6px; align-content: start;
 }
 .sub-metric-label {
-  font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted);
+  font-size: var(--fs-xs); letter-spacing: .05em; text-transform: uppercase; color: var(--muted);
 }
-.sub-metric b { font-size: 22px; font-family: var(--font-display); }
+.sub-metric b { font-size: var(--fs-2xl); font-family: var(--font-display); }
 .sub-metric b[data-warn="true"] { color: var(--warning); }
-.sub-metric-note { font-size: 11.5px; color: var(--muted); }
+.sub-metric-note { font-size: var(--fs-xs); color: var(--muted); }
 
 .sub-check { display: grid; gap: 14px; justify-items: start; }
 .sub-block {
@@ -206,26 +215,26 @@
 .sub-block[data-kind="error"] { border-left-color: var(--error); }
 .sub-block[data-kind="warn"]  { border-left-color: var(--warning); }
 .sub-block[data-kind="ok"]    { border-left-color: var(--success); }
-.sub-block ul { margin: 8px 0 0; padding-left: 18px; font-size: 13px; }
-.sub-block span { display: block; font-size: 13px; color: var(--muted); margin-top: 4px; }
-.sub-block-note { font-size: 12px !important; color: var(--faint) !important; }
+.sub-block ul { margin: 8px 0 0; padding-left: 18px; font-size: var(--fs-md); }
+.sub-block span { display: block; font-size: var(--fs-md); color: var(--muted); margin-top: 4px; }
+.sub-block-note { font-size: var(--fs-sm) !important; color: var(--faint) !important; }
 
 .sub-confirm {
   width: 100%; border: 1px solid var(--accent); border-radius: var(--r-panel);
   padding: 14px 16px; display: grid; gap: 10px;
 }
-.sub-confirm span { font-size: 13px; color: var(--muted); }
+.sub-confirm span { font-size: var(--fs-md); color: var(--muted); }
 .sub-confirm-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
 
 .sub-locked {
   border: 1px solid var(--border); border-radius: var(--r-panel);
   padding: 14px 16px; background: var(--panel-alt);
 }
-.sub-locked span { display: block; font-size: 13px; color: var(--muted); margin-top: 4px; }
+.sub-locked span { display: block; font-size: var(--fs-md); color: var(--muted); margin-top: 4px; }
 
 .tab-count {
   margin-left: 6px; padding: 0 6px; border-radius: 999px;
-  background: var(--warning); color: #fff; font-size: 10.5px;
+  background: var(--warning); color: #fff; font-size: var(--fs-2xs);
   font-variant-numeric: tabular-nums;
 }
 
@@ -234,22 +243,22 @@
 .att-bulk {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   padding: 10px 16px; border-bottom: 1px solid var(--border);
-  font-size: 12.5px; color: var(--muted);
+  font-size: var(--fs-sm); color: var(--muted);
 }
-.att-summary { font-size: 12px; }
+.att-summary { font-size: var(--fs-sm); }
 .att-list { padding: 6px 0; }
 .att-row {
   display: flex; align-items: center; gap: 12px;
   padding: 8px 16px; border-bottom: 1px solid var(--border);
 }
 .att-row:last-child { border-bottom: 0; }
-.att-name { flex: 1; display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+.att-name { flex: 1; display: flex; align-items: center; gap: 8px; font-size: var(--fs-md); }
 .att-choices { display: flex; gap: 4px; }
 .att-choices button {
   width: 34px; height: 30px; cursor: pointer;
   border: 1px solid var(--border); border-radius: var(--r-sm);
   background: var(--panel); color: var(--muted);
-  font-family: var(--font-mono); font-size: 12.5px;
+  font-family: var(--font-mono); font-size: var(--fs-sm);
 }
 .att-choices button:hover { border-color: var(--accent); }
 .att-choices button[aria-checked="true"] { color: #fff; border-color: transparent; }
@@ -267,8 +276,8 @@
   padding: 14px 16px; display: grid; gap: 8px; align-content: start;
 }
 .rep-card[data-planned] { opacity: .72; background: var(--panel-alt); }
-.rep-card h3 { font-size: 14px; }
-.rep-card p { font-size: 12.5px; color: var(--muted); line-height: 1.55; margin: 0; }
+.rep-card h3 { font-size: var(--fs-base); }
+.rep-card p { font-size: var(--fs-sm); color: var(--muted); line-height: 1.55; margin: 0; }
 .rep-card .btn { justify-self: start; }
 
 /* --- profile / facts ------------------------------------------------------ */
@@ -278,10 +287,10 @@
 }
 .facts { margin: 0; display: grid; gap: 10px; }
 .facts > div { display: grid; grid-template-columns: 148px 1fr; gap: 12px; align-items: baseline; }
-.facts dt { font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
-.facts dd { margin: 0; font-size: 13.5px; }
+.facts dt { font-size: var(--fs-xs); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.facts dd { margin: 0; font-size: var(--fs-md); }
 .facts kbd {
-  font-family: var(--font-mono); font-size: 11.5px;
+  font-family: var(--font-mono); font-size: var(--fs-xs);
   border: 1px solid var(--border); border-bottom-width: 2px;
   border-radius: 4px; padding: 1px 6px; background: var(--panel-alt);
   text-transform: none; letter-spacing: 0; color: var(--ink);
@@ -297,10 +306,10 @@
   background: var(--panel); color: var(--ink);
 }
 .hist-row:hover { border-color: var(--accent); }
-.hist-year { font-size: 13px; color: var(--muted); min-width: 84px; }
+.hist-year { font-size: var(--fs-md); color: var(--muted); min-width: 84px; }
 .hist-main { flex: 1; }
-.hist-main b { display: block; font-size: 13.5px; }
-.hist-meta { display: flex; align-items: center; gap: 10px; font-size: 12.5px; }
+.hist-main b { display: block; font-size: var(--fs-md); }
+.hist-meta { display: flex; align-items: center; gap: 10px; font-size: var(--fs-sm); }
 .hist-caret { color: var(--muted); }
 
 /* --- modal ------------------------------------------------------------------ */
@@ -328,18 +337,18 @@
 .tab-group-label {
   align-self: center; margin: 0 2px 0 10px; padding-left: 10px;
   border-left: 1px solid var(--border);
-  font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+  font-size: var(--fs-2xs); letter-spacing: .06em; text-transform: uppercase;
   color: var(--faint); white-space: nowrap;
 }
 .tabs [role="tab"][data-group="record-book"] { font-weight: 600; }
 
-.sub-th { font-size: 10px !important; color: var(--faint) !important; }
+.sub-th { font-size: var(--fs-2xs) !important; color: var(--faint) !important; }
 
 .setup-totals {
   display: flex; flex-wrap: wrap; gap: 14px;
-  font-size: 12px; color: var(--muted);
+  font-size: var(--fs-sm); color: var(--muted);
 }
-.save-ok { color: var(--success); font-size: 13px; align-self: center; }
+.save-ok { color: var(--success); font-size: var(--fs-md); align-self: center; }
 
 /* --- distribution chart ----------------------------------------------------
    A bar per band. Deliberately CSS rather than a charting library: it is
@@ -347,7 +356,7 @@
 
 .dist { display: grid; gap: 8px; }
 .dist-row { display: flex; align-items: center; gap: 10px; }
-.dist-label { font-size: 12px; color: var(--muted); min-width: 62px; }
+.dist-label { font-size: var(--fs-sm); color: var(--muted); min-width: 62px; }
 .dist-track {
   flex: 1; height: 18px; border-radius: var(--r-sm);
   background: var(--panel-alt); overflow: hidden;
@@ -358,7 +367,7 @@
   transition: width var(--dur-base) var(--ease);
 }
 .dist-track > span[data-low="true"] { background: var(--error); }
-.dist-count { font-size: 12px; min-width: 24px; text-align: right; }
+.dist-count { font-size: var(--fs-sm); min-width: 24px; text-align: right; }
 @media (prefers-reduced-motion: reduce) { .dist-track > span { transition: none; } }
 
 /* Printing an LOA report is the point of it — it is filed on paper. */
@@ -379,25 +388,53 @@
 .loa-table:first-of-type { margin-top: 8px; }
 
 .loa-title {
-  font-size: 12px; font-weight: 600; letter-spacing: 0.06em;
+  font-size: var(--fs-sm); font-weight: 600; letter-spacing: 0.06em;
   text-transform: uppercase; color: var(--muted);
   margin: 0 0 8px; padding-bottom: 6px;
   border-bottom: 1px solid var(--border);
 }
 
-.tbl.loa { font-size: 12px; }
 /* Five bands x (No., %) plus five statistics columns is a lot of
-   columns. Tighten the cells so a whole table fits a laptop without
-   horizontal scrolling; the wrap still scrolls when it cannot. */
-.tbl.loa th, .tbl.loa td { padding: 6px 9px; }
-.tbl.loa td.num { font-size: 11.5px; }
-/* "Number of Learners" is the widest heading and needs none of it. */
-.tbl.loa thead th[rowspan] { white-space: normal; max-width: 74px; line-height: 1.25; }
-.tbl.loa thead th[colspan] { white-space: normal; line-height: 1.25; }
+   columns, and the old answer was to shrink the type until it all fit
+   — 11.5px numbers in a 2.6:1 grey. That is the wrong trade. THE
+   NUMBERS ARE THE REPORT; if something has to give, it is the fitting,
+   not the reading. The cells stay tight, the type does not, and
+   .tbl-wrap scrolls when a laptop cannot take it. */
+.tbl.loa { font-size: var(--fs-md); }
+.tbl.loa th, .tbl.loa td {
+  padding: calc(var(--fs-base) * 0.42) calc(var(--fs-base) * 0.55);
+}
+.tbl.loa td.num { font-size: var(--fs-md); font-weight: 500; }
+/* "Number of Learners" is the widest heading and needs none of it. The
+   cap tracks the type: a fixed 74px was fine at 11.5px and squeezed the
+   same words onto four ragged lines at 20px. */
+.tbl.loa thead th[rowspan] {
+  white-space: normal;
+  max-width: calc(var(--fs-base) * 5);
+  line-height: var(--lh-tight);
+  /* Wrapped heading text is right-aligned by .num, which leaves a ragged
+     left edge above a column of tidy right-aligned digits. Centre the
+     heading and let the numbers keep their alignment. */
+  text-align: center;
+}
+.tbl.loa thead th[colspan] { white-space: normal; line-height: var(--lh-tight); }
 .tbl.loa th[colspan] {
   text-align: center; border-left: 1px solid var(--border);
 }
-.tbl.loa .sub-th { font-weight: 500; color: var(--muted); }
+.tbl.loa .sub-th { font-weight: 600; color: var(--muted); }
+
+/* A percentage sitting beside its own count. Lighter than the count so
+   the pair still reads as one figure and its share — but --muted, not
+   --faint, because it is a VALUE. This column was the single worst
+   thing on the screen: real data at 11.5px in a grey that measured
+   2.37:1 against the row behind it. */
+.tbl.loa td.pct { color: var(--muted); }
+
+/* A band nobody landed in is a real answer, and printing 0 and 0 in
+   full weight makes five empty bands shout louder than the one that
+   matters. Dim the zeros only — and --faint is legible now, so this is
+   de-emphasis rather than concealment. */
+.tbl.loa td.num[data-zero='true'] { color: var(--faint); font-weight: 400; }
 .tbl.loa th[scope="row"] {
   position: sticky; left: 0; z-index: 1;
   background: var(--panel); white-space: nowrap;
@@ -412,7 +449,7 @@
 .loa-foot {
   margin: 20px 0 0; padding-top: 12px;
   border-top: 1px solid var(--border);
-  font-size: 12px; color: var(--muted);
+  font-size: var(--fs-sm); color: var(--muted);
 }
 
 /* --- chain of custody ------------------------------------------------ *
@@ -434,8 +471,8 @@
   background: var(--panel-alt-2);
   position: relative;
 }
-.chain li b { font-size: 12.5px; color: var(--muted); font-weight: 600; }
-.chain li span { font-size: 12px; color: var(--faint); }
+.chain li b { font-size: var(--fs-sm); color: var(--muted); font-weight: 600; }
+.chain li span { font-size: var(--fs-sm); color: var(--faint); }
 
 .chain li[data-done] {
   background: var(--success-tint);
@@ -460,12 +497,12 @@
 }
 
 .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-.field-label { font-size: 12px; font-weight: 600; color: var(--muted); }
+.field-label { font-size: var(--fs-sm); font-weight: 600; color: var(--muted); }
 .field-req { color: var(--error); }
-.field-hint { font-size: 11.5px; color: var(--faint); line-height: 1.4; }
+.field-hint { font-size: var(--fs-xs); color: var(--faint); line-height: 1.4; }
 
 .input {
-  font: inherit; font-size: 13px;
+  font: inherit; font-size: var(--fs-md);
   padding: 7px 10px;
   border: 1px solid var(--border); border-radius: var(--r-ctl);
   background: var(--panel); color: var(--ink);
@@ -485,8 +522,8 @@
   display: grid; gap: 12px 20px; margin: 0;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
-.detail dt { font-size: 11.5px; font-weight: 600; color: var(--muted); margin-bottom: 2px; }
-.detail dd { margin: 0; font-size: 13.5px; color: var(--ink); }
+.detail dt { font-size: var(--fs-xs); font-weight: 600; color: var(--muted); margin-bottom: 2px; }
+.detail dd { margin: 0; font-size: var(--fs-md); color: var(--ink); }
 
 /* An input inside a toolbar sits in a flex row, so it must size to its
    content rather than filling the line the way a form field does. */
@@ -507,7 +544,7 @@
  * ---------------------------------------------------------------------- */
 
 .form-grid .picker .input { min-width: 0; }
-.form-grid .picker p { margin: 0; font-size: 13.5px; }
+.form-grid .picker p { margin: 0; font-size: var(--fs-md); }
 
 /* An editor opened in place, inside the row it belongs to — so changing
    a role never loses sight of whose role it is. */
@@ -523,10 +560,10 @@
 }
 .check {
   display: flex; align-items: center; gap: 8px;
-  font-size: 13px; color: var(--ink); cursor: pointer;
+  font-size: var(--fs-md); color: var(--ink); cursor: pointer;
 }
 .check input { accent-color: var(--accent); }
-.check .mono { font-size: 11.5px; }
+.check .mono { font-size: var(--fs-xs); }
 
 /* Confirmation of something that succeeded — distinct from .err-banner,
    which is the same shape for the opposite outcome. */
@@ -534,7 +571,7 @@
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 10px 14px; margin-bottom: 14px;
   border-left: 3px solid var(--accent);
-  font-size: 13px;
+  font-size: var(--fs-md);
 }
 
 /* --- Student Detail: the year strip ----------------------------------- *
@@ -579,24 +616,24 @@
 }
 .band[data-low="true"] { border-color: color-mix(in srgb, var(--error) 30%, var(--border)); }
 .band-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
-.band-label { font-size: 12.5px; font-weight: 700; color: var(--accent); }
+.band-label { font-size: var(--fs-sm); font-weight: 700; color: var(--accent); }
 .band[data-low="true"] .band-label { color: var(--error); }
-.band-count { margin-left: auto; font-size: 11.5px; color: var(--muted); }
-.band-empty { font-size: 12.5px; margin: 0; }
+.band-count { margin-left: auto; font-size: var(--fs-xs); color: var(--muted); }
+.band-empty { font-size: var(--fs-sm); margin: 0; }
 
 .band-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
 .band-list li {
   display: flex; align-items: baseline; gap: 8px;
-  font-size: 12.5px; line-height: 1.35;
+  font-size: var(--fs-sm); line-height: 1.35;
   background: var(--panel-alt); border-radius: var(--r-ctl);
   padding: 4px 8px;
 }
 .band-list li span { min-width: 0; overflow-wrap: anywhere; }
-.band-list li b { margin-left: auto; font-size: 12.5px; }
+.band-list li b { margin-left: auto; font-size: var(--fs-sm); }
 
 .name-chips { list-style: none; display: flex; flex-wrap: wrap; gap: 7px; margin: 0; padding: 0; }
 .name-chips li {
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   border: 1px solid var(--border); border-radius: var(--r-ctl);
   padding: 4px 10px; background: var(--panel-alt);
 }
@@ -605,10 +642,10 @@
    teacher can read against a count is more use than a wedge. */
 .rate { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; }
 .rate-row { display: contents; }
-.rate-label { font-size: 12.5px; font-weight: 600; }
+.rate-label { font-size: var(--fs-sm); font-weight: 600; }
 .rate-label[data-tone="ok"]  { color: var(--ok, var(--accent)); }
 .rate-label[data-tone="bad"] { color: var(--error); }
-.rate-n { font-size: 12.5px; color: var(--muted); text-align: right; }
+.rate-n { font-size: var(--fs-sm); color: var(--muted); text-align: right; }
 .rate-track {
   grid-column: 1 / 2; height: 7px; border-radius: 4px;
   background: var(--panel-alt-2); overflow: hidden;
@@ -616,11 +653,11 @@
 .rate-track span { display: block; height: 100%; border-radius: 4px; }
 .rate-track span[data-tone="ok"]  { background: var(--accent); }
 .rate-track span[data-tone="bad"] { background: var(--error); }
-.rate-pct { grid-column: 2 / 3; font-size: 11.5px; color: var(--muted); }
+.rate-pct { grid-column: 2 / 3; font-size: var(--fs-xs); color: var(--muted); }
 
 /* The inline "Edit name" affordance on a roster row. */
 .tbl-inline-edit {
-  margin-left: 9px; font-size: 11.5px; font-weight: 600;
+  margin-left: 9px; font-size: var(--fs-xs); font-weight: 600;
   opacity: .7;
 }
 .tbl-inline-edit:hover { opacity: 1; }
@@ -637,8 +674,8 @@
   border: 1px dashed var(--border); border-radius: var(--r-panel);
   background: var(--panel-alt);
 }
-.form-preview b { font-family: var(--font-display); font-size: 16px; color: var(--ink); }
-.form-preview span { font-size: 12.5px; color: var(--muted); }
+.form-preview b { font-family: var(--font-display); font-size: var(--fs-lg); color: var(--ink); }
+.form-preview span { font-size: var(--fs-sm); color: var(--muted); }
 
 /* ------------------------------------------------------------------ *
  * GRADE LEVEL BAR  (Students)
@@ -691,7 +728,7 @@
 .level-name  { grid-area: name; font-weight: 600; }
 .level-count {
   grid-area: count;
-  font-size: 20px;
+  font-size: var(--fs-xl);
   font-variant-numeric: tabular-nums;
   font-weight: 600;
 }
@@ -700,14 +737,14 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--muted);
 }
 .level-tag {
   padding: 1px 6px;
   border-radius: 999px;
   border: 1px solid var(--border-strong);
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   letter-spacing: .04em;
   text-transform: uppercase;
 }

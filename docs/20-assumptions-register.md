@@ -726,3 +726,66 @@ truncating quietly — a registrar concluding a learner is not enrolled
 because row 501 was dropped is exactly the kind of quiet wrong answer
 this product exists to stop. Real paging still needs building before we
 onboard a school with more than 500 learners in one grade level.
+
+---
+
+## A19 — Legibility is a functional requirement here, not a preference
+
+**Status: built. The remaining item is a decision for the school.**
+
+Raised by the user from a screenshot of the LOA report: *"its hard to see
+the numbers and letters specially for teachers who has a blur eyes."*
+
+That is not a styling note. A good share of DepEd teachers are over
+fifty, so presbyopia in this user population is not a minority
+accommodation — it is the median. Measured, what shipped was worse than
+it looked:
+
+| | Before | After |
+|---|---|---|
+| Font sizes 14px or smaller | 132 of 140 | scale-driven, floor 12px |
+| Smallest rendered text | 9.5px | 12px (badges only) |
+| Table data (grades) | 11.5–13px | 15px |
+| `--faint` contrast on a panel | **2.63:1** | 5.18:1 |
+| `--faint` on a table head | **2.37:1** | 4.67:1 |
+| `--muted` on a table head | 4.48:1 (fails) | 6.04:1 |
+
+WCAG AA wants 4.5:1 for normal text. The LOA band percentages — real
+data, the substance of the report — were being rendered in `--faint` at
+11.5px. **A number a teacher cannot read has not been shown to them.**
+
+### What was decided
+
+1. **One type scale, not 132 literals.** Sizes are ratios of `--fs-base`.
+   The old arrangement could not be fixed in one place because there was
+   no one place.
+2. **A Text size preference** — Standard 16 / Large 18 / Largest 20 —
+   because one bigger number cannot be right for everyone. Stored per
+   browser, not per account: it describes the SCREEN. The same teacher
+   projecting at a faculty meeting and on their own laptop wants
+   different answers, and syncing would guarantee one is wrong.
+3. **The default had to move too.** A preference alone helps only the
+   people who find it. Most never open a settings menu.
+4. **SF10 is exempt**, and is the only exempt surface. It is filed on
+   paper, its rows must fit a fixed sheet, and a division office would
+   reject a form that reflowed because the encoder had chosen large
+   text. Someone who cannot read it on screen should zoom the page,
+   which scales the sheet as a unit and keeps it printable.
+
+Held by `app/e2e/legibility.mjs`, which asserts the floor and the
+contrast ratios as numbers rather than leaving them to taste. Writing it
+found a further real defect: at Largest the class tabs scrolled
+horizontally with no affordance, so **Submission — the tab that ends a
+teacher's term — was off the edge with nothing to say so.** They wrap now.
+
+### Still to confirm with the school
+
+- **Which step teachers actually choose.** If most move to Large or
+  Largest on their own, Standard is set wrong and the default should be
+  18px. That is a question for the pilot, answerable by asking.
+- **Whether the Refined default suits an older reader at all.** Dense-
+  and-light is our house style, not a finding. Comfortable exists and
+  nobody has been asked which they prefer.
+- **Screen sizes in use at ANHS.** These numbers were checked at
+  1500×1100. A 1366×768 laptop at Largest will scroll more, and that is
+  the machine a public school is most likely to have.

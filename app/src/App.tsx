@@ -8,6 +8,7 @@ import './styles/screens.css';
 
 import { Sidebar } from './components/Sidebar';
 import { AppearanceMenu, useAppearance } from './components/AppearanceMenu';
+import { TextSizeMenu, useTextSize } from './components/TextSizeMenu';
 import { NotAvailable } from './components/NotAvailable';
 import { Async, useAsync } from './components/Async';
 
@@ -48,6 +49,7 @@ export default function App() {
   const backendConfigured = Boolean(getSupabase());
 
   const [appearance, setAppearance] = useAppearance();
+  const [textSize, setTextSize] = useTextSize();
   const [session, setSession] = useState<SessionContext | null>(null);
   const [booting, setBooting] = useState(true);
   const [fatal, setFatal] = useState<string | null>(null);
@@ -717,6 +719,10 @@ export default function App() {
               </span>
             )}
 
+            {/* Text size sits BEFORE appearance: it is the control a
+                teacher who cannot read the screen needs to find, and
+                the first one in the row is the one that gets found. */}
+            <TextSizeMenu value={textSize} onChange={setTextSize} />
             <AppearanceMenu value={appearance} onChange={setAppearance} />
 
             {DEMO_MODE && (
