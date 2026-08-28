@@ -433,22 +433,105 @@ function labelCell(sheet: Sheet, label: string): { row: number; col: number } | 
 }
 
 /**
- * The first real value to the right of a label, on the same row.
+ * The number of empty columns that may sit between a label and its
+ * value before we conclude the value is simply missing.
+ *
+ * Both workbooks put the value within two columns of the label — the
+ * official one spends one of those on a bare `:` in its own column.
+ * Three is generous and still stops well short of anything else.
+ */
+const MAX_LABEL_VALUE_GAP = 4;
+
+/**
+ * The value to the right of a label, on the same row.
  *
  * Skips a bare `:` separator, which the official workbook puts in its
  * own column, and stops at another label — so a blank REGION followed
  * by DIVISION reads as blank rather than as "DIVISION".
+ *
+ * IT ALSO STOPS RUNNING. This used to scan to the end of the row, which
+ * is fine until a field is left blank — and a real GMRC 9 workbook from
+ * a teacher had SUBJECT TEACHER empty. The official INPUT DATA sheet
+ * puts the class details on the LEFT and the roster on the RIGHT of the
+ * same rows, so the scan sailed through five empty columns and returned
+ * `13` — the roster ordinal of the thirteenth boy. The blank-REGION
+ * guard did not catch it either: these labels do not carry their own
+ * colon (it lives in the next column), so nothing matched `/:$/`.
+ *
+ * A wrong value here is worse than a missing one. Missing is a question
+ * the import already knows how to ask; wrong is a teacher named "13".
  */
 function valueAfter(sheet: Sheet, row: number, labelCol: number): string | null {
   const { cols } = bounds(sheet);
-  for (let c = labelCol + 1; c <= cols; c += 1) {
+
+  // Where the value is allowed to live. The official workbook MERGES
+  // each value cell (E23:F23 and so on), which is the template author
+  // saying "the value goes here" — so when there is a merge, it is the
+  // whole answer and an empty merge means an empty field. The
+  // anticipated workbook merges nothing, and only there do we fall back
+  // to counting columns.
+  const firstValueCol = firstNonSeparator(sheet, row, labelCol, cols);
+  if (firstValueCol === null) return null;
+  const merged = mergeAt(sheet, row, firstValueCol);
+  if (merged !== null) {
+    const v = text(sheet, row, merged.startCol);
+    return v === null || v === '' ? null : v;
+  }
+
+  let gap = 0;
+  for (let c = firstValueCol; c <= cols; c += 1) {
     const v = text(sheet, row, c);
-    if (v === null) continue;
+    if (v === null) {
+      gap += 1;
+      if (gap > MAX_LABEL_VALUE_GAP) return null;
+      continue;
+    }
     if (v === ':' || v === '-') continue;
     if (/:$/.test(v)) return null;
+    // A neighbouring block's heading, reached across the empty value
+    // cell. `MALE`, `FEMALE` and `LEARNERS' NAMES` head the roster that
+    // shares these rows.
+    if (isForeignHeading(v)) return null;
     return v;
   }
   return null;
+}
+
+/** The first column after the label that is not a bare `:` or `-`. */
+function firstNonSeparator(
+  sheet: Sheet, row: number, labelCol: number, cols: number,
+): number | null {
+  for (let c = labelCol + 1; c <= cols; c += 1) {
+    const v = text(sheet, row, c);
+    if (v === ':' || v === '-') continue;
+    return c;
+  }
+  return null;
+}
+
+/** The merged range covering this cell, if there is one. */
+function mergeAt(
+  sheet: Sheet, row: number, col: number,
+): { startCol: number } | null {
+  const merges = (sheet['!merges'] ?? []) as XLSX.Range[];
+  for (const m of merges) {
+    if (row - 1 >= m.s.r && row - 1 <= m.e.r && col >= m.s.c && col <= m.e.c) {
+      return { startCol: m.s.c };
+    }
+  }
+  return null;
+}
+
+/**
+ * Headings that belong to something else on the same row.
+ *
+ * Kept deliberately short: this is a backstop for the gap rule above,
+ * not a second layout description. Anything longer would start encoding
+ * the very coordinates this parser exists to discover.
+ */
+function isForeignHeading(value: string): boolean {
+  const v = normalise(value).replace(/[':]/g, '');
+  return v === 'MALE' || v === 'FEMALE' || v === 'LEARNERS NAMES';
 }
 
 /**

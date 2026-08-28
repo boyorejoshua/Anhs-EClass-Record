@@ -18,7 +18,7 @@ This is the document to take to the first discovery meeting. Each row names an a
 | A2 | Examinations subdivides ST1 30 / ST2 30 / TE 40 | Component tree wrong for every subject | [04](04-functional-requirements.md) M6 | ⬜ |
 | A3 | We have the correct SY 2026–2027 transmutation table | Every transmuted grade wrong | [06](06-data-architecture.md) | ⬜ |
 | A4 | Passing grade is 75 | Promotion and remarks wrong | [04](04-functional-requirements.md) | ⬜ |
-| A5 | Final grade is the simple mean of period grades | Final grades and promotion wrong | [04](04-functional-requirements.md) | ⬜ |
+| A5 | Final grade is the simple mean of period grades | Final grades and promotion wrong | [04](04-functional-requirements.md) | ✅ **CONFIRMED** — see A20 |
 | A6 | Descriptor bands match V0's (90+/85+/80+/75+) | Report card remarks wrong | [03](03-existing-system-assessment.md) | ⬜ |
 | A7 | SHS subject groups have distinct weights we have not obtained | SHS grading incorrect | [04](04-functional-requirements.md) | ⬜ |
 | A8 | Zero-based grading begins SY 2027–2028 as announced | Roadmap and the commercial wedge shift | [12](12-mvp-and-roadmap.md) | ⬜ |
@@ -789,3 +789,115 @@ teacher's term — was off the edge with nothing to say so.** They wrap now.
 - **Screen sizes in use at ANHS.** These numbers were checked at
   1500×1100. A 1366×768 laptop at Largest will scroll more, and that is
   the machine a public school is most likely to have.
+
+---
+
+## A20 — A real teacher's workbook: A5 resolved, and three findings
+
+A teacher at the school sent in their live file: the three-term
+Electronic Class Record for **GMRC, Grade 9 – Edison, SY 2026-2027**,
+version marker `2026_v1.0` in `INPUT DATA!O62`. It is the official DepEd
+ECR, filled with a real class.
+
+**The file itself is not in this repository and must not be.** It
+carries the names of 46 minors. Everything below is structure and
+formulas; the regression fixture was built on the DepEd geometry we
+already hold, with invented names.
+
+### A5 is CONFIRMED — the final grade is the mean of the three terms
+
+`FINAL GRADES!I14`:
+
+```
+=IF(C14="","",IF(COUNT($F14:$H14)=0,"",SUM($F14:$H14)/3))
+```
+
+Equal weight, divided by three. That closes the longest-standing open
+assumption in this register, which has been blocking any final grade
+being printed.
+
+**And the workbook is wrong mid-year, which vindicates the guard we
+built.** The divisor is a literal `3`. `COUNT(...)=0` only catches the
+all-blank case, so with Term 1 entered and Terms 2 and 3 still empty:
+
+| | Term 1 | Final | Descriptor |
+|---|---|---|---|
+| Learner 1 | 75 | **25** | **Emerging** |
+| Learner 2 | 79 | **26.3** | **Emerging** |
+
+Every learner in the teacher's live file currently reads *Emerging* —
+the lowest band — because two terms are not in yet. The descriptor
+lookup runs on 25 and returns exactly what 25 deserves.
+
+Our Student Detail marks FINAL **provisional** whenever a term is
+missing. That was a judgement call made without evidence; this is the
+evidence. **Keep it, and do not copy the workbook's `/3`.** The open
+question is no longer the formula but what to show before all three
+terms exist — we show provisional, the workbook shows a failing grade.
+
+### Confirmed against the real file
+
+- **Transmutation table: identical, all 41 bands**, checked row by row
+  against `HELPER!B8:D48`. Pass line at initial 70 → term 75.
+- **Descriptors: identical** — Advancing 90-100, Benchmarking 80-89,
+  Connecting 75-79, Developing 65-74, Emerging 60-64.
+- **Weights WW 0.20 / PT 0.50 / EX 0.30**, matching DO 015 s.2026 core.
+- **The two-level exams tree is real**: ST1 and ST2 raw out of 25,
+  weighted to 30 / 30, with TE at 40 — the structure V0 could not
+  represent at all.
+- **Our parser reads the file.** 46 learners across both sex blocks, 368
+  marks, blanks preserved as `null`, and the derived Initial/Term/
+  Descriptor read for comparison only.
+
+### The defect it exposed
+
+`teacherName` parsed as **`"13"`**.
+
+The teacher had left SUBJECT TEACHER blank. The official INPUT DATA
+sheet puts class details on the LEFT and the roster on the RIGHT of the
+same rows, so the scan for a value ran through five empty columns and
+landed on the roster ordinal of the thirteenth boy. The "stop at another
+label" guard tests for a trailing colon, and in this layout the colon
+sits in its own column — so no label ever ends in one and the guard
+never fired.
+
+Every fixture we had FILLS every field. A blank one is the ordinary case
+in the wild and was the untested one here. Fixed by reading the merged
+value cell when there is one — the template author merged `E23:F23`
+precisely to say "the value goes here" — with a measured column gap as
+the fallback for the anticipated layout, which merges nothing.
+
+### ⚠️ Open: two descriptor vocabularies on one screen
+
+The grading engine now transmutes to **Advancing / Benchmarking /
+Connecting / Developing / Emerging** (DO 015 s.2026). The LOA report
+still bands learners into **Did Not Meet Expectations / Fairly
+Satisfactory / Satisfactory / Very Satisfactory / Outstanding** (DO 8
+s.2015), because that is what the school's own CLASSRECORD template
+said when it was built.
+
+A teacher therefore sees a learner described as *Connecting* on the
+gradebook and *Fairly Satisfactory* on the LOA for the same 75-79 mark.
+
+**Not changed, deliberately.** The LOA is a form the school files, and
+we do not hold a 2026 version of it — guessing at the new bands could
+break what they submit. **Ask the school for their current LOA / summary
+template before touching it.** If they have moved to the new
+descriptors, this is a small change; if they have not, the mismatch is
+DepEd's and we should say so in the UI rather than hide it.
+
+### Also worth knowing
+
+- The workbook links FINAL GRADES to the term sheets with
+  `XLOOKUP(TRIM(name), 'TERM 1'!$C$18:$C$118, ...)` — **the learner name
+  is the join key**, the exact defect our three-table model exists to
+  fix. Correcting a spelling on one sheet silently empties that
+  learner's final grade. Names happen to match across all sheets in this
+  file, so it has not bitten this teacher yet.
+- `SUBJECT TEACHER` being blank is not an oversight to nag about: the
+  workbook has no field the teacher must sign, and the class details are
+  filled by whoever prepares the file.
+- A component with no highest-possible-score row yields no assessments,
+  and our parser says so per component per term rather than failing the
+  file. Terms 2 and 3 are empty in this file and produce six clear
+  warnings.
