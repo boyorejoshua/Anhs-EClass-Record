@@ -164,21 +164,33 @@ export function createSupabaseSource(): DataSource {
       return (data ?? []) as DirectoryStudent[];
     },
 
-    async getSubjectCatalogue() {
-      const { data, error } = await requireSupabase().rpc('subject_catalogue');
+    async getSubjectCatalogue(academicYearId) {
+      const { data, error } = await requireSupabase()
+        .rpc('subject_catalogue', { p_year_id: academicYearId });
       if (error) fail('Loading the subject list', error);
       return data as SubjectCatalogue;
     },
 
-    async createSubject(draft) {
+    async createSubject(academicYearId, draft) {
       const { data, error } = await requireSupabase().rpc('create_subject', {
         p_code: draft.code,
         p_title: draft.title,
         p_category_id: draft.categoryId,
         p_units: draft.units ?? null,
+        p_year_id: academicYearId,
+        p_grade_level_ids: draft.gradeLevelIds ?? [],
       });
       if (error) fail('Adding the subject', error);
       return data as string;
+    },
+
+    async setSubjectGradeLevels(subjectId, academicYearId, gradeLevelIds) {
+      const { error } = await requireSupabase().rpc('set_subject_grade_levels', {
+        p_subject_id: subjectId,
+        p_year_id: academicYearId,
+        p_grade_level_ids: gradeLevelIds,
+      });
+      if (error) fail('Changing where this subject is taught', error);
     },
 
     async setSubjectActive(subjectId, isActive) {

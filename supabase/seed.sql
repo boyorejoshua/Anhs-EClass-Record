@@ -72,6 +72,11 @@ select r.id, p.code from public.roles r cross join public.permissions p
 where r.code = 'teacher' and p.code in (
   'classes.read.own','students.read.own_classes','assessments.write','grades.encode',
   'grades.read.own_classes','grades.submit','attendance.encode','attendance.read.own',
+  -- 0032 grants this to teacher and adviser, but a migration runs
+  -- BEFORE this file creates the roles, so on a fresh database its
+  -- insert matches nothing and a teacher silently cannot add the class
+  -- they teach. Same trap as `subjects.write` above; same fix.
+  'classes.create.own',
   'documents.generate');
 
 insert into public.role_permissions (role_id, permission_code)
@@ -79,7 +84,9 @@ select r.id, p.code from public.roles r cross join public.permissions p
 where r.code = 'adviser' and p.code in (
   'classes.read.own','students.read.own_classes','students.read.section',
   'assessments.write','grades.encode','grades.read.own_classes','grades.read.section',
-  'grades.submit','attendance.encode','attendance.read.own','documents.generate');
+  'grades.submit','attendance.encode','attendance.read.own',
+  'classes.create.own',   -- as for the teacher above (0032)
+  'documents.generate');
 
 insert into public.role_permissions (role_id, permission_code)
 select r.id, p.code from public.roles r cross join public.permissions p

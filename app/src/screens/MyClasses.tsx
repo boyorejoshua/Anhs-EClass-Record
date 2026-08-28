@@ -247,6 +247,32 @@ function AddMyClass({ yearId, yearLabel, loadOptions, create, onCancel, onCreate
   const valid = subjectId !== ''
     && (newSection ? (gradeLevelId !== '' && sectionName.trim() !== '') : sectionId !== '');
 
+  /*
+    The grade the class is FOR — from the picked section, or from the
+    grade the teacher chose when adding one that does not exist yet.
+    Everything about the subject list follows from this.
+  */
+  const chosenGradeId = newSection
+    ? gradeLevelId
+    : options?.sections.find((x) => x.id === sectionId)?.gradeLevelId ?? '';
+
+  // No grade picked yet means no narrowing to do — show everything.
+  // An UNMAPPED subject (empty `gradeLevelIds`) is offered at every
+  // grade, which is how the server reads an empty curriculum map.
+  const subjectChoices = useMemo(() => {
+    if (!options) return [];
+    if (!chosenGradeId) return options.subjects;
+    return options.subjects.filter(
+      (x) => x.gradeLevelIds.length === 0 || x.gradeLevelIds.includes(chosenGradeId));
+  }, [options, chosenGradeId]);
+
+  // Changing the section can strand a subject that was valid a moment
+  // ago. Clearing it is better than submitting a Grade 10 subject to a
+  // Grade 7 section because the dropdown no longer showed it.
+  useEffect(() => {
+    if (subjectId && !subjectChoices.some((x) => x.id === subjectId)) setSubjectId('');
+  }, [subjectChoices, subjectId]);
+
   // Warn BEFORE submitting rather than letting the server refuse: the
   // teacher can still fix the selection while the form is open.
   const already = useMemo(() => {
@@ -353,10 +379,16 @@ function AddMyClass({ yearId, yearLabel, loadOptions, create, onCancel, onCreate
             onChange={(e) => setSubjectId(e.target.value)}
           >
             <option value="">Choose a subject…</option>
-            {options.subjects.map((s) => (
+            {subjectChoices.map((s) => (
               <option key={s.id} value={s.id}>{s.title}</option>
             ))}
           </select>
+          {chosenGradeId && subjectChoices.length === 0 && (
+            <span className="field-hint">
+              No subject is set up for that grade yet. A registrar or administrator
+              can set which grades take a subject on the Subjects list.
+            </span>
+          )}
         </label>
 
         <label className="picker">

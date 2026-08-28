@@ -96,6 +96,18 @@ check('7. each subject shows how its category grades it',
 check('8. and how many classes would be affected by retiring one',
   /CLASSES/i.test(body));
 
+/* ---- 8b. which grades take it -------------------------------------- *
+ * `grade_level_subjects` has been in the schema since 0003 and was read
+ * by nothing — a curriculum map with no way to enter a curriculum. So a
+ * Grade 7 section was offered Mathematics 10, and the school asked the
+ * obvious question: "we have grade 7 to 12 and it has different
+ * subject, where do we enter a subject for different grade?"
+ * -------------------------------------------------------------------- */
+check('8b. the list says which grades take each subject',
+  // innerText returns text-transform: uppercase headers as uppercase.
+  /Taught at/i.test(body) && /Grade 10/.test(body),
+  'the seeded subjects are all Grade 10 and now say so');
+
 /* ---- 9-12. add the subject the import could not find ---------------- */
 await page.getByRole('button', { name: /\+ Add subject/ }).click();
 await page.waitForTimeout(400);
@@ -111,12 +123,22 @@ await form.getByLabel('Code *').fill('GMRC');
 const coreValue = await form.locator('select option').evaluateAll(
   (os) => os.find((o) => /Core Subject/.test(o.textContent))?.value ?? '');
 await form.locator('select').selectOption(coreValue);
+// GMRC is a Grade 7-8 subject at this school, so say so on the way in
+// rather than adding it everywhere and correcting it afterwards.
+for (const g of ['Grade 7', 'Grade 8']) {
+  await form.getByRole('checkbox', { name: g, exact: true }).check();
+}
 await form.getByRole('button', { name: 'Add subject', exact: true }).click();
 await page.waitForTimeout(900);
 
 body = await page.locator('body').innerText();
 check('10. the subject is added',
   /Good Manners and Right Conduct/.test(body) && /GMRC/.test(body));
+
+check('10b. with the grades it is taught at',
+  /Grade 7, Grade 8/.test(
+    await page.locator('tr', { hasText: 'Good Manners' }).first().innerText()),
+  await page.locator('tr', { hasText: 'Good Manners' }).first().innerText());
 
 /* ---- 11. the duplicate guard, case-insensitively -------------------- */
 await page.getByRole('button', { name: /\+ Add subject/ }).click();
@@ -181,6 +203,55 @@ check('16. the registrar finds the subject list on Classes & Sections',
 
 check('17. and can add one from there',
   (await page.getByRole('button', { name: /\+ Add subject/ }).count()) === 1);
+
+/* ---- 18-21. the grade a subject is taught at, and what follows ------ */
+// Set GMRC to Grade 9 only, then check the Grade 9 section is offered it
+// and the Grade 10 section is not. That is the whole point of the map:
+// it exists to narrow the class picker.
+const gmrc = page.locator('tr', { hasText: 'Good Manners' }).first();
+await gmrc.getByRole('button', { name: 'Grades' }).click();
+await page.waitForTimeout(400);
+const editor = page.locator('.tbl-editor');
+for (const g of ['Grade 7', 'Grade 8']) {
+  const box = editor.getByRole('checkbox', { name: g, exact: true });
+  if (await box.isChecked()) await box.uncheck();
+}
+await editor.getByRole('checkbox', { name: 'Grade 9', exact: true }).check();
+await editor.getByRole('button', { name: 'Save grades' }).click();
+await page.waitForTimeout(900);
+
+const gmrcRowText = await page.locator('tr', { hasText: 'Good Manners' }).first().innerText();
+check('18. the registrar can set which grades take a subject',
+  /Grade 9/.test(gmrcRowText) && !/Grade 7/.test(gmrcRowText),
+  gmrcRowText.replace(/\n/g, ' | '));
+
+// Ruby is the Grade 9 section in the fixtures; Pearl is Grade 10.
+const openAddClass = async (sectionName) => {
+  const row = page.locator('tr', { hasText: sectionName }).first();
+  await row.getByRole('button', { name: '+ Class' }).click();
+  await page.waitForTimeout(600);
+};
+const subjectMenu = () => page.locator('.panel', { hasText: 'Add class' })
+  .locator('select').first().innerText();
+
+await openAddClass('Ruby');
+let subjectOptions = await subjectMenu();
+check('19. a Grade 9 section is offered GMRC',
+  /Good Manners/.test(subjectOptions), subjectOptions.replace(/\n/g, ' | '));
+
+check('20. and is NOT offered the Grade 10 subjects',
+  !/Mathematics 10/.test(subjectOptions),
+  'AddClass filtered only by "not already in this section" before this');
+
+await page.getByRole('button', { name: 'Cancel', exact: true }).first().click();
+await page.waitForTimeout(400);
+
+await openAddClass('Pearl');
+subjectOptions = await subjectMenu();
+check('21. and the Grade 10 section is not offered GMRC',
+  !/Good Manners/.test(subjectOptions)
+  && /Mathematics 10|English 10|Science 10/.test(subjectOptions),
+  subjectOptions.replace(/\n/g, ' | '));
 
 await browser.close();
 console.log('PASS:'); for (const o of ok) console.log('  ✓', o);

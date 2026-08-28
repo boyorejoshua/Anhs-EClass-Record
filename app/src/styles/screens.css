@@ -565,6 +565,28 @@
 .check input { accent-color: var(--accent); }
 .check .mono { font-size: var(--fs-xs); }
 
+/* Grade levels for a subject: six to twelve short boxes that should
+   wrap on a laptop rather than force the panel sideways. Bigger hit
+   areas than the role grid, because this one is used with a mouse by
+   people the type scale was widened for. */
+.check-row {
+  display: flex; flex-wrap: wrap; gap: 6px 18px;
+}
+.check-row .check {
+  padding: 6px 10px 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.check-row .check:hover { border-color: var(--accent); }
+
+/* The editor a "Grades" button opens under the row it belongs to. The
+   background separates it from the rows above and below, which matters
+   because it spans every column and would otherwise read as a row. */
+.tbl-editor > td {
+  background: var(--panel-alt);
+}
+.tbl-editor .inline-form { padding: 10px 12px; }
+
 /* Confirmation of something that succeeded — distinct from .err-banner,
    which is the same shape for the opposite outcome. */
 .notice {

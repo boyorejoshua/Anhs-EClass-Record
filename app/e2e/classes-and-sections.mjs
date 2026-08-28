@@ -83,12 +83,20 @@ await page.waitForTimeout(300);
 check('the Add class panel names the right section',
   /Grade 9 – Amethyst/.test(await body()));
 
-await page.getByLabel('Subject').selectOption({ label: 'English 10' });
+// Amethyst is a GRADE 9 section, so the picker offers Grade 9 subjects
+// and nothing else. Before the curriculum map (0040) this dropdown
+// carried every subject the school teaches, Grade 10 included.
+const subjectMenu = await page.getByLabel('Subject').innerText();
+check('the subject picker offers only what that grade takes',
+  /Mathematics 9/.test(subjectMenu) && !/Mathematics 10|English 10/.test(subjectMenu),
+  subjectMenu.replace(/\n/g, ' | '));
+
+await page.getByLabel('Subject').selectOption({ label: 'Mathematics 9' });
 await page.getByRole('button', { name: 'Add class' }).click();
 await page.waitForTimeout(500);
 
 text = await body();
-check('the new class appears in the Classes table', /English 10/.test(text));
+check('the new class appears in the Classes table', /Mathematics 9/.test(text));
 check('the section now shows 1 class', await row.innerText().then((t) => /\b1\b/.test(t)));
 
 /* ---- 6. the class is real: it opens in My Classes with a roster ------ *
@@ -100,7 +108,7 @@ await page.getByRole('button', { name: /^subject$/i }).click();
 await page.waitForTimeout(400);
 await page.getByRole('button', { name: /my classes/i }).first().click();
 await page.waitForTimeout(500);
-const card = page.locator('.class-card', { hasText: 'English 10' }).filter({ hasText: 'Amethyst' });
+const card = page.locator('.class-card', { hasText: 'Mathematics 9' }).filter({ hasText: 'Amethyst' });
 check('the created class appears in My Classes', await card.count() === 1);
 if (await card.count()) {
   await card.getByRole('button', { name: /open class/i }).click();

@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import type {
-  SchoolProfile, SchoolProfileEdit, SubjectCatalogue, SubjectDraft,
+  CatalogueGradeLevel, SchoolProfile, SchoolProfileEdit, SubjectCatalogue,
+  SubjectDraft,
 } from '../data/types';
 import { Async, useAsync } from '../components/Async';
 
@@ -8,9 +9,13 @@ interface Props {
   load: () => Promise<SchoolProfile>;
   save: (edit: SchoolProfileEdit) => Promise<void>;
   onSaved?: () => void;
-  loadSubjects: () => Promise<SubjectCatalogue>;
-  addSubject: (draft: SubjectDraft) => Promise<string>;
+  /** The curriculum map is per academic year, so every subject call carries one. */
+  yearId: string;
+  loadSubjects: (yearId: string) => Promise<SubjectCatalogue>;
+  addSubject: (yearId: string, draft: SubjectDraft) => Promise<string>;
   setSubjectActive: (subjectId: string, isActive: boolean) => Promise<void>;
+  setSubjectGradeLevels: (
+    subjectId: string, yearId: string, gradeLevelIds: string[]) => Promise<void>;
 }
 
 /**
@@ -29,7 +34,8 @@ interface Props {
  * This is the screen they were seeded for.
  */
 export function SchoolSetup({
-  load, save, onSaved, loadSubjects, addSubject, setSubjectActive,
+  load, save, onSaved, yearId,
+  loadSubjects, addSubject, setSubjectActive, setSubjectGradeLevels,
 }: Props) {
   const [state, retry] = useAsync(load, [load]);
 
@@ -63,7 +69,9 @@ export function SchoolSetup({
       </Async>
 
       <Subjects
+        yearId={yearId}
         load={loadSubjects} add={addSubject} setActive={setSubjectActive}
+        setGradeLevels={setSubjectGradeLevels}
       />
     </div>
   );
@@ -93,13 +101,29 @@ export function SchoolSetup({
  * for the registrar, which is where a missing subject actually stops
  * someone. `SchoolInformation` below is shared the same way.
  */
-export function Subjects({ load, add, setActive }: {
-  load: () => Promise<SubjectCatalogue>;
-  add: (draft: SubjectDraft) => Promise<string>;
+export function Subjects({
+  yearId, load, add, setActive, setGradeLevels, onChanged,
+}: {
+  yearId: string;
+  load: (yearId: string) => Promise<SubjectCatalogue>;
+  add: (yearId: string, draft: SubjectDraft) => Promise<string>;
   setActive: (subjectId: string, isActive: boolean) => Promise<void>;
+  setGradeLevels: (
+    subjectId: string, yearId: string, gradeLevelIds: string[]) => Promise<void>;
+  /*
+    The registrar's whole reason for being here: they were creating a
+    class, found the subject missing, and added it. The class picker
+    sits ABOVE this panel and reads its own copy of the subject list, so
+    without this the subject they just added is not offered until they
+    reload the page — which is the same "do a thing the product will not
+    let you do" defect this panel was built to fix, one step later.
+  */
+  onChanged?: () => void;
 }) {
-  const [state, retry] = useAsync(load, [load]);
+  const read = useCallback(() => load(yearId), [load, yearId]);
+  const [state, retry] = useAsync(read, [read]);
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,6 +133,7 @@ export function Subjects({ load, add, setActive }: {
     try {
       await setActive(id, next);
       retry();
+      onChanged?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'That could not be changed.');
     } finally {
@@ -124,9 +149,10 @@ export function Subjects({ load, add, setActive }: {
             <div>
               <h2>Subjects</h2>
               <p className="page-sub">
-                What this school teaches. A class can only be created for a subject
-                on this list, and an import will never invent one — a typo would
-                become a subject and then a column on somebody's report card.
+                What this school teaches, and at which grades. A class can only be
+                created for a subject on this list, and an import will never invent
+                one — a typo would become a subject and then a column on somebody's
+                report card.
               </p>
             </div>
             <div className="spacer" />
@@ -142,9 +168,10 @@ export function Subjects({ load, add, setActive }: {
           {adding && (
             <AddSubject
               categories={cat.categories}
-              add={add}
+              gradeLevels={cat.gradeLevels}
+              add={(draft) => add(yearId, draft)}
               onCancel={() => setAdding(false)}
-              onAdded={() => { setAdding(false); retry(); }}
+              onAdded={() => { setAdding(false); retry(); onChanged?.(); }}
             />
           )}
 
@@ -155,14 +182,15 @@ export function Subjects({ load, add, setActive }: {
                   <th scope="col">Subject</th>
                   <th scope="col">Code</th>
                   <th scope="col">Category — and how it is graded</th>
+                  <th scope="col">Taught at</th>
                   <th scope="col" className="num">Classes</th>
                   <th scope="col"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody>
-                {cat.subjects.map((s) => {
+                {cat.subjects.flatMap((s) => {
                   const weights = cat.categories.find((c) => c.id === s.categoryId)?.weights;
-                  return (
+                  return [
                     <tr key={s.id} data-retired={!s.isActive || undefined}>
                       <th scope="row">
                         {s.title}
@@ -172,6 +200,15 @@ export function Subjects({ load, add, setActive }: {
                       <td>
                         {s.category}
                         {weights && <span className="tbl-sub mono">{weights}</span>}
+                      </td>
+                      {/*
+                        NO grades mapped means EVERY grade, not none. That
+                        is how the server reads an empty curriculum map,
+                        and it is what keeps a school that has not entered
+                        one working exactly as it did before.
+                      */}
+                      <td>
+                        {s.gradeLevels ?? <span className="tbl-sub">Every grade</span>}
                       </td>
                       <td className="num mono">{s.classCount}</td>
                       <td>
@@ -187,6 +224,15 @@ export function Subjects({ load, add, setActive }: {
                             <button
                               className="btn btn-sm"
                               disabled={busyId === s.id}
+                              onClick={() => setEditing(editing === s.id ? null : s.id)}
+                            >
+                              {editing === s.id ? 'Close' : 'Grades'}
+                            </button>
+                          )}
+                          {cat.permissions.canWrite && (
+                            <button
+                              className="btn btn-sm"
+                              disabled={busyId === s.id}
                               onClick={() => toggle(s.id, !s.isActive)}
                             >
                               {busyId === s.id ? '…' : s.isActive ? 'Retire' : 'Restore'}
@@ -194,8 +240,22 @@ export function Subjects({ load, add, setActive }: {
                           )}
                         </div>
                       </td>
-                    </tr>
-                  );
+                    </tr>,
+                    editing === s.id ? (
+                      <tr key={`${s.id}-edit`} className="tbl-editor">
+                        <td colSpan={6}>
+                          <GradeLevelEditor
+                            subject={s.title}
+                            gradeLevels={cat.gradeLevels}
+                            selected={s.gradeLevelIds}
+                            save={(ids) => setGradeLevels(s.id, yearId, ids)}
+                            onCancel={() => setEditing(null)}
+                            onSaved={() => { setEditing(null); retry(); onChanged?.(); }}
+                          />
+                        </td>
+                      </tr>
+                    ) : null,
+                  ];
                 })}
               </tbody>
             </table>
@@ -214,8 +274,98 @@ export function Subjects({ load, add, setActive }: {
   );
 }
 
-function AddSubject({ categories, add, onCancel, onAdded }: {
+/* ==================================================================== *
+ * WHICH GRADES TEACH IT
+ *
+ * `grade_level_subjects` has been in the schema since migration 0003
+ * and was read by nothing — a curriculum map with no way to enter a
+ * curriculum. This is the control that fills it.
+ *
+ * Tick nothing and the subject is offered at every grade. That is not a
+ * convenience: it is the only reading of an empty map that leaves an
+ * existing school working, and it is exactly what the server does.
+ * ==================================================================== */
+function GradeLevelChecks({ gradeLevels, selected, disabled, onChange }: {
+  gradeLevels: CatalogueGradeLevel[];
+  selected: string[];
+  disabled?: boolean;
+  onChange: (next: string[]) => void;
+}) {
+  const toggle = (id: string) => onChange(
+    selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
+
+  return (
+    <div className="check-row">
+      {gradeLevels.map((g) => (
+        <label key={g.id} className="check">
+          <input
+            type="checkbox"
+            checked={selected.includes(g.id)}
+            disabled={disabled}
+            onChange={() => toggle(g.id)}
+          />
+          <span>{g.name}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+/** The inline editor a "Grades" button opens under a subject's row. */
+function GradeLevelEditor({ subject, gradeLevels, selected, save, onCancel, onSaved }: {
+  subject: string;
+  gradeLevels: CatalogueGradeLevel[];
+  selected: string[];
+  save: (gradeLevelIds: string[]) => Promise<void>;
+  onCancel: () => void;
+  onSaved: () => void;
+}) {
+  const [picked, setPicked] = useState<string[]>(selected);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit() {
+    setBusy(true);
+    setError(null);
+    try {
+      // The whole set, not a delta — see set_subject_grade_levels. A
+      // delta would need the server to guess what "unticked" meant.
+      await save(picked);
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'That could not be saved.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="inline-form">
+      {error && <div className="err-banner" role="alert"><span>{error}</span></div>}
+      <p className="field-label">Which grades take {subject}?</p>
+      <GradeLevelChecks
+        gradeLevels={gradeLevels} selected={picked}
+        disabled={busy} onChange={setPicked}
+      />
+      <p className="field-hint">
+        {picked.length === 0
+          ? 'Nothing ticked — this subject is offered at every grade.'
+          : `Only these ${picked.length === 1 ? 'grade' : 'grades'} will be offered `
+            + 'this subject when a class is created.'}
+      </p>
+      <div className="row-actions">
+        <button className="btn" type="button" onClick={onCancel} disabled={busy}>Cancel</button>
+        <button className="btn btn-primary" type="button" onClick={submit} disabled={busy}>
+          {busy ? 'Saving…' : 'Save grades'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AddSubject({ categories, gradeLevels, add, onCancel, onAdded }: {
   categories: SubjectCatalogue['categories'];
+  gradeLevels: CatalogueGradeLevel[];
   add: (draft: SubjectDraft) => Promise<string>;
   onCancel: () => void;
   onAdded: () => void;
@@ -224,6 +374,7 @@ function AddSubject({ categories, add, onCancel, onAdded }: {
   const [title, setTitle] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [units, setUnits] = useState('');
+  const [picked, setPicked] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -239,6 +390,7 @@ function AddSubject({ categories, add, onCancel, onAdded }: {
         title: title.trim(),
         categoryId,
         units: units.trim() ? Number(units) : null,
+        gradeLevelIds: picked,
       });
       onAdded();
     } catch (err) {
@@ -293,6 +445,25 @@ function AddSubject({ categories, add, onCancel, onAdded }: {
           <input className="input" value={units} disabled={busy} inputMode="decimal"
                  onChange={(e) => setUnits(e.target.value)} />
         </label>
+      </div>
+
+      {/*
+        A DIV, not a LABEL. Nesting the grade checkboxes' own labels
+        inside an outer <label> is invalid HTML, and the browser then
+        gives every checkbox the outer label's text as its accessible
+        name — so all seven read as "Taught at" to a screen reader and
+        to anything else that navigates by name.
+      */}
+      <div className="field">
+        <span className="field-label">Taught at</span>
+        <GradeLevelChecks
+          gradeLevels={gradeLevels} selected={picked}
+          disabled={busy} onChange={setPicked}
+        />
+        <span className="field-hint">
+          Leave every box unticked and the subject is offered at all grades. This
+          can be changed later from the list.
+        </span>
       </div>
 
       <div className="row-actions">

@@ -387,7 +387,8 @@ export interface StudentRecord {
  */
 export interface SectionSetupOptions {
   gradeLevels: Array<{ id: string; name: string; ordinal: number }>;
-  subjects: Array<{ id: string; code: string; title: string }>;
+  /** `gradeLevelIds` empty means the subject is unmapped, so every grade offers it. */
+  subjects: Array<{ id: string; code: string; title: string; gradeLevelIds: string[] }>;
   /** Anyone holding a teaching role — candidates for adviser or class teacher. */
   teachers: Array<{ id: string; displayName: string }>;
   sections: Array<{
@@ -464,7 +465,8 @@ export interface ConsolidatedGrades {
  */
 export interface MyClassSetupOptions {
   gradeLevels: Array<{ id: string; name: string; ordinal: number }>;
-  subjects: Array<{ id: string; code: string; title: string }>;
+  /** As above: empty `gradeLevelIds` means every grade. */
+  subjects: Array<{ id: string; code: string; title: string; gradeLevelIds: string[] }>;
   sections: Array<{
     id: string; name: string; gradeLevelId: string; gradeLevel: string;
     learnerCount: number;
@@ -589,10 +591,26 @@ export interface CatalogueSubject {
   isActive: boolean;
   /** Classes already running this subject — what retiring it would leave behind. */
   classCount: number;
+  /**
+   * The grade levels this subject is taught at THIS YEAR, from the
+   * curriculum map. EMPTY MEANS EVERY GRADE — that is the honest
+   * reading of an unmapped subject, and it is what keeps existing
+   * classes working before a school has entered a curriculum.
+   */
+  gradeLevelIds: string[];
+  /** The same, as "Grade 7, Grade 8" — null when unmapped. */
+  gradeLevels: string | null;
+}
+
+export interface CatalogueGradeLevel {
+  id: string;
+  name: string;
+  ordinal: number;
 }
 
 export interface SubjectCatalogue {
   categories: SubjectCategory[];
+  gradeLevels: CatalogueGradeLevel[];
   subjects: CatalogueSubject[];
   permissions: { canWrite: boolean };
 }
@@ -602,6 +620,8 @@ export interface SubjectDraft {
   title: string;
   categoryId: string;
   units?: number | null;
+  /** Which grades teach it. Omit or leave empty for all of them. */
+  gradeLevelIds?: string[];
 }
 
 export interface SchoolProfile {
