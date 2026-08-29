@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
-import type { StudentGradeRow, StudentHistoryRow, StudentProfile } from '../data/types';
+import type {
+  StudentGradeRow, StudentHistoryRow, StudentProfile, StudentSchedule,
+} from '../data/types';
 import { Async, EmptyState, useAsync } from '../components/Async';
 
 /**
@@ -90,8 +92,16 @@ export function StudentGrades({ load }: { load: () => Promise<StudentGradeRow[]>
                   </tr>
                 </thead>
                 <tbody>
+                  {/*
+                    Keyed on the SECTION too. A learner has one class per
+                    subject per year, so year+subject is unique in
+                    practice — but when a fixture briefly broke that,
+                    React silently dropped a row from a learner's own
+                    grade list. A key that cannot collide is cheaper than
+                    a grade that quietly disappears.
+                  */}
                   {rows.map((r) => (
-                    <tr key={`${r.academicYearId}-${r.subjectCode}`}>
+                    <tr key={`${r.academicYearId}-${r.subjectCode}-${r.section ?? ''}`}>
                       <th scope="row">
                         {r.subject}
                         <span className="tbl-sub">{r.gradeLevel}{r.section ? ` – ${r.section}` : ''}</span>
@@ -331,6 +341,124 @@ export function StudentHistory({ load, loadGrades }: {
             )}
           </>
         )}
+      </Async>
+    </div>
+  );
+}
+
+/* ==================================================================== *
+ * MY SCHEDULE
+ *
+ * Same rule as every other screen in this file: NO ID CROSSES THE WIRE.
+ * `getMySchedule()` takes no argument, the server resolves the learner
+ * from the verified JWT, and RLS decides the rest. A student id in a
+ * route or a class id in a query string would be an IDOR wearing a
+ * timetable.
+ *
+ * ── WHY THIS IS A LIST AND NOT A GRID ─────────────────────────────────
+ *
+ * The database has no timetable model. `classes.schedule_note` is a
+ * free-typed string — 'MWF 8:00-9:00' by convention, nothing by
+ * constraint — and there is no day, start time or end time anywhere.
+ *
+ * Rendering a Monday-through-Friday grid would mean parsing that string,
+ * which is inventing structure the database does not hold. A learner
+ * shown a confidently wrong 08:00 Monday is worse served than one shown
+ * exactly what their teacher wrote. So the note is displayed verbatim,
+ * and a real grid waits for a real `class_meetings` table.
+ * ==================================================================== */
+export function StudentScheduleScreen({ load }: {
+  load: () => Promise<StudentSchedule>;
+}) {
+  const [state, retry] = useAsync(load, [load]);
+
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <h1 className="greeting">My Schedule</h1>
+          <p className="page-sub">
+            The classes you are enrolled in this school year.
+          </p>
+        </div>
+      </div>
+
+      <Async state={state} retry={retry} rows={5}>
+        {(data) => (!data.enrollment ? (
+          <div className="panel">
+            <EmptyState title="You are not enrolled this school year">
+              Your schedule appears once the registrar has enrolled you and
+              placed you in a section.
+            </EmptyState>
+          </div>
+        ) : (
+          <>
+            <div className="panel">
+              <div className="panel-head">
+                <div>
+                  <h2>
+                    {data.enrollment.gradeLevel}
+                    {data.enrollment.section ? ` – ${data.enrollment.section}` : ''}
+                  </h2>
+                  <p className="page-sub">SY {data.enrollment.academicYear}</p>
+                </div>
+              </div>
+
+              {data.classes.length === 0 ? (
+                <EmptyState title="No classes yet">
+                  {data.enrollment.section
+                    ? `No classes have been set up for ${data.enrollment.section} yet. `
+                      + 'They will appear here as your school creates them.'
+                    : 'You have not been placed in a section yet, so there are no '
+                      + 'classes to show.'}
+                </EmptyState>
+              ) : (
+                <div className="tbl-wrap">
+                  <table className="tbl">
+                    <thead>
+                      <tr>
+                        <th scope="col">Subject</th>
+                        <th scope="col">Teacher</th>
+                        <th scope="col">When</th>
+                        <th scope="col">Room</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.classes.map((c) => (
+                        <tr key={c.classId}>
+                          <th scope="row">
+                            {c.subject}
+                            <span className="tbl-sub mono">{c.subjectCode}</span>
+                          </th>
+                          {/*
+                            Each of these three can be genuinely absent,
+                            and each says so in its own words rather than
+                            leaving a blank the reader has to interpret.
+                          */}
+                          <td>
+                            {c.teacher ?? <span className="faint">not assigned yet</span>}
+                          </td>
+                          <td>
+                            {c.when ?? <span className="faint">not scheduled yet</span>}
+                          </td>
+                          <td>
+                            {c.room ?? <span className="faint">—</span>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <p className="menu-note">
+              Times are shown exactly as your school recorded them. If something
+              looks wrong, tell your adviser — this page reflects the school&rsquo;s
+              records rather than replacing them.
+            </p>
+          </>
+        ))}
       </Async>
     </div>
   );

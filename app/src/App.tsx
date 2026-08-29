@@ -27,7 +27,9 @@ import { Users } from './screens/Users';
 import { SchoolSetup } from './screens/SchoolSetup';
 import { MyAccount, PasswordForm } from './screens/MyAccount';
 import { StudentRecordScreen } from './screens/StudentRecordScreen';
-import { StudentGrades, StudentProfileScreen, StudentHistory } from './screens/StudentPortal';
+import {
+  StudentGrades, StudentProfileScreen, StudentHistory, StudentScheduleScreen,
+} from './screens/StudentPortal';
 import { Sf10Preview } from './screens/Sf10Preview';
 import { SignIn } from './screens/SignIn';
 import { Help } from './screens/Help';
@@ -592,6 +594,9 @@ export default function App() {
             setSubjectGradeLevels={source.setSubjectGradeLevels}
           />
         );
+
+      case 'schedule':
+        return <StudentScheduleScreen load={source.getMySchedule} />;
 
       case 'enrollments':
         return (

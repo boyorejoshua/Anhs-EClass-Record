@@ -27,7 +27,7 @@ import type {
   SubjectCatalogue,
   EnrollmentOptions, GradebookData, PersistedGrade, StudentGradeRow, StudentHistoryRow,
   StudentProfile, StudentRecord, SubmissionRow, ValidationReport,
-  AdmitResult, EnrollmentEvent, PortalAccountList,
+  AdmitResult, EnrollmentEvent, PortalAccountList, StudentSchedule,
 } from './types';
 import type { Sf10Payload } from './sf10';
 
@@ -572,6 +572,12 @@ export function createSupabaseSource(): DataSource {
       const { data, error } = await requireSupabase().rpc('my_academic_history');
       if (error) fail('Loading your academic history', error);
       return (data ?? []) as StudentHistoryRow[];
+    },
+
+    async getMySchedule() {
+      const { data, error } = await requireSupabase().rpc('my_schedule');
+      if (error) fail('Loading your schedule', error);
+      return data as StudentSchedule;
     },
 
     /* ---- class and section setup ------------------------------------ */
