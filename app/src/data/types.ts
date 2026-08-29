@@ -352,6 +352,69 @@ export interface EnrollmentRow {
   dateEnrolled: string | null;
 }
 
+/**
+ * One thing that happened to an enrolment.
+ *
+ * The academic record of where a learner was, distinct from the audit
+ * log's record of who changed what. SF10 is built from this list, so it
+ * outlives any retention policy applied to the audit trail.
+ */
+export interface EnrollmentEvent {
+  id: string;
+  enrollmentId: string;
+  academicYear: string;
+  /** enrolled · transfer_in · transfer_out · drop · re_entry · section_change · grade_level_change */
+  eventType: string;
+  eventDate: string;
+  /** Null on the first event of a kind — a learner assigned a section was never "moved". */
+  from: string | null;
+  to: string | null;
+  notes: string | null;
+  recordedAt: string;
+  /**
+   * Strict insertion order. `recordedAt` cannot break ties: two events
+   * written in one transaction — enrolling a learner INTO a section
+   * writes both — carry an identical timestamp.
+   */
+  seq: number;
+  recordedBy: string | null;
+}
+
+/** What `admit_student` answers when the name already exists here. */
+export interface NamesakeMatch {
+  studentId: string;
+  displayName: string;
+  lrn: string | null;
+  studentNumber: string | null;
+  birthDate: string | null;
+}
+
+/**
+ * Admitting a learner has two outcomes, not one.
+ *
+ * A duplicate LRN throws — it is a certainty. A duplicate NAME comes
+ * back as `needs_confirmation`, because real namesakes exist and a hard
+ * block would leave a registrar unable to admit a real learner.
+ */
+export type AdmitResult =
+  | { status: 'created'; studentId: string; enrollmentId: string | null }
+  | { status: 'needs_confirmation'; reason: 'namesake'; message: string;
+      matches: NamesakeMatch[] };
+
+/** One learner on the portal-account list for a section. */
+export interface PortalCandidate {
+  studentId: string;
+  displayName: string;
+  lrn: string | null;
+  email: string | null;
+  hasAccount: boolean;
+}
+
+export interface PortalAccountList {
+  section: { id: string; name: string; gradeLevel: string } | null;
+  learners: PortalCandidate[];
+}
+
 export interface StudentGradeEntry {
   academicYear: string;
   period: string;

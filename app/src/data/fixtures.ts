@@ -735,6 +735,58 @@ const INITIAL_STATUS: Array<Record<string, SubmissionStatus>> =
  * isolation and provided none. The app builds the source once
  * (data/index.ts memoises it), so resetting here costs nothing there.
  */
+/**
+ * The enrolment event log.
+ *
+ * Mirrors `public.enrollment_events`. Kept separate from the audit trail
+ * for the same reason the database keeps them apart: this is the
+ * academic record of where a learner was, and SF10 is built from it.
+ */
+interface StoredEvent {
+  id: string;
+  seq: number;
+  enrollmentId: string;
+  studentId: string;
+  academicYear: string;
+  eventType: string;
+  eventDate: string;
+  from: string | null;
+  to: string | null;
+  notes: string | null;
+  recordedAt: string;
+  recordedBy: string | null;
+}
+const EVENTS: StoredEvent[] = [];
+/**
+ * A strict insertion order, because two events written together share a
+ * date and a timestamp. Mirrors the `seq` identity column 0041 adds for
+ * exactly the same reason: `now()` is transaction time, so enrolling a
+ * learner into a section stamps both of its events identically.
+ */
+let eventSeq = 0;
+
+const today = () => new Date().toISOString().slice(0, 10);
+
+function recordEvent(
+  enrollmentId: string, eventType: string,
+  from: string | null, to: string | null,
+  notes: string | null, eventDate?: string | null,
+): void {
+  const en = ENROLMENTS.find((e) => e.enrollmentId === enrollmentId);
+  if (!en) return;
+  eventSeq += 1;
+  EVENTS.push({
+    id: `ev-${Date.now()}-${EVENTS.length}`,
+    seq: eventSeq,
+    enrollmentId, studentId: en.studentId,
+    academicYear: en.academicYear,
+    eventType, eventDate: eventDate || today(),
+    from, to, notes: notes?.trim() || null,
+    recordedAt: new Date().toISOString(),
+    recordedBy: CURRENT_USER.name,
+  });
+}
+
 function resetFixtureState(): void {
   CLASSES.forEach((c, i) => { c.status = { ...INITIAL_STATUS[i]! }; });
   FIXTURE_SUBJECTS.length = INITIAL_SUBJECT_COUNT;
@@ -743,6 +795,8 @@ function resetFixtureState(): void {
   FIXTURE_SUBJECTS.forEach((x) => { x.isActive = true; });
   STUDENTS.length = INITIAL_STUDENT_COUNT;
   ENROLMENTS.length = INITIAL_ENROLMENT_COUNT;
+  EVENTS.length = 0;
+  eventSeq = 0;
   receipts.clear();
   editedScores.clear();
   persistedGrades.clear();
@@ -1428,7 +1482,7 @@ export function createFixtureSource(): DataSource {
      * same way the database does — the demo has to teach the real rule,
      * not a friendlier one.
      */
-    async admitStudent(student, enrollment) {
+    async admitStudent(student, enrollment, confirmNamesake) {
       if (!student.firstName?.trim() || !student.lastName?.trim()) {
         throw new Error('A first name and a last name are required.');
       }
@@ -1439,6 +1493,31 @@ export function createFixtureSource(): DataSource {
         throw new Error(
           `A learner with that ${student.lrn && clash.lrn === student.lrn ? 'LRN' : 'student number'} `
           + `already exists in this school (${clash.displayName}).`);
+      }
+
+      // A NAME clash warns rather than refusing, exactly as the server
+      // does: an identifier is a certainty, a name is a suspicion. Real
+      // namesakes exist, and a demo that refused them would teach the
+      // wrong rule.
+      if (!confirmNamesake) {
+        const matches = STUDENTS.filter((x) =>
+          normaliseName(x.firstName) === normaliseName(student.firstName!)
+          && normaliseName(x.lastName) === normaliseName(student.lastName!)
+          && (!student.birthDate || !x.birthDate || x.birthDate === student.birthDate));
+        if (matches.length > 0) {
+          return {
+            status: 'needs_confirmation' as const,
+            reason: 'namesake' as const,
+            message:
+              'This school already has a learner by that name. Check the record '
+              + 'below before adding a second one — if this is a different '
+              + 'person, confirm and continue.',
+            matches: matches.map((x) => ({
+              studentId: x.studentId, displayName: x.displayName,
+              lrn: x.lrn, studentNumber: x.studentNumber, birthDate: x.birthDate,
+            })),
+          };
+        }
       }
 
       const studentId = `st-${Date.now()}-${STUDENTS.length}`;
@@ -1460,8 +1539,12 @@ export function createFixtureSource(): DataSource {
         email: student.email?.trim() || null,
         status: 'active', hasPortalAccount: false,
       });
-      const enrollmentId = await src.enrolStudent(studentId, enrollment);
-      return { studentId, enrollmentId };
+      // Creating a learner and placing one are separate acts. A form
+      // that names an academic year still enrols exactly as before.
+      const enrollmentId = enrollment?.academicYearId
+        ? await src.enrolStudent(studentId, enrollment)
+        : null;
+      return { status: 'created' as const, studentId, enrollmentId };
     },
 
     async enrolStudent(studentId, enrollment) {
@@ -1492,9 +1575,143 @@ export function createFixtureSource(): DataSource {
         section: sec?.name ?? null, sectionId: enrollment.sectionId ?? null,
         status: enrollment.status ?? 'enrolled',
         promotionStatus: null, generalAverage: null,
-        dateEnrolled: enrollment.dateEnrolled ?? new Date().toISOString().slice(0, 10),
+        dateEnrolled: enrollment.dateEnrolled ?? today(),
       });
+
+      // The enrolment is itself an event. Without it a history starts at
+      // the first transfer, reading as though the learner appeared
+      // mid-year.
+      recordEvent(
+        enrollmentId,
+        enrollment.status === 'transferred_in' ? 'transfer_in' : 'enrolled',
+        null, gl?.name ?? null, enrollment.previousSchool ?? null,
+        enrollment.dateEnrolled);
+      if (sec) {
+        recordEvent(enrollmentId, 'section_change', null, sec.name,
+          'Assigned at enrolment', enrollment.dateEnrolled);
+      }
       return enrollmentId;
+    },
+
+    /* ---- the enrolment lifecycle ---------------------------------- */
+
+    async transferSection(enrollmentId, sectionId, effectiveDate, reason) {
+      const en = ENROLMENTS.find((e) => e.enrollmentId === enrollmentId);
+      if (!en) throw new Error('Enrolment not found.');
+      const to = SECTIONS.find((x) => x.id === sectionId);
+      // Same guard as the server: a section IS a grade level and a name,
+      // so moving across grades is not a transfer.
+      if (!to || to.gradeLevelId !== en.gradeLevelId
+          || to.academicYearId !== en.academicYearId) {
+        throw new Error(
+          'That section is not available for this learner\'s year and grade level.');
+      }
+      if (en.sectionId === sectionId) {
+        throw new Error(`This learner is already in ${to.name}.`);
+      }
+      const from = en.section;
+      en.section = to.name;
+      en.sectionId = sectionId;
+      recordEvent(enrollmentId, 'section_change', from, to.name, reason ?? null,
+        effectiveDate);
+      return { from, to: to.name, classesLeft: 0, classesJoined: 0 };
+    },
+
+    async withdrawStudent(enrollmentId, kind, effectiveDate, reason, destination) {
+      const en = ENROLMENTS.find((e) => e.enrollmentId === enrollmentId);
+      if (!en) throw new Error('Enrolment not found.');
+      if (!reason?.trim()) {
+        throw new Error('A reason is required to withdraw a learner.');
+      }
+      if (en.status === 'transferred_out' || en.status === 'dropped') {
+        throw new Error(`This enrolment is already closed (${en.status}).`);
+      }
+      const was = en.status;
+      en.status = kind;
+      recordEvent(enrollmentId,
+        kind === 'transferred_out' ? 'transfer_out' : 'drop',
+        was, kind,
+        destination?.trim() ? `${reason} — to ${destination.trim()}` : reason,
+        effectiveDate);
+      return { status: kind, classesClosed: 0 };
+    },
+
+    async reenrolStudent(enrollmentId, effectiveDate, reason) {
+      const en = ENROLMENTS.find((e) => e.enrollmentId === enrollmentId);
+      if (!en) throw new Error('Enrolment not found.');
+      if (en.status !== 'transferred_out' && en.status !== 'dropped') {
+        throw new Error('This enrolment is not closed, so there is nothing to re-open.');
+      }
+      const was = en.status;
+      en.status = 'enrolled';
+      recordEvent(enrollmentId, 're_entry', was, 'enrolled', reason ?? null, effectiveDate);
+      return { status: 'enrolled', classesRejoined: 0 };
+    },
+
+    async getEnrollmentHistory(studentId) {
+      return EVENTS
+        .filter((e) => e.studentId === studentId)
+        .map(({ studentId: _s, ...row }) => row)
+        .sort((a, b) => b.eventDate.localeCompare(a.eventDate) || b.seq - a.seq);
+    },
+
+    /* ---- portal accounts ------------------------------------------ */
+
+    // True here for the same reason the subject catalogue's canWrite is:
+    // the demo switcher changes the MENU, never what the data layer
+    // returns. The refusal path is tested against real Postgres, where
+    // the permission actually lives.
+    async mayProvisionPortalAccounts() {
+      return true;
+    },
+
+    async getPortalCandidates(sectionId) {
+      const sec = SECTIONS.find((x) => x.id === sectionId);
+      const learners = ENROLMENTS
+        .filter((e) => e.sectionId === sectionId
+                    && (e.status === 'enrolled' || e.status === 'transferred_in'))
+        .map((e) => STUDENTS.find((x) => x.studentId === e.studentId))
+        .filter((x): x is StudentIdentity => !!x)
+        .sort((a, b) => a.displayName.localeCompare(b.displayName));
+      return {
+        section: sec
+          ? { id: sec.id, name: sec.name, gradeLevel: sec.gradeLevel }
+          : null,
+        learners: learners.map((x) => ({
+          studentId: x.studentId, displayName: x.displayName, lrn: x.lrn,
+          email: x.hasPortalAccount ? (x.email ?? 'account@school') : null,
+          hasAccount: x.hasPortalAccount,
+        })),
+      };
+    },
+
+    async createStudentPortalAccount(studentId, email, password) {
+      const st = STUDENTS.find((x) => x.studentId === studentId);
+      if (!st) throw new Error('No such learner in this school.');
+      if (st.hasPortalAccount) {
+        throw new Error(
+          `${st.displayName} already has a portal account. `
+          + 'Reset its password rather than creating a second one.');
+      }
+      if (!email.trim()) throw new Error('An email address is required.');
+      if (password.length < 8) {
+        throw new Error('Use a temporary password of at least 8 characters.');
+      }
+      st.hasPortalAccount = true;
+      st.email = email.trim();
+      return { userId: `u-${Date.now()}` };
+    },
+
+    async unlinkStudentPortalAccount(studentId, reason) {
+      const st = STUDENTS.find((x) => x.studentId === studentId);
+      if (!st) throw new Error('No such learner in this school.');
+      if (!st.hasPortalAccount) {
+        throw new Error('That learner has no portal account to unlink.');
+      }
+      if (!reason?.trim()) {
+        throw new Error('A reason is required to unlink a portal account.');
+      }
+      st.hasPortalAccount = false;
     },
 
     async updateStudent(studentId, patch) {

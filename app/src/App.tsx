@@ -19,6 +19,7 @@ import { RegistrarQueue } from './screens/RegistrarQueue';
 import { AdviserQueue } from './screens/AdviserQueue';
 import { RegistrarStudents } from './screens/RegistrarStudents';
 import { Students } from './screens/Students';
+import { Enrollments } from './screens/Enrollments';
 import { ClassesAndSections } from './screens/ClassesAndSections';
 import { GlobalAnalytics, GlobalLoaReports } from './screens/GlobalReports';
 import { ConsolidatedGrades } from './screens/ConsolidatedGrades';
@@ -141,6 +142,10 @@ export default function App() {
     [session],
   );
   const role: Role = (DEMO_MODE ? roleOverride : null) ?? sessionRole ?? 'teacher';
+  // Who owns the student master record. Both hold `students.write` and
+  // `enrollments.write`; the database refuses everyone else regardless,
+  // so this only decides whether a control is OFFERED.
+  const registrarRole = role === 'registrar' || role === 'school_admin';
 
   const year: AcademicYear | null = useMemo(() => {
     const y = session?.academicYears.find((x) => x.id === yearId) ?? session?.academicYears[0];
@@ -569,7 +574,7 @@ export default function App() {
             // A courtesy, not a control: `admit_student` checks
             // students.write itself and refuses anyone else, so hiding
             // the button only spares a teacher a pointless error.
-            canAdmit={role === 'registrar' || role === 'school_admin'}
+            canAdmit={registrarRole}
           />
         );
 
@@ -588,6 +593,17 @@ export default function App() {
           />
         );
 
+      case 'enrollments':
+        return (
+          <Enrollments
+            yearId={year.id} yearLabel={year.label}
+            loadOptions={source.getEnrollmentOptions}
+            loadCandidates={source.getPortalCandidates}
+            createAccount={source.createStudentPortalAccount}
+            onOpenStudent={(studentId) => setRoute({ id: 'student', studentId })}
+          />
+        );
+
       case 'student':
         if (!route.studentId) return <Students
           yearId={year.id} yearLabel={year.label}
@@ -595,13 +611,29 @@ export default function App() {
           loadOptions={source.getEnrollmentOptions}
           admit={source.admitStudent}
           onOpenStudent={(studentId) => setRoute({ id: 'student', studentId })}
-          canAdmit={role === 'registrar' || role === 'school_admin'}
+          canAdmit={registrarRole}
         />;
         return (
           <StudentRecordScreen
             studentId={route.studentId}
             load={source.getStudentRecord}
+            loadHistory={source.getEnrollmentHistory}
             onBack={() => go('students')}
+            /*
+              Passed only to the roles that own the student master
+              record. A teacher opening the same screen sees the record
+              and no controls — the database refuses them either way,
+              but a button that only ever errors is not a control.
+            */
+            actions={registrarRole ? {
+              loadOptions: source.getEnrollmentOptions,
+              transferSection: source.transferSection,
+              withdraw: source.withdrawStudent,
+              reenrol: source.reenrolStudent,
+              createPortalAccount: source.createStudentPortalAccount,
+              unlinkPortalAccount: source.unlinkStudentPortalAccount,
+            } : undefined}
+            canProvisionPortal={registrarRole}
           />
         );
 

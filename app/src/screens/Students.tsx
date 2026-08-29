@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type {
   DirectoryStudent, EnrollmentDraft, EnrollmentOptions, GradeLevelCensus,
-  StudentDraft, StudentQuery,
+  StudentDraft, StudentQuery, AdmitResult, NamesakeMatch,
 } from '../data/types';
 import { Async, EmptyState, useAsync } from '../components/Async';
 
@@ -19,8 +19,9 @@ interface Props {
   loadCensus: (yearId: string) => Promise<GradeLevelCensus[]>;
   loadOptions: (yearId: string) => Promise<EnrollmentOptions>;
   admit: (
-    student: StudentDraft, enrollment: EnrollmentDraft,
-  ) => Promise<{ studentId: string; enrollmentId: string }>;
+    student: StudentDraft, enrollment: EnrollmentDraft | null,
+    confirmNamesake?: boolean,
+  ) => Promise<AdmitResult>;
   onOpenStudent: (studentId: string) => void;
   /** Only shown to roles that hold students.write. */
   canAdmit: boolean;
@@ -311,7 +312,9 @@ function AddStudent({ yearId, yearLabel, loadOptions, admit, onCancel, onAdded }
   yearId: string;
   yearLabel: string;
   loadOptions: (yearId: string) => Promise<EnrollmentOptions>;
-  admit: (s: StudentDraft, e: EnrollmentDraft) => Promise<{ studentId: string }>;
+  admit: (
+    s: StudentDraft, e: EnrollmentDraft | null, confirmNamesake?: boolean,
+  ) => Promise<AdmitResult>;
   onCancel: () => void;
   onAdded: (studentId: string) => void;
 }) {
@@ -322,6 +325,13 @@ function AddStudent({ yearId, yearLabel, loadOptions, admit, onCancel, onAdded }
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /*
+    A namesake is not an error, so it does not go in `error`. It is a
+    question with evidence attached: here are the learners already on
+    file with this name — is yours one of them?
+  */
+  const [namesake, setNamesake] = useState<
+    { message: string; matches: NamesakeMatch[] } | null>(null);
 
   const set = (k: keyof StudentDraft) => (e: { target: { value: string } }) =>
     setStudent((s) => ({ ...s, [k]: e.target.value }));
@@ -333,13 +343,18 @@ function AddStudent({ yearId, yearLabel, loadOptions, admit, onCancel, onAdded }
 
   const ready = student.firstName.trim() && student.lastName.trim() && enrol.gradeLevelId;
 
-  async function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent, confirmed = false) {
     e.preventDefault();
     setBusy(true);
     setError(null);
+    if (confirmed) setNamesake(null);
     try {
-      const { studentId } = await admit(student, enrol);
-      onAdded(studentId);
+      const result = await admit(student, enrol, confirmed);
+      if (result.status === 'needs_confirmation') {
+        setNamesake({ message: result.message, matches: result.matches });
+        return;
+      }
+      onAdded(result.studentId);
     } catch (err) {
       // "A learner with that LRN already exists in this school (Cruz, Juan)"
       // is written for a registrar. Show it as written.
@@ -368,6 +383,60 @@ function AddStudent({ yearId, yearLabel, loadOptions, admit, onCancel, onAdded }
             <button className="btn btn-sm" type="button" onClick={() => setError(null)}>
               Dismiss
             </button>
+          </div>
+        )}
+
+        {/*
+          THE NAMESAKE WARNING.
+
+          Deliberately not an error banner and deliberately not a
+          refusal. A duplicate LRN is a certainty and throws; a duplicate
+          NAME is a suspicion, and refusing it would leave a registrar
+          unable to admit a real learner who happens to share a name with
+          one already here. So the records are shown and the person
+          decides — which is the only way this can be decided.
+        */}
+        {namesake && (
+          <div className="panel" data-tone="warning">
+            <div className="panel-head">
+              <div>
+                <h2>Someone by this name is already on file</h2>
+                <p className="page-sub">{namesake.message}</p>
+              </div>
+            </div>
+            <div className="tbl-wrap">
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    <th scope="col">Learner</th>
+                    <th scope="col">LRN</th>
+                    <th scope="col">Student number</th>
+                    <th scope="col">Date of birth</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {namesake.matches.map((m) => (
+                    <tr key={m.studentId}>
+                      <th scope="row">{m.displayName}</th>
+                      <td className="mono">{m.lrn ?? <span className="faint">none</span>}</td>
+                      <td className="mono">{m.studentNumber ?? <span className="faint">none</span>}</td>
+                      <td className="mono">{m.birthDate ?? <span className="faint">not recorded</span>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="panel-body row-actions">
+              <button className="btn" type="button" onClick={() => setNamesake(null)}>
+                Go back and check
+              </button>
+              <button
+                className="btn btn-primary" type="button" disabled={busy}
+                onClick={(e) => { void submit(e, true); }}
+              >
+                {busy ? 'Adding…' : 'This is a different person — add anyway'}
+              </button>
+            </div>
           </div>
         )}
 

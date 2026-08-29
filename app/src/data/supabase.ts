@@ -27,6 +27,7 @@ import type {
   SubjectCatalogue,
   EnrollmentOptions, GradebookData, PersistedGrade, StudentGradeRow, StudentHistoryRow,
   StudentProfile, StudentRecord, SubmissionRow, ValidationReport,
+  AdmitResult, EnrollmentEvent, PortalAccountList,
 } from './types';
 import type { Sf10Payload } from './sf10';
 
@@ -325,13 +326,108 @@ export function createSupabaseSource(): DataSource {
       return (data ?? { gradeLevels: [], sections: [] }) as EnrollmentOptions;
     },
 
-    async admitStudent(student, enrollment) {
+    async admitStudent(student, enrollment, confirmNamesake) {
       const { data, error } = await requireSupabase()
-        .rpc('admit_student', { p_student: student, p_enrollment: enrollment });
+        .rpc('admit_student', {
+          p_student: student,
+          p_enrollment: enrollment ?? null,
+          p_confirm_namesake: confirmNamesake ?? false,
+        });
       // "a learner with that LRN already exists in this school (Cruz, Juan)"
       // is written for a registrar. Do not flatten it.
+      //
+      // A NAMESAKE is not an error and does not arrive here: it comes
+      // back in `data` as status 'needs_confirmation', because the
+      // screen has to show the matching records so a person can decide.
+      // An exception carries a string; this carries a comparison.
       if (error) throw new Error(error.message);
-      return data as { studentId: string; enrollmentId: string };
+      return data as AdmitResult;
+    },
+
+    async transferSection(enrollmentId, sectionId, effectiveDate, reason) {
+      const { data, error } = await requireSupabase()
+        .rpc('transfer_student_section', {
+          p_enrollment_id: enrollmentId,
+          p_section_id: sectionId,
+          p_effective_date: effectiveDate ?? null,
+          p_reason: reason ?? null,
+        });
+      if (error) throw new Error(error.message);
+      return data as { from: string | null; to: string;
+                       classesLeft: number; classesJoined: number };
+    },
+
+    async withdrawStudent(enrollmentId, kind, effectiveDate, reason, destination) {
+      const { data, error } = await requireSupabase()
+        .rpc('withdraw_student', {
+          p_enrollment_id: enrollmentId,
+          p_kind: kind,
+          p_effective_date: effectiveDate ?? null,
+          p_reason: reason,
+          p_destination: destination ?? null,
+        });
+      if (error) throw new Error(error.message);
+      return data as { status: string; classesClosed: number };
+    },
+
+    async reenrolStudent(enrollmentId, effectiveDate, reason) {
+      const { data, error } = await requireSupabase()
+        .rpc('reenrol_student', {
+          p_enrollment_id: enrollmentId,
+          p_effective_date: effectiveDate ?? null,
+          p_reason: reason ?? null,
+        });
+      if (error) throw new Error(error.message);
+      return data as { status: string; classesRejoined: number };
+    },
+
+    async getEnrollmentHistory(studentId) {
+      const { data, error } = await requireSupabase()
+        .rpc('enrollment_history', { p_student_id: studentId });
+      if (error) fail('Loading the enrolment history', error);
+      return (data ?? []) as EnrollmentEvent[];
+    },
+
+    async mayProvisionPortalAccounts() {
+      const { data, error } = await requireSupabase()
+        .rpc('may_provision_portal_accounts');
+      // A permission probe that fails is a NO, not a crash: the screen
+      // hides a button rather than showing an error about one.
+      if (error) return false;
+      return data === true;
+    },
+
+    async getPortalCandidates(sectionId) {
+      const { data, error } = await requireSupabase()
+        .rpc('portal_account_candidates', { p_section_id: sectionId });
+      if (error) fail('Loading portal accounts', error);
+      return data as PortalAccountList;
+    },
+
+    async createStudentPortalAccount(studentId, email, password) {
+      const { data, error } = await requireSupabase().functions.invoke(
+        'manage-users',
+        { body: { action: 'create_student_account', studentId, email, password } },
+      );
+      // functions.invoke reports a non-2xx as a generic FunctionsHttpError
+      // and throws the body away. The function writes a sentence for a
+      // registrar; read it back off the response rather than showing
+      // "Edge Function returned a non-2xx status code".
+      if (error) {
+        const detail = await readFunctionError(error);
+        throw new Error(detail ?? 'Creating the portal account failed.');
+      }
+      const body = data as
+        { ok?: boolean; error?: string; userId?: string; warning?: string } | null;
+      if (!body?.ok) throw new Error(body?.error ?? 'Creating the portal account failed.');
+      return { userId: body.userId ?? '', warning: body.warning };
+    },
+
+    async unlinkStudentPortalAccount(studentId, reason) {
+      const { error } = await requireSupabase()
+        .rpc('unlink_student_portal_account',
+             { p_student_id: studentId, p_reason: reason });
+      if (error) throw new Error(error.message);
     },
 
     async enrolStudent(studentId, enrollment) {
