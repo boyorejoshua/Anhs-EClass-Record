@@ -15,7 +15,7 @@ import type {
   AdvisorySection, AttendanceDay, AttendanceMark, ClassDraft, ClassStudent, ClassSummary,
   ConsolidatedGrades, DirectoryStudent, GradeLevelCensus, StudentQuery,
   SubjectCatalogue, SubjectDraft,
-  AdmitResult, EnrollmentEvent, PortalAccountList,
+  AdmitResult, EnrollmentEvent, PortalAccountList, StudentSchedule,
   EnrollmentDraft, EnrollmentOptions, GradebookData, LearnerNameFix, LearnerToAdd,
   MyAccount, MyClassDraft,
   MyClassRoster, MyClassSetupOptions, NewAccount,
@@ -423,4 +423,10 @@ export interface DataSource {
   getMyProfile(): Promise<StudentProfile>;
   getMyGrades(academicYearId?: string): Promise<StudentGradeRow[]>;
   getMyHistory(): Promise<StudentHistoryRow[]>;
+  /**
+   * The learner's own classes for the CURRENT year. No parameter, for
+   * the same reason as the three above: an enrolment or class id
+   * accepted from the client could name somebody else's.
+   */
+  getMySchedule(): Promise<StudentSchedule>;
 }

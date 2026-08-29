@@ -2034,7 +2034,19 @@ export function createFixtureSource(): DataSource {
       // published in the fixture, so they read as null — the same thing
       // the RLS policies do on the real database, rather than a
       // friendlier fiction.
-      return CLASSES.slice(0, 2).map((c) => ({
+      //
+      // ⚠️ This used to be `CLASSES.slice(0, 2)`, which is Mathematics 10
+      // in Pearl AND Mathematics 10 in Diamond — one learner enrolled in
+      // the same subject twice, in two sections, in one year. Nobody is.
+      // It also collided the React key on the grades table, so a row
+      // could be silently omitted from a learner's own grade list.
+      //
+      // The demo learner is Grade 10 Pearl, so their grades are the
+      // PEARL classes — which is also what My Schedule shows, so the two
+      // screens now agree about the same person.
+      return CLASSES
+        .filter((c) => c.section === 'Pearl' && c.gradeLevel === 'Grade 10')
+        .map((c) => ({
         academicYear: '2026-2027',
         academicYearId: YEAR_TRIMESTER.id,
         gradeLevel: c.gradeLevel,
@@ -2285,6 +2297,38 @@ export function createFixtureSource(): DataSource {
 
     async getImportHistory(limit) {
       return [...importBatches].reverse().slice(0, limit ?? 50);
+    },
+
+    /**
+     * The demo learner is in Grade 10 Pearl, so their schedule is the
+     * Pearl classes — derived the same way the server derives it, from
+     * section membership rather than from a hand-written list.
+     *
+     * MAPEH deliberately has no teacher in this fixture and one class
+     * has no room, so the empty states are exercised by the demo rather
+     * than only by a test.
+     */
+    async getMySchedule() {
+      const section = 'Pearl';
+      return {
+        enrollment: {
+          academicYear: YEAR_TRIMESTER.label,
+          gradeLevel: 'Grade 10',
+          section,
+          status: 'enrolled',
+        },
+        classes: CLASSES
+          .filter((c) => c.section === section && c.gradeLevel === 'Grade 10')
+          .map((c) => ({
+            classId: c.id,
+            subject: c.subject,
+            subjectCode: c.subjectCode,
+            teacher: c.subjectCode === 'MAPEH10' ? null : CURRENT_USER.name,
+            when: c.scheduleNote,
+            room: c.subjectCode === 'MAPEH10' ? null : c.room,
+          }))
+          .sort((a, b) => a.subject.localeCompare(b.subject)),
+      };
     },
 
     async getMyHistory() {

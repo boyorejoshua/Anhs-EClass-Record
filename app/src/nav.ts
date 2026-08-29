@@ -37,7 +37,7 @@ export type RouteId =
   // 'profile', which is a LEARNER record read from a different identity.
   | 'account'
   // student portal
-  | 'profile' | 'history';
+  | 'profile' | 'history' | 'schedule';
 
 export type ClassTab =
   | 'overview' | 'setup' | 'gradebook' | 'summary' | 'analytics' | 'loa'
@@ -192,6 +192,10 @@ export const NAV: Record<Role, NavItem[]> = {
   student: [
     { key: 'dashboard', label: 'My Grades',        glyph: '▩', readiness: 'ready' },
     { key: 'profile',   label: 'My Profile',       glyph: '▦', readiness: 'ready' },
+    // Derived from the learner's CURRENT enrolment, never chosen. A
+    // student picking their own classes would be picking somebody's
+    // timetable, and the only one they may see is their own.
+    { key: 'schedule',  label: 'My Schedule',      glyph: '◫', readiness: 'ready' },
     { key: 'history',   label: 'Academic History', glyph: '◷', readiness: 'ready' },
     // 'profile' above is the LEARNER record — LRN, guardian, enrolment.
     // This is the LOGIN: name and password. Two different things that

@@ -273,3 +273,56 @@ describe('portal accounts', () => {
     expect(record?.student.hasPortalAccount).toBe(false);
   });
 });
+
+describe('the student schedule', () => {
+  it('is derived from the current enrolment, never chosen', async () => {
+    const src = fresh();
+    const s = await src.getMySchedule();
+    expect(s.enrollment?.section).toBe('Pearl');
+    expect(s.enrollment?.gradeLevel).toBe('Grade 10');
+    // Every class on it belongs to that section. The learner picks
+    // nothing: a student choosing classes would be choosing somebody's
+    // timetable, and the only one they may see is their own.
+    expect(s.classes.length).toBeGreaterThan(0);
+  });
+
+  it('shows the schedule note VERBATIM rather than parsing it', async () => {
+    const src = fresh();
+    const s = await src.getMySchedule();
+    const math = s.classes.find((c) => c.subjectCode === 'MATH10');
+    // 'MWF 8:00-9:00' as written. Turning that into a Monday 08:00 row
+    // would invent structure the database does not hold — schedule_note
+    // is free text with no validation.
+    expect(math?.when).toBe('MWF 8:00-9:00');
+  });
+
+  it('handles a missing teacher without inventing one', async () => {
+    const src = fresh();
+    const s = await src.getMySchedule();
+    const mapeh = s.classes.find((c) => c.subjectCode === 'MAPEH10');
+    expect(mapeh).toBeDefined();
+    expect(mapeh?.teacher).toBeNull();
+  });
+
+  it('handles a missing room without inventing one', async () => {
+    const src = fresh();
+    const s = await src.getMySchedule();
+    const mapeh = s.classes.find((c) => c.subjectCode === 'MAPEH10');
+    expect(mapeh?.room).toBeNull();
+  });
+
+  it('carries a class id for every row, so nothing is positional', async () => {
+    const src = fresh();
+    const s = await src.getMySchedule();
+    const ids = s.classes.map((c) => c.classId);
+    expect(ids.every(Boolean)).toBe(true);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('is sorted by subject, so the list is stable between visits', async () => {
+    const src = fresh();
+    const s = await src.getMySchedule();
+    const titles = s.classes.map((c) => c.subject);
+    expect(titles).toEqual([...titles].sort((a, b) => a.localeCompare(b)));
+  });
+});

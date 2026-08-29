@@ -415,6 +415,35 @@ export interface PortalAccountList {
   learners: PortalCandidate[];
 }
 
+/**
+ * One class on the learner's schedule.
+ *
+ * `when` is `classes.schedule_note` VERBATIM — 'MWF 8:00-9:00' by
+ * convention and nothing by constraint. It is deliberately not parsed
+ * into a day and a time: this database has no timetable model, and
+ * inventing one from an unvalidated string would show a learner a
+ * confidently wrong start time. Null means nobody has written it yet.
+ */
+export interface ScheduleClass {
+  classId: string;
+  subject: string;
+  subjectCode: string;
+  teacher: string | null;
+  when: string | null;
+  room: string | null;
+}
+
+export interface StudentSchedule {
+  /** Null when the learner has no enrolment in the ACTIVE academic year. */
+  enrollment: {
+    academicYear: string;
+    gradeLevel: string;
+    section: string | null;
+    status: string;
+  } | null;
+  classes: ScheduleClass[];
+}
+
 export interface StudentGradeEntry {
   academicYear: string;
   period: string;
