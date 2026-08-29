@@ -134,14 +134,11 @@ const REGISTRAR: NavItem[] = [
     // The registrar is the only role that can create a class or admit a
     // learner, so a workbook for a class nobody has set up comes here.
     { key: 'import',    label: 'Import',             glyph: '⇥', readiness: 'ready' },
-    {
-      key: 'enrollments', label: 'Enrollments', glyph: '◫', readiness: 'planned',
-      note:
-        'Enrolling, transferring and dropping learners writes to the enrollment ' +
-        'history that SF10 is built from. It needs the import pipeline in ' +
-        'docs/10-excel-migration.md, because no registrar will enroll 1,500 learners ' +
-        'by hand.',
-    },
+    // Ready as of Phase 1. The note above said this needed the import
+    // pipeline first, which was true of BULK enrolment and remains true
+    // — this screen does not enrol anybody. It answers the question that
+    // had no answer: who in this section can actually sign in.
+    { key: 'enrollments', label: 'Enrollments', glyph: '◫', readiness: 'ready' },
     {
       key: 'documents', label: 'Reports & Documents', glyph: '◈', readiness: 'planned',
       note:

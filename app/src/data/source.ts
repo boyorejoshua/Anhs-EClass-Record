@@ -15,6 +15,7 @@ import type {
   AdvisorySection, AttendanceDay, AttendanceMark, ClassDraft, ClassStudent, ClassSummary,
   ConsolidatedGrades, DirectoryStudent, GradeLevelCensus, StudentQuery,
   SubjectCatalogue, SubjectDraft,
+  AdmitResult, EnrollmentEvent, PortalAccountList,
   EnrollmentDraft, EnrollmentOptions, GradebookData, LearnerNameFix, LearnerToAdd,
   MyAccount, MyClassDraft,
   MyClassRoster, MyClassSetupOptions, NewAccount,
@@ -171,9 +172,53 @@ export interface DataSource {
   /** The grade levels and sections a form may offer. Never free text. */
   getEnrollmentOptions(academicYearId: string): Promise<EnrollmentOptions>;
   /** Create the person AND their first year. Refuses a duplicate LRN or number. */
+  /*
+    Two outcomes, not one. A clashing LRN throws — it is a certainty.
+    A clashing NAME comes back as `needs_confirmation` with the records
+    it matched, because real namesakes exist and refusing them would
+    leave a registrar unable to admit a real learner. Pass
+    `confirmNamesake` to proceed after the person has looked.
+  */
   admitStudent(
-    student: StudentDraft, enrollment: EnrollmentDraft,
-  ): Promise<{ studentId: string; enrollmentId: string }>;
+    student: StudentDraft, enrollment: EnrollmentDraft | null,
+    confirmNamesake?: boolean,
+  ): Promise<AdmitResult>;
+
+  /* ---- the enrolment lifecycle -------------------------------------- *
+   * Each of these is an ACT with a reason and a roster consequence, not
+   * a field edit. `updateEnrollment` above stays the general editor.
+   * -------------------------------------------------------------------- */
+
+  /** Move a learner to another section in the same year and grade level. */
+  transferSection(
+    enrollmentId: string, sectionId: string,
+    effectiveDate?: string | null, reason?: string | null,
+  ): Promise<{ from: string | null; to: string; classesLeft: number; classesJoined: number }>;
+
+  /** Close an enrolment. A reason is required — it is what the record is for. */
+  withdrawStudent(
+    enrollmentId: string, kind: 'transferred_out' | 'dropped',
+    effectiveDate: string | null, reason: string, destination?: string | null,
+  ): Promise<{ status: string; classesClosed: number }>;
+
+  /** They came back. Rejoins the section's classes, marks and all. */
+  reenrolStudent(
+    enrollmentId: string, effectiveDate?: string | null, reason?: string | null,
+  ): Promise<{ status: string; classesRejoined: number }>;
+
+  /** Where this learner has been, newest first. SF10 is built from this. */
+  getEnrollmentHistory(studentId: string): Promise<EnrollmentEvent[]>;
+
+  /* ---- portal accounts ---------------------------------------------- *
+   * `students.write`, not `users.write`: giving a learner access to
+   * their own record belongs to whoever owns the student master record.
+   * -------------------------------------------------------------------- */
+  mayProvisionPortalAccounts(): Promise<boolean>;
+  getPortalCandidates(sectionId: string): Promise<PortalAccountList>;
+  createStudentPortalAccount(
+    studentId: string, email: string, password: string,
+  ): Promise<{ userId: string; warning?: string }>;
+  unlinkStudentPortalAccount(studentId: string, reason: string): Promise<void>;
   /** Enrol an EXISTING person in another year — this is what promotion is. */
   enrolStudent(studentId: string, enrollment: EnrollmentDraft): Promise<string>;
   /** Patch identity. An absent key is left alone, never blanked. */

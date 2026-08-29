@@ -1,10 +1,10 @@
 /**
- * manage-users — the two account operations that need service_role.
+ * manage-users — the account operations that need service_role.
  *
  * Everything else about an account is ordinary SQL and lives in
  * migration 0031: roles, status, and a person's own details are rows in
- * public tables, and the database can authorize them itself. Only two
- * things cannot be done from a client holding the anon key:
+ * public tables, and the database can authorize them itself. Only these
+ * cannot be done from a client holding the anon key:
  *
  *   create   minting an auth identity, and stamping the tenant into
  *            app_metadata — the claim app.current_school_id() reads.
@@ -14,6 +14,13 @@
  *
  *   reset    setting someone else's password. Supabase exposes this
  *            only to the admin API.
+ *
+ *   create_student_account
+ *            the same identity minting, plus the LINK to a learner
+ *            (migration 0042). Added in Phase 1, when the audit found
+ *            that nothing in the product could give a learner a way in
+ *            — students.portal_user_id was the link and no screen, RPC
+ *            or function set it.
  *
  * ── AUTHORIZATION ─────────────────────────────────────────────────────
  * Two clients, the same split compute-period-grades uses:
@@ -85,7 +92,23 @@ interface ResetBody {
   password: string;
 }
 
-type Body = CreateBody | ResetBody;
+/**
+ * A LEARNER's way in.
+ *
+ * Distinct from `create` above, which mints a staff account: this one
+ * also LINKS the identity to a student record, and that link is what
+ * `app.current_student_id()` reads on every portal request. A staff
+ * account with the student role and no link would sign in, resolve to
+ * nobody, and see an empty portal with nothing to explain it.
+ */
+interface StudentAccountBody {
+  action: 'create_student_account';
+  studentId: string;
+  email: string;
+  password: string;
+}
+
+type Body = CreateBody | ResetBody | StudentAccountBody;
 
 Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') return json({ error: 'Use POST.' }, 405);
@@ -124,12 +147,19 @@ Deno.serve(async (req: Request) => {
 
   /* ---- may this person manage accounts? Ask the database. ---------- */
   const { data: dir, error: dirError } = await userClient.rpc('staff_directory');
-  if (dirError) {
+  // A registrar holds `users.read` so this normally succeeds for them
+  // too — but their authorization for a LEARNER's account does not come
+  // from here, so a failure must not close a door they are entitled to.
+  if (dirError && body.action !== 'create_student_account') {
     return json({ error: humanError(dirError, 'Could not check your permissions.') }, 403);
   }
   const canWrite = (dir as { permissions?: { canWrite?: boolean } } | null)
     ?.permissions?.canWrite === true;
-  if (!canWrite) {
+  // `create_student_account` is gated separately, on `students.write`.
+  // Giving a learner access to their own record belongs to whoever owns
+  // the student master record — the registrar — who holds neither
+  // `users.write` nor `roles.assign` and should not need them for this.
+  if (!canWrite && body.action !== 'create_student_account') {
     return json({ error: 'You are not allowed to create or reset accounts.' }, 403);
   }
 
@@ -167,6 +197,150 @@ Deno.serve(async (req: Request) => {
       .update({ must_change_password: true }).eq('id', userId);
 
     return json({ ok: true });
+  }
+
+  /* ================= create_student_account ========================= *
+   * The order matters and is not arbitrary:
+   *
+   *   1. ASK THE DATABASE whether this learner can be linked at all,
+   *      before minting anything. `link_student_portal_account` refuses
+   *      a learner who already has an account, and finding that out
+   *      after creating an auth identity would leave an orphan identity
+   *      holding an email address the registrar then cannot reuse.
+   *   2. mint the auth identity (service_role — only here).
+   *   3. write public.users.
+   *   4. link, through the CALLER's JWT so students.write is checked by
+   *      the permission catalogue rather than by a second opinion here.
+   *   5. give it the student role.
+   *
+   * Every failure after step 2 deletes the identity again, for the same
+   * reason `create` does: a half-made account cannot be repaired from
+   * any screen and its address is then taken.
+   * ================================================================== */
+  if (body.action === 'create_student_account') {
+    const studentId = (body.studentId ?? '').trim();
+    const email = (body.email ?? '').trim().toLowerCase();
+    const password = body.password ?? '';
+    if (!studentId || !email || !password) {
+      return json({
+        error: 'A learner, an email address and a temporary password are all required.',
+      }, 400);
+    }
+    if (password.length < 8) {
+      return json({ error: 'Use a temporary password of at least 8 characters.' }, 400);
+    }
+
+    /* 0. may this caller provision at all? Asked before anything is
+     *    minted: discovering it afterwards would leave an orphan auth
+     *    identity holding an address nobody can reuse. */
+    const { data: mayProvision } = await userClient
+      .rpc('may_provision_portal_accounts');
+    if (mayProvision !== true) {
+      return json({
+        error: 'You are not allowed to give a learner a portal account.',
+      }, 403);
+    }
+
+    /* 1. is this learner in the caller's school, and unlinked? */
+    const { data: student, error: readError } = await userClient
+      .rpc('student_profile', { p_student_id: studentId });
+    if (readError || !student) {
+      return json({ error: 'No such learner in this school.' }, 404);
+    }
+    const already = (student as { student?: { hasPortalAccount?: boolean } })
+      ?.student?.hasPortalAccount;
+    if (already) {
+      return json({
+        error: 'That learner already has a portal account. '
+          + 'Reset its password rather than creating a second one.',
+      }, 409);
+    }
+
+    /* 2. the auth identity, with the tenant stamped in */
+    const { data: made, error: mkError } = await adminClient.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      app_metadata: { school_id: schoolId },
+    });
+    if (mkError || !made?.user) {
+      return json({ error: humanError(mkError, 'Could not create the account.') }, 400);
+    }
+    const learnerUserId = made.user.id;
+
+    const undo = async (message: string, status = 400) => {
+      await adminClient.auth.admin.deleteUser(learnerUserId).catch(() => {});
+      return json({ error: message }, status);
+    };
+
+    /* 3. the person row */
+    const st = (student as {
+      student?: { firstName?: string; lastName?: string; middleName?: string | null };
+    }).student ?? {};
+    const { error: rowError } = await adminClient.from('users').insert({
+      id: learnerUserId,
+      school_id: schoolId,
+      email,
+      first_name: st.firstName ?? 'Learner',
+      middle_name: st.middleName ?? null,
+      last_name: st.lastName ?? '',
+      status: 'active',
+      must_change_password: true,
+    });
+    if (rowError) return undo(humanError(rowError, 'Could not create the account.'));
+
+    /* 4. the link — through the caller's JWT, so the database decides */
+    const { data: linked, error: linkError } = await userClient
+      .rpc('link_student_portal_account', {
+        p_student_id: studentId, p_user_id: learnerUserId,
+      });
+    if (linkError) {
+      await adminClient.from('users').delete().eq('id', learnerUserId);
+      return undo(humanError(linkError, 'Could not link the account to the learner.'), 403);
+    }
+
+    /* 5. the role — the LITERAL 'student', with service_role.
+     *
+     * Not through set_user_roles on the caller's JWT, which needs
+     * `roles.assign`: a registrar does not hold it and giving it to
+     * them so they could provision a learner would also let them make
+     * themselves an administrator. The role code here is hard-coded and
+     * the target is an account created moments ago in this same
+     * request, so there is nothing a caller can steer. */
+    const { data: studentRole } = await adminClient
+      .from('roles').select('id')
+      .eq('school_id', schoolId).eq('code', 'student').maybeSingle();
+
+    if (!studentRole) {
+      return json({
+        ok: true,
+        userId: learnerUserId,
+        warning: 'The account was created and linked, but this school has no '
+          + '"student" role to assign. Add it on the Users screen.',
+      });
+    }
+
+    const { error: roleError } = await adminClient
+      .from('user_roles').insert({
+        school_id: schoolId, user_id: learnerUserId, role_id: studentRole.id,
+      });
+    if (roleError) {
+      // The account exists and is linked; only the role did not land.
+      // Say so precisely — reporting a failure would send the registrar
+      // to create a duplicate for a learner who now has one.
+      return json({
+        ok: true,
+        userId: learnerUserId,
+        warning: 'The account was created and linked, but the student role could not '
+          + 'be assigned. Add it on the Users screen.',
+      });
+    }
+
+    return json({
+      ok: true,
+      userId: learnerUserId,
+      status: (linked as { status?: string } | null)?.status ?? 'linked',
+    });
   }
 
   /* ================= create ========================================= */

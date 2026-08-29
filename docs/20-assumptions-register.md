@@ -1198,3 +1198,83 @@ written down. Both roles now carry the permission in the seed whitelist.
 - The school has not yet given us their subject list per grade. Until
   they do, the map is a control with nothing entered into it — worth
   asking for alongside the year's sections.
+
+---
+
+## A25 — Phase 1: the enrolment lifecycle and the learner's way in
+
+**Status:** ✅ BUILT — migrations 0041 and 0042, `manage-users` v2
+
+Three structures the Phase 0 audit found seeded and unread turned out to
+be exactly what this phase needed, which is now the **fourth** time:
+
+| Structure | In the schema since | Read by anything before now |
+|---|---|---|
+| `enrollment_events` | 0005 | no |
+| `class_enrollments.status` / `.date_dropped` | 0006 | read everywhere, **written nowhere** |
+| `students.portal_user_id` | 0005 | read by RLS, **set by nothing** |
+
+The third is the sharpest: every roster and gradebook read in the system
+already filtered `ce.status = 'active'`, across 28 call sites, and no
+code had ever set that column to anything but its default. The mechanism
+for a correct section transfer was fully built and simply never used.
+
+### ⚠️ Three defects found by running the path, not by reading it
+
+1. **A learner enrolled into a section joined none of its classes.**
+   `sync_class_roster` was called only from `create_class`, so a roster
+   was filled once and never again. The registrar's screen said Pearl;
+   every Pearl teacher had a gradebook without them. Nothing errored.
+2. **A re-enrolled learner could never rejoin.** `class_enrollments` is
+   unique per (class, enrolment), so `sync_class_roster`'s `on conflict
+   do nothing` skipped the closed row that *was* their membership.
+3. **Enrolment history had no deterministic order.** `now()` is
+   transaction time, so two events written together shared `created_at`
+   *and* `event_date`.
+
+All three are invisible in review and obvious the first time the path is
+executed. **The habit that found them: rebuild a local Postgres from
+every migration plus the seed, and assert on the result.**
+
+### The namesake rule
+
+An **identifier** clash is a certainty and raises. A **name** clash is a
+suspicion and returns `needs_confirmation` with the matching records.
+Refusing a namesake would leave a registrar unable to admit a real
+learner; accepting one silently is how a school ends up with one learner
+twice. The import is exempt — its preview already showed the reviewer
+every candidate — and forgetting that would have stranded imported
+learners off the roster while the import reported success.
+
+### `students.write`, not `users.write`
+
+Giving a learner access to their own record is a **student-record act**.
+The registrar owns the student master record and holds neither
+`users.write` nor `roles.assign`; requiring those would have made portal
+provisioning an administrator's job for no reason. The `student` role is
+assigned with a hard-coded code under service_role, so widening the
+registrar's reach was never necessary.
+
+### The anon revoke, closed
+
+Migration 0041 revokes `anon` EXECUTE from the three functions 0038 and
+0040 left exposed. Verified after deployment: **0 anon-executable
+SECURITY DEFINER functions**, down from 3.
+
+**The rule, restated because it has now been missed twice:** PostgreSQL
+grants EXECUTE to `PUBLIC` by default, so every migration creating a
+`public.` function must revoke it.
+
+### Still open
+
+- **No backfill.** Learners enrolled before this phase have no events,
+  and the screen says so rather than inventing dates. `audit_logs`
+  carries `created_at`, not the *effective* date, and a wrong date in an
+  academic record is worse than an honest gap.
+- **Bulk provisioning** is deliberately not built. The data model is
+  ready; handing out four hundred passwords in one click is a decision
+  to make with a school present.
+- **`guardians`** is still unread — deferred to Phase 7, where SF9 and
+  SF10 need it.
+- **The production rehearsal** (Phase 1.5) has not been run.
+  `grade_submissions` and `period_grades` are still empty on production.
