@@ -187,8 +187,20 @@ describe('the administrator menu', () => {
 
   it('keeps My Account last, and lists it once', () => {
     const k = keys('school_admin');
-    expect(k[k.length - 1]).toBe('account');
+    // My Account then Help, which is the order the teacher's menu has
+    // always had. Help moved from the teacher's menu alone to every
+    // role's — a registrar handed this system cold could not open the
+    // guide at all — so the tail is now two items, not one.
+    expect(k.slice(-2)).toEqual(['account', 'help']);
     expect(k.filter((x) => x === 'account')).toHaveLength(1);
+  });
+
+  it('offers the guide to every role, not just the teacher', () => {
+    for (const role of ['teacher', 'adviser', 'registrar', 'school_admin', 'student'] as const) {
+      const k = keys(role);
+      expect(k, `${role} cannot reach Help`).toContain('help');
+      expect(k[k.length - 1], `${role} does not end on Help`).toBe('help');
+    }
   });
 
   it('lists no route twice', () => {

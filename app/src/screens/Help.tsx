@@ -114,6 +114,51 @@ const KEYS: Array<[string, string]> = [
   ['Escape', 'Leave the cell'],
 ];
 
+/**
+ * What the OTHER roles do, in the same plain words.
+ *
+ * The eleven steps above are a subject teacher's term. Until Help was
+ * added to every menu it was the only guide anybody could open, and it
+ * was the only guide anybody needed — because only the teacher's menu
+ * listed it. A registrar who opens "How to use the E-Class Record" and
+ * reads "open your class and enter the scores" has been handed
+ * somebody else's job, which is worse than no guide at all.
+ *
+ * Short on purpose. A registrar's work in this system is four moves,
+ * and a learner's is one.
+ */
+const ROLE_GUIDES: Array<{ role: string; who: string; steps: string[] }> = [
+  {
+    role: 'If you are the adviser',
+    who: 'You look after one section, and every subject teacher sends that section\'s grades to you.',
+    steps: [
+      'Open Incoming Grades. Each subject teacher who has finished a term appears here.',
+      'Check the grades, then sign for them. Signing tells the teacher you have them — after that they cannot change the term without asking you.',
+      'Consolidated Grades shows your whole section, every subject in one table. This is the view that replaces the adviser\'s summary sheet.',
+      'When the section is complete, pass it to the registrar.',
+    ],
+  },
+  {
+    role: 'If you are the registrar',
+    who: 'You set the school year up, and you are the last signature before a grade becomes part of a learner\'s record.',
+    steps: [
+      'Sections, classes and subjects are yours to create. Do this before a term starts — a teacher cannot enter grades for a class that does not exist.',
+      'Students is where a learner is admitted, enrolled, transferred between sections, or withdrawn. Nothing is ever deleted; a withdrawal is recorded with the reason.',
+      'Grade Submissions lists everything advisers have passed up. Receive it, then approve or return it. Returning it asks for a reason, and the teacher sees that reason.',
+      'Publishing is the last step, and it is the only one learners can see. Until you publish, a learner sees nothing — not a draft, not an approved grade.',
+    ],
+  },
+  {
+    role: 'If you are a learner',
+    who: 'You can see your own record, and only your own.',
+    steps: [
+      'My Grades shows each subject and each term your school has published. A term your teachers are still working on is blank — that is normal, not an error.',
+      'My Schedule is your class list exactly as your school recorded it. If something is wrong there, tell your adviser; it cannot be changed from this screen.',
+      'Academic History is your past school years.',
+    ],
+  },
+];
+
 export function Help() {
   return (
     <div className="page">
@@ -217,6 +262,33 @@ export function Help() {
           </div>
         </div>
       </div>
+
+      {/*
+        Last, because most readers are teachers and the eleven steps are
+        what they came for. But present, because Help is now in every
+        role's menu, and a guide that describes only one of five jobs
+        misleads the other four.
+      */}
+      {ROLE_GUIDES.map((g) => (
+        <div className="panel" key={g.role}>
+          <div className="panel-head">
+            <div>
+              <h2>{g.role}</h2>
+              <p className="page-sub">{g.who}</p>
+            </div>
+          </div>
+          <div className="panel-body">
+            <ol className="guide-steps">
+              {g.steps.map((step, i) => (
+                <li key={step}>
+                  <h3><span className="guide-step-n">Step {i + 1}</span></h3>
+                  <p>{step}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

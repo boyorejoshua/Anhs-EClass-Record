@@ -147,6 +147,11 @@ const REGISTRAR: NavItem[] = [
         'stored artifacts. SF10 can already be previewed under Academic Records.',
     },
     { key: 'account',   label: 'My Account',          glyph: '☺', readiness: 'ready' },
+    // The guide was reachable from the TEACHER's menu alone, so the one
+    // person most likely to be handed this system cold — the registrar —
+    // had no way to open it. Help is the last thing every role should be
+    // able to find, not a teacher's privilege.
+    { key: 'help',      label: 'Help',                glyph: '?', readiness: 'ready' },
 ];
 
 export const NAV: Record<Role, NavItem[]> = {
@@ -166,7 +171,7 @@ export const NAV: Record<Role, NavItem[]> = {
 
   school_admin: [
     // Everything the registrar reaches …
-    ...REGISTRAR.filter((i) => i.key !== 'account'),
+    ...REGISTRAR.filter((i) => i.key !== 'account' && i.key !== 'help'),
 
     // … plus the administration the registrar does not hold.
     { key: 'setup', label: 'School Setup', glyph: '⚙', readiness: 'ready' },
@@ -187,6 +192,7 @@ export const NAV: Record<Role, NavItem[]> = {
         'already computed under it.',
     },
     { key: 'account', label: 'My Account', glyph: '☺', readiness: 'ready' },
+    { key: 'help',    label: 'Help',       glyph: '?', readiness: 'ready' },
   ],
 
   student: [
@@ -201,6 +207,7 @@ export const NAV: Record<Role, NavItem[]> = {
     // This is the LOGIN: name and password. Two different things that
     // both reasonably answer to "my profile", so both are listed.
     { key: 'account',   label: 'My Account',       glyph: '☺', readiness: 'ready' },
+    { key: 'help',      label: 'Help',            glyph: '?', readiness: 'ready' },
   ],
 };
 

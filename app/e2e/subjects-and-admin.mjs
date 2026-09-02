@@ -70,9 +70,15 @@ check('2. including the three that were missing',
 check('3. and keeps its own administration',
   ['School Setup', 'Users'].every((l) => adminMenu.includes(l)));
 
-check('4. My Account is still last, and listed once',
-  adminMenu.trimEnd().endsWith('My Account')
-  && (adminMenu.match(/My Account/g) || []).length === 1);
+// My Account then Help, which is the order the teacher's menu always
+// had. Help reached every role's menu in Phase 2.1 — a registrar or an
+// administrator handed this system cold could not open the guide at
+// all — so the tail is two items now, and My Account is still listed
+// exactly once.
+check('4. My Account is second-to-last, listed once, with Help below it',
+  /My Account\s*\n?\s*\??\s*Help\s*$/.test(adminMenu.trimEnd())
+  && (adminMenu.match(/My Account/g) || []).length === 1,
+  adminMenu.trimEnd().split('\n').slice(-4).join(' | '));
 
 /* ---- 5. one of those screens actually opens ------------------------- */
 await page.getByRole('button', { name: /^Grade Submissions$/ }).first().click();
