@@ -3,6 +3,7 @@ import { compute, flattenComponents } from '../lib/grading';
 import type { GradebookData } from '../data/types';
 import type { ScoreEdit } from '../data/source';
 import { SaveIndicator, type SaveState } from '../components/SaveIndicator';
+import { EmptyState } from '../components/Async';
 
 type ScoreMap = GradebookData['scores'];
 type Category = 'all' | string;
@@ -11,6 +12,10 @@ interface Props {
   data: GradebookData;
   onSaveScores: (edits: ScoreEdit[]) => Promise<{ written: number }>;
   onDirtyChange?: (dirty: number) => void;
+  /** Named so an unstarted period can say WHICH period is unstarted. */
+  periodName?: string;
+  /** Sends the teacher to Setup, where assessments are actually created. */
+  onGoSetup?: () => void;
 }
 
 /**
@@ -24,7 +29,9 @@ interface Props {
  * It replaces three V0 screens — Setup, Grade Entry and Bulk Entry —
  * with one grid where bulk is a MODE, not a page.
  */
-export function Gradebook({ data, onSaveScores, onDirtyChange }: Props) {
+export function Gradebook({
+  data, onSaveScores, onDirtyChange, periodName, onGoSetup,
+}: Props) {
   const { scheme, assessments, roster, editable } = data;
 
   const [scores, setScores] = useState<ScoreMap>(data.scores);
@@ -341,6 +348,36 @@ export function Gradebook({ data, onSaveScores, onDirtyChange }: Props) {
         .join(' · '),
     [scheme],
   );
+
+  /**
+   * A period nobody has set up yet.
+   *
+   * Every OTHER Record Book tab already said so — Summary, Analytics and
+   * LOA all render an EmptyState pointing at Setup. Grade Entry was the
+   * one that did not: it drew the full roster with an em dash in every
+   * cell and no word of explanation, which reads as a system that has
+   * lost the marks rather than a term that has not started. The
+   * production demonstration dataset seeds Terms 1 and 2 and stops, so
+   * this is the FIRST thing a principal sees on clicking Term 3.
+   *
+   * Placed after every hook, so the hook order never changes.
+   */
+  if (assessments.length === 0) {
+    return (
+      <div className="panel">
+        <EmptyState
+          title="Nothing to enter yet"
+          action={onGoSetup
+            ? <button className="btn btn-sm btn-primary" onClick={onGoSetup}>Open Setup</button>
+            : undefined}
+        >
+          {periodName ?? 'This period'} has no assessments yet, so there is
+          nothing to score. Add the written works, performance tasks and
+          examinations in Setup, and they appear here as columns.
+        </EmptyState>
+      </div>
+    );
+  }
 
   return (
     <div className="panel">
