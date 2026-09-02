@@ -770,3 +770,35 @@
   letter-spacing: .04em;
   text-transform: uppercase;
 }
+
+/* ---- the step-by-step guide ---------------------------------------- *
+ * Numbered because the content genuinely IS a sequence — a teacher does
+ * these in order the first time. The number is the one decorative-
+ * looking thing on the page that carries real information.
+ * -------------------------------------------------------------------- */
+.guide-steps {
+  list-style: none;
+  margin: 0; padding: 0;
+  display: grid; gap: 22px;
+}
+.guide-steps li {
+  position: relative; padding-left: 18px;
+  max-width: 68ch;
+  border-left: 2px solid var(--accent-tint);
+}
+.guide-step-n {
+  display: block;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: var(--fs-2xs); letter-spacing: .08em; text-transform: uppercase;
+  color: var(--accent); font-weight: 500;
+  margin-bottom: 2px;
+}
+.guide-steps h3 {
+  margin: 0 0 4px; font-size: var(--fs-lg); color: var(--ink); font-weight: 600;
+}
+.guide-steps p { margin: 0; font-size: var(--fs-md); color: var(--body); }
+.guide-steps .guide-note {
+  margin-top: 6px; padding-left: 11px;
+  border-left: 2px solid var(--border-strong);
+  color: var(--muted); font-size: var(--fs-sm);
+}
