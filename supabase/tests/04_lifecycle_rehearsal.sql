@@ -47,11 +47,27 @@ begin
   select id into v_sch   from public.schools where code='anhs';
   select id into v_other from public.schools where code<>'anhs' limit 1;
   select id into v_yr    from public.academic_years where school_id=v_sch and status='active';
-  select id into v_p1    from public.academic_periods where academic_year_id=v_yr and ordinal=1;
   select id into v_g10   from public.grade_levels where school_id=v_sch and ordinal=10;
   select id into v_pearl from public.sections where school_id=v_sch and name='Pearl';
   select id into v_diamond from public.sections where school_id=v_sch and name='Diamond';
   select id into v_sub   from public.subjects where school_id=v_sch and code='MATH10';
+
+  -- ⚠️ NOT "ordinal = 1". seed.sql leaves Pearl/MATH10 Term 1 already
+  -- SUBMITTED (suite 03 asserts that), so save_assessments correctly
+  -- refuses to reconfigure it and this suite failed on a working
+  -- product. Pick a period this class has not submitted, so the suite
+  -- controls its own preconditions instead of inheriting them.
+  select p.id into v_p1
+    from public.academic_periods p
+   where p.academic_year_id = v_yr
+     and not exists (
+       select 1 from public.grade_submissions gs
+        join public.classes cl on cl.id = gs.class_id
+       where gs.academic_period_id = p.id
+         and cl.section_id = v_pearl
+         and cl.subject_id = v_sub)
+   order by p.ordinal
+   limit 1;
 
   select u.id into v_reg from public.users u join public.user_roles ur on ur.user_id=u.id
     join public.roles r on r.id=ur.role_id where u.school_id=v_sch and r.code='registrar' limit 1;
