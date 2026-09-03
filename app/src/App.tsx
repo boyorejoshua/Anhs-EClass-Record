@@ -25,6 +25,7 @@ import { GlobalAnalytics, GlobalLoaReports } from './screens/GlobalReports';
 import { ConsolidatedGrades } from './screens/ConsolidatedGrades';
 import { Users } from './screens/Users';
 import { SchoolSetup } from './screens/SchoolSetup';
+import { AcademicYears } from './screens/AcademicYears';
 import { MyAccount, PasswordForm } from './screens/MyAccount';
 import { StudentRecordScreen } from './screens/StudentRecordScreen';
 import {
@@ -154,7 +155,9 @@ export default function App() {
 
   const year: AcademicYear | null = useMemo(() => {
     const y = session?.academicYears.find((x) => x.id === yearId) ?? session?.academicYears[0];
-    return y ? { id: y.id, label: y.label, periodStructure: y.periodStructure, periods: y.periods } : null;
+    return y
+      ? { id: y.id, label: y.label, periodStructure: y.periodStructure, status: y.status, periods: y.periods }
+      : null;
   }, [session, yearId]);
 
   /**
@@ -167,7 +170,7 @@ export default function App() {
    */
   const allYears: AcademicYear[] = useMemo(
     () => (session?.academicYears ?? []).map((y) => ({
-      id: y.id, label: y.label, periodStructure: y.periodStructure, periods: y.periods,
+      id: y.id, label: y.label, periodStructure: y.periodStructure, status: y.status, periods: y.periods,
     })),
     [session],
   );
@@ -677,6 +680,9 @@ export default function App() {
             onSaved={() => { void refreshSession(); }}
           />
         );
+
+      case 'years':
+        return <AcademicYears years={allYears} />;
 
       case 'users':
         return (

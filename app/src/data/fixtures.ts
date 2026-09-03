@@ -25,6 +25,7 @@ export const YEAR_TRIMESTER: AcademicYear = {
   id: 'year-anhs',
   label: '2026-2027',
   periodStructure: 'three_term',
+  status: 'active',
   periods: [
     { id: 'p1', ordinal: 1, name: 'Term 1', shortName: 'T1', startDate: '2026-06-08', endDate: '2026-09-15', status: 'closed' },
     { id: 'p2', ordinal: 2, name: 'Term 2', shortName: 'T2', startDate: '2026-09-16', endDate: '2026-12-18', status: 'active' },
@@ -37,6 +38,7 @@ export const YEAR_QUARTER: AcademicYear = {
   id: 'year-demo',
   label: '2026-2027',
   periodStructure: 'quarter',
+  status: 'active',
   periods: [
     { id: 'q1', ordinal: 1, name: 'First Quarter', shortName: 'Q1', startDate: '2026-06-08', endDate: '2026-08-14', status: 'closed' },
     { id: 'q2', ordinal: 2, name: 'Second Quarter', shortName: 'Q2', startDate: '2026-08-17', endDate: '2026-10-30', status: 'active' },
@@ -250,7 +252,7 @@ const FIXTURE_SESSION: SessionContext = {
     id: y.id,
     label: y.label,
     periodStructure: y.periodStructure,
-    status: 'active',
+    status: y.status,
     periods: y.periods.map((p) => ({
       id: p.id, ordinal: p.ordinal, name: p.name, shortName: p.shortName,
       startDate: p.startDate, endDate: p.endDate, status: p.status,

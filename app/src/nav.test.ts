@@ -278,3 +278,79 @@ describe('the administrator menu', () => {
     expect(new Set(k).size, `duplicates in: ${k.join(', ')}`).toBe(k.length);
   });
 });
+
+/* ==================================================================== *
+ * PHASE 2.2 — ACADEMIC YEAR LIFECYCLE
+ *
+ * The database has supported multiple coexisting academic years since
+ * migration 0003 (`unique(school_id, label)`, never `unique(school_id)`
+ * alone), and the seed itself proves the full lifecycle: a 2025-2026
+ * year is created, populated with real enrolment and grade rows, then
+ * flipped to 'archived' — specifically "exercising the read-only
+ * guard" per its own comment. None of that needed rebuilding.
+ *
+ * What DID need fixing: `session_context()` fetches every year's
+ * `status` and orders the list most-recent-by-start-date first, but the
+ * client's `AcademicYear` type dropped `status` on the way in, so two
+ * screens (ReportPicker, ConsolidatedGrades) defaulted to "whichever
+ * year starts latest" rather than "whichever year is active." Confirmed
+ * against a rebuilt database: inserting a 'planning' SY 2027-2028 ahead
+ * of time — an ordinary thing for a registrar to do — made it sort
+ * ahead of the actually-active SY 2026-2027 in `session_context()`'s
+ * own output. `App.tsx`'s top-level bootstrap already guarded against
+ * this with `.find(status === 'active') ?? [0]`; the two screens did
+ * not share that logic and are fixed to match it here.
+ * ==================================================================== */
+describe('academic year administration', () => {
+  const keysOf = (role: Role) => NAV[role].map((i) => i.key);
+
+  it('is reachable only by the administrator', () => {
+    for (const role of ['teacher', 'adviser', 'registrar', 'student'] as const) {
+      expect(keysOf(role), `${role} can reach Academic Years`).not.toContain('years');
+    }
+    expect(keysOf('school_admin')).toContain('years');
+  });
+
+  it('is marked ready, not planned — the viewer is built', () => {
+    const item = NAV.school_admin.find((i) => i.key === 'years');
+    expect(item?.readiness).toBe('ready');
+  });
+
+  it('App.tsx actually handles the years route (not a dead menu entry)', () => {
+    expect(HANDLED.has('years'), 'no `case \'years\':` in App.tsx\'s switch').toBe(true);
+  });
+});
+
+describe('year pickers prefer the ACTIVE year, not merely the first one', () => {
+  // No component-rendering harness is set up for these two screens
+  // (vitest here runs under `environment: 'node'`), so this is a
+  // structural guard on the actual source rather than a rendered
+  // assertion — in the same spirit as `HANDLED` above: it reads the
+  // real file, so it cannot drift from what ships.
+  const READ = (name: string) => readFileSync(
+    fileURLToPath(new URL(`./screens/${name}`, import.meta.url)), 'utf8');
+
+  it('ReportPicker seeds its year state from the active year', () => {
+    const src = READ('ReportPicker.tsx');
+    expect(src).toMatch(/years\.find\(\(y\) => y\.status === 'active'\)\s*\?\?\s*years\[0\]/);
+  });
+
+  it('ConsolidatedGrades seeds its year state from the active year', () => {
+    const src = READ('ConsolidatedGrades.tsx');
+    expect(src).toMatch(/years\.find\(\(y\) => y\.status === 'active'\)\s*\?\?\s*years\[0\]/);
+  });
+});
+
+describe('the grading-period selector is not hard-coded to one school year', () => {
+  it("the topbar's period options are built from year.label, never a literal", () => {
+    // A literal like "SY 2026-2027" here would be exactly the defect
+    // Phase 2.2 was asked to rule out. Asserting the template reads
+    // from the variable is a direct check on the actual risk, rather
+    // than an open-ended search for every way a literal could sneak in.
+    expect(APP_SOURCE).toMatch(/SY \{year\.label\} · \{p\.name\}/);
+  });
+
+  it('offers every period of the year, not a fixed count', () => {
+    expect(APP_SOURCE).toMatch(/year\?\.periods\.map\(\(p\) =>/);
+  });
+});

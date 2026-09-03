@@ -64,7 +64,8 @@ export interface SessionYear {
   label: string;
   /** Mirrors academic_years.period_structure. `three_term` is DO 009 s.2026. */
   periodStructure: 'three_term' | 'quarter' | 'semester' | 'custom';
-  status: string;
+  /** Mirrors the database CHECK on `academic_years.status` exactly. */
+  status: 'planning' | 'active' | 'closed' | 'archived';
   periods: SessionPeriod[];
 }
 

@@ -175,13 +175,13 @@ export const NAV: Record<Role, NavItem[]> = {
 
     // … plus the administration the registrar does not hold.
     { key: 'setup', label: 'School Setup', glyph: '⚙', readiness: 'ready' },
-    {
-      key: 'years', label: 'Academic Years', glyph: '◷', readiness: 'planned',
-      note:
-        'Creating a school year and its periods decides the shape of everything ' +
-        'downstream, and archiving one makes it read-only by trigger. It is seeded ' +
-        'during onboarding rather than edited live.',
-    },
+    // Phase 2.2: a VIEWER, built on data `session_context()` was already
+    // fetching and discarding. Still no create/close/archive action —
+    // that reasoning (creating a year decides the shape of everything
+    // downstream; archiving makes it read-only by trigger; it is seeded
+    // during onboarding, not edited live) is unchanged and now lives as
+    // copy inside the screen itself.
+    { key: 'years', label: 'Academic Years', glyph: '◷', readiness: 'ready' },
     { key: 'users', label: 'Users', glyph: '▦', readiness: 'ready' },
     {
       key: 'grading', label: 'Grading Configuration', glyph: '◍', readiness: 'planned',

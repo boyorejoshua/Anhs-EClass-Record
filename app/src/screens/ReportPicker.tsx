@@ -32,7 +32,13 @@ interface Props {
  * neither is written down in this file.
  */
 export function ReportPicker({ title, blurb, years, loadClasses, children }: Props) {
-  const [yearId, setYearId] = useState(years[0]?.id ?? '');
+  // The ACTIVE year, not merely the first one. `years` is ordered by
+  // start date, most recent first, so a school that prepares next
+  // year's terms ahead of time — entirely normal — would otherwise open
+  // this picker on a future year with no data in it yet.
+  const [yearId, setYearId] = useState(
+    (years.find((y) => y.status === 'active') ?? years[0])?.id ?? '',
+  );
   const year = years.find((y) => y.id === yearId) ?? years[0];
 
   const [periodId, setPeriodId] = useState('');
@@ -95,7 +101,11 @@ export function ReportPicker({ title, blurb, years, loadClasses, children }: Pro
               className="input" value={year?.id ?? ''}
               onChange={(e) => setYearId(e.target.value)}
             >
-              {years.map((y) => <option key={y.id} value={y.id}>SY {y.label}</option>)}
+              {years.map((y) => (
+                <option key={y.id} value={y.id}>
+                  SY {y.label}{y.status !== 'active' ? ` (${y.status})` : ''}
+                </option>
+              ))}
             </select>
           </label>
 
