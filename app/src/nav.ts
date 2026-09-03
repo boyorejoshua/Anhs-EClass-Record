@@ -281,3 +281,42 @@ export function rolesFromSession(sessionRoles: readonly string[]): Role[] {
 export function defaultRole(sessionRoles: readonly string[]): Role | null {
   return rolesFromSession(sessionRoles)[0] ?? null;
 }
+
+/**
+ * The role actually shown, given every input that can name one.
+ *
+ * Pulled out of `App.tsx` so the rule can be unit-tested without a
+ * browser. It used to be written inline as
+ * `(DEMO_MODE ? roleOverride : null) ?? sessionRole ?? 'teacher'`,
+ * which was believed to be "the demo switcher, gated by DEMO_MODE" —
+ * true of one caller of `setRoleOverride` and not the other. The
+ * sidebar's "Your roles" group calls the exact same setter whenever a
+ * real account holds more than one role, in every build, demo or not.
+ * With the old formula that click changed `roleOverride` and changed
+ * nothing on screen, because outside DEMO_MODE the value was never
+ * read. A genuinely multi-role account — the school's owner account
+ * among them — could see the switcher, click it, and watch nothing
+ * happen.
+ *
+ * Two switchers, two different amounts of trust:
+ *   - DEMO_MODE's preview grid may force ANY of the five roles, held or
+ *     not — that is its purpose, reviewing the product before real
+ *     multi-role accounts exist.
+ *   - The "Your roles" switcher may only ever land on a role `heldRoles`
+ *     actually contains. Checking that here is not a new restriction —
+ *     it is the only thing the UI ever offered a button for — but it is
+ *     what makes a leftover override safe across a sign-out: a value
+ *     naming a role the newly signed-in account does not hold fails the
+ *     check and falls through to that account's own default.
+ */
+export function resolveActiveRole(args: {
+  demoMode: boolean;
+  roleOverride: Role | null;
+  heldRoles: readonly Role[];
+  sessionRole: Role | null;
+}): Role {
+  const { demoMode, roleOverride, heldRoles, sessionRole } = args;
+  if (demoMode && roleOverride) return roleOverride;
+  if (roleOverride && heldRoles.includes(roleOverride)) return roleOverride;
+  return sessionRole ?? 'teacher';
+}

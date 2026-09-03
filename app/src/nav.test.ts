@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { CLASS_TABS, NAV, defaultRole, isReady, navItem, rolesFromSession } from './nav';
+import {
+  CLASS_TABS, NAV, defaultRole, isReady, navItem, resolveActiveRole, rolesFromSession,
+} from './nav';
 import type { Role } from './data/types';
 
 /**
@@ -156,6 +158,74 @@ describe('role resolution', () => {
   it('ignores role strings the app does not know', () => {
     expect(rolesFromSession(['janitor', 'teacher'])).toEqual(['teacher']);
     expect(defaultRole(['janitor'])).toBeNull();
+  });
+});
+
+/* ==================================================================== *
+ * THE BUG: clicking "Your roles" did nothing outside DEMO_MODE
+ *
+ * `App.tsx` used to compute the active role as
+ * `(DEMO_MODE ? roleOverride : null) ?? sessionRole ?? 'teacher'`. The
+ * comment above it called `roleOverride` "the demo switcher and nothing
+ * else" — true of the DEMO_MODE preview grid, and NOT true of the
+ * sidebar's "Your roles" group, which calls the identical setter
+ * whenever a real account holds more than one role, in every build.
+ * Outside DEMO_MODE that formula never looked at `roleOverride` at all,
+ * so the click changed state and the screen showed no difference. This
+ * is exactly what "clicking another role does nothing" looks like for
+ * an account like the school's owner, which is multi-role by design and
+ * runs in a production build with DEMO_MODE off.
+ * ==================================================================== */
+describe('resolveActiveRole — the multi-role switch', () => {
+  it('outside DEMO_MODE, a HELD role from "Your roles" actually switches', () => {
+    // This is the regression: with the old formula this returned
+    // 'school_admin' regardless of roleOverride, because DEMO_MODE was
+    // false and the override was never consulted.
+    expect(resolveActiveRole({
+      demoMode: false, roleOverride: 'registrar',
+      heldRoles: ['school_admin', 'registrar', 'adviser', 'teacher', 'student'],
+      sessionRole: 'school_admin',
+    })).toBe('registrar');
+  });
+
+  it('walks a genuinely multi-role account through every role it holds', () => {
+    const heldRoles: Role[] = ['school_admin', 'registrar', 'adviser', 'teacher', 'student'];
+    for (const target of heldRoles) {
+      expect(resolveActiveRole({
+        demoMode: false, roleOverride: target, heldRoles, sessionRole: 'school_admin',
+      })).toBe(target);
+    }
+  });
+
+  it('outside DEMO_MODE, an override for a role NOT held is refused', () => {
+    // Defends against a stale override surviving a sign-out into an
+    // account with different roles — the value cannot smuggle in a role
+    // this session never held.
+    expect(resolveActiveRole({
+      demoMode: false, roleOverride: 'school_admin',
+      heldRoles: ['teacher'], sessionRole: 'teacher',
+    })).toBe('teacher');
+  });
+
+  it('in DEMO_MODE, the preview grid may still force an UNHELD role', () => {
+    // The whole point of the preview grid: reviewing a role before any
+    // account genuinely holds it.
+    expect(resolveActiveRole({
+      demoMode: true, roleOverride: 'school_admin',
+      heldRoles: ['teacher'], sessionRole: 'teacher',
+    })).toBe('school_admin');
+  });
+
+  it('falls back to the session role when nothing is overridden', () => {
+    expect(resolveActiveRole({
+      demoMode: false, roleOverride: null, heldRoles: ['teacher'], sessionRole: 'teacher',
+    })).toBe('teacher');
+  });
+
+  it('falls back to teacher when even the session has no role', () => {
+    expect(resolveActiveRole({
+      demoMode: false, roleOverride: null, heldRoles: [], sessionRole: null,
+    })).toBe('teacher');
   });
 });
 
