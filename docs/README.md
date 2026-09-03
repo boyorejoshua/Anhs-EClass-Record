@@ -65,6 +65,11 @@ broke, and what was verified.
 | 27 | [Phase 2 — Demo Readiness](27-phase-2-demo-readiness.md) | The demonstration dataset and the 15-step script |
 | 28 | **[Principal Demo Checklist](28-principal-demo-checklist.md)** | **The sheet to run the demonstration from** |
 | 29 | **[Where the Project Stands](29-project-progress.md)** | **One page: what is done, what is not, what blocks a school going live** |
+| 30 | **[Project State](30-project-state.md)** | **Read this FIRST in any new session — compact, current, kept up to date** |
+
+Session-by-session detail lives in `session-log/`, one dated file per
+session (e.g. `session-log/2026-09-03-phase-2.2.md`) — the working notes
+`30-project-state.md` is the summary of.
 
 ---
 
