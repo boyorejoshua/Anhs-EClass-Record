@@ -51,6 +51,21 @@ Everything follows from that distinction. The database holds the academic truth;
 | 19 | [Final Recommendation & Ten-Schools Answer](19-strategic-answer.md) | Management |
 | 20 | **[Assumptions Register](20-assumptions-register.md)** | **Implementation, sales** |
 
+### Build phases — written after the platform existed
+
+The set above was the plan. These record what was actually built, what
+broke, and what was verified.
+
+| # | Document | Read it for |
+|---|---|---|
+| 21–22 | [Functional Optimization Audit](21-functional-optimization-audit.md), [Navigation Map](22-navigation-map.md) | Screen-by-screen state |
+| 23 | [Phase 0 — Current-State Audit](23-phase-0-current-state-audit.md) | What the platform looked like before the enhancement phases |
+| 24 | [Phase 1 — Students, Enrolment, Portal](24-phase-1-student-enrollment-portal.md) | The three-table student model as built |
+| 25–26 | [Phase 1.5 — Plan](25-phase-1.5-validation-plan.md), [Results](26-phase-1.5-rehearsal-results.md) | The lifecycle rehearsed end to end against a rebuilt database |
+| 27 | [Phase 2 — Demo Readiness](27-phase-2-demo-readiness.md) | The demonstration dataset and the 15-step script |
+| 28 | **[Principal Demo Checklist](28-principal-demo-checklist.md)** | **The sheet to run the demonstration from** |
+| 29 | **[Where the Project Stands](29-project-progress.md)** | **One page: what is done, what is not, what blocks a school going live** |
+
 ---
 
 ## Where each requested part lives
@@ -103,7 +118,9 @@ Everything follows from that distinction. The database holds the academic truth;
 
 **Talking to a school this week** → [15 Onboarding & Discovery](15-onboarding-and-discovery.md) and [20 Assumptions Register](20-assumptions-register.md). Print both.
 
-**Demoing to a prospect** → [17 Demo Scenario](17-demo-scenario.md).
+**Demoing to a prospect** → [28 Principal Demo Checklist](28-principal-demo-checklist.md) to run from, [27](27-phase-2-demo-readiness.md) for the full script. [17 Demo Scenario](17-demo-scenario.md) is the original planning-phase scenario.
+
+**Catching up on where things are** → [29 Where the Project Stands](29-project-progress.md). One page.
 
 **About to write code** → [03](03-existing-system-assessment.md) → [06](06-data-architecture.md) → [07](07-system-architecture.md) → [08](08-security-and-privacy.md) → [12](12-mvp-and-roadmap.md).
 

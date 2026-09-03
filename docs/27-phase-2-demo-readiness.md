@@ -43,7 +43,7 @@ existed; this phase proved it and filled the gaps around it.
 | Assessments | 4 per class per term — two Written Works, two Performance Tasks |
 | Scores | 248, spread so the class average is realistic and nobody looks broken |
 | Term 1 | complete |
-| Term 2 | complete **except one deliberate gap**, so the missing-score state is visible |
+| Term 2 | complete **except a deliberate gap: `DEMO-0003` is missing Written Work 2 and Performance Task 2 in all four classes — 8 scores**, so the missing-score state is visible |
 | Term 3 | **empty on purpose**, so an untouched term sits beside finished ones |
 | Submissions | none — see *why no grades are seeded* |
 
@@ -211,16 +211,22 @@ tests pass unchanged.
 
 ## Known limitations
 
-1. **No student portal account for the ANHS demo.** The only ANHS portal
-   login is `joshua@anhs.test`, which also holds registrar, school_admin,
-   teacher, adviser and principal — signing in as "the student" would
-   show an administrator's menu. Creating a proper student-only account
-   needs the `manage-users` Edge Function (a GoTrue identity cannot be
-   made in SQL). **Do this before the demo**: Registrar → Students →
-   a Demo Student → *Create portal account*. One minute, through the
-   product.
-2. **`joshua@anhs.test` is a learner and an administrator at once.**
-   Fine in a demo, unacceptable with real learners.
+1. **No student portal account for the ANHS demo.** Re-verified in
+   Phase 2.1 against production: none of `DEMO-0001`…`DEMO-0008` has a
+   portal account, so the demonstration's last beat — the learner
+   opening their own record — has no demo learner to open it as.
+   `joshua@anhs.test` is linked to Kent Ramirez in **Pearl**, not to the
+   demo section, and as the owner it also holds `grades.read.all`, so
+   its Student view reads through the *staff* policy and shows a final
+   grade of 93 with all three terms blank. Correct, and confusing in
+   front of a principal. **Do this before the demo**: Registrar →
+   Students → a Demo Student → *Create portal account*. One minute,
+   through the product. See `docs/28-principal-demo-checklist.md`.
+2. ~~**`joshua@anhs.test` is a learner and an administrator at once.**~~
+   **WITHDRAWN in Phase 2.1 — this was never a defect.** The school's
+   owner has confirmed the account is the **system owner / developer
+   account** and that its breadth is intentional. Do not remove roles
+   from it and do not build a student-only replacement for it.
 3. **Term 1 is not pre-published**, so step 15 shows nothing until the
    demo itself publishes something. Run steps 1–14 once beforehand if
    you want the portal populated from the start.
