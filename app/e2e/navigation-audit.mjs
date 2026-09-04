@@ -26,7 +26,7 @@ const check = (n, c, d = '') => (c ? ok : fails).push(`${n}${d ? ` — ${d}` : '
  * Routes that render "not available" ON PURPOSE, each with a note
  * explaining why. They are not dead buttons: the note is the feature.
  */
-const DELIBERATELY_PLANNED = ['Reports & Documents', 'Academic Years', 'Grading Configuration'];
+const DELIBERATELY_PLANNED = ['Reports & Documents', 'Grading Configuration'];
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1500, height: 1150 } });

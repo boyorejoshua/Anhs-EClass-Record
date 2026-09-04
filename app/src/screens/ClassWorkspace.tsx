@@ -302,7 +302,14 @@ export function ClassWorkspace(props: Props) {
 
         {tab === 'gradebook' && (
           <Async state={gradebook} retry={retryGradebook} rows={8}>
-            {(g) => <Gradebook data={g} onSaveScores={onSaveScores} />}
+            {(g) => (
+              <Gradebook
+                data={g}
+                onSaveScores={onSaveScores}
+                periodName={period?.name}
+                onGoSetup={() => onTabChange('setup')}
+              />
+            )}
           </Async>
         )}
 

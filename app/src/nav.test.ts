@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { CLASS_TABS, NAV, defaultRole, isReady, navItem, rolesFromSession } from './nav';
+import {
+  CLASS_TABS, NAV, defaultRole, isReady, navItem, resolveActiveRole, rolesFromSession,
+} from './nav';
 import type { Role } from './data/types';
 
 /**
@@ -160,6 +162,74 @@ describe('role resolution', () => {
 });
 
 /* ==================================================================== *
+ * THE BUG: clicking "Your roles" did nothing outside DEMO_MODE
+ *
+ * `App.tsx` used to compute the active role as
+ * `(DEMO_MODE ? roleOverride : null) ?? sessionRole ?? 'teacher'`. The
+ * comment above it called `roleOverride` "the demo switcher and nothing
+ * else" — true of the DEMO_MODE preview grid, and NOT true of the
+ * sidebar's "Your roles" group, which calls the identical setter
+ * whenever a real account holds more than one role, in every build.
+ * Outside DEMO_MODE that formula never looked at `roleOverride` at all,
+ * so the click changed state and the screen showed no difference. This
+ * is exactly what "clicking another role does nothing" looks like for
+ * an account like the school's owner, which is multi-role by design and
+ * runs in a production build with DEMO_MODE off.
+ * ==================================================================== */
+describe('resolveActiveRole — the multi-role switch', () => {
+  it('outside DEMO_MODE, a HELD role from "Your roles" actually switches', () => {
+    // This is the regression: with the old formula this returned
+    // 'school_admin' regardless of roleOverride, because DEMO_MODE was
+    // false and the override was never consulted.
+    expect(resolveActiveRole({
+      demoMode: false, roleOverride: 'registrar',
+      heldRoles: ['school_admin', 'registrar', 'adviser', 'teacher', 'student'],
+      sessionRole: 'school_admin',
+    })).toBe('registrar');
+  });
+
+  it('walks a genuinely multi-role account through every role it holds', () => {
+    const heldRoles: Role[] = ['school_admin', 'registrar', 'adviser', 'teacher', 'student'];
+    for (const target of heldRoles) {
+      expect(resolveActiveRole({
+        demoMode: false, roleOverride: target, heldRoles, sessionRole: 'school_admin',
+      })).toBe(target);
+    }
+  });
+
+  it('outside DEMO_MODE, an override for a role NOT held is refused', () => {
+    // Defends against a stale override surviving a sign-out into an
+    // account with different roles — the value cannot smuggle in a role
+    // this session never held.
+    expect(resolveActiveRole({
+      demoMode: false, roleOverride: 'school_admin',
+      heldRoles: ['teacher'], sessionRole: 'teacher',
+    })).toBe('teacher');
+  });
+
+  it('in DEMO_MODE, the preview grid may still force an UNHELD role', () => {
+    // The whole point of the preview grid: reviewing a role before any
+    // account genuinely holds it.
+    expect(resolveActiveRole({
+      demoMode: true, roleOverride: 'school_admin',
+      heldRoles: ['teacher'], sessionRole: 'teacher',
+    })).toBe('school_admin');
+  });
+
+  it('falls back to the session role when nothing is overridden', () => {
+    expect(resolveActiveRole({
+      demoMode: false, roleOverride: null, heldRoles: ['teacher'], sessionRole: 'teacher',
+    })).toBe('teacher');
+  });
+
+  it('falls back to teacher when even the session has no role', () => {
+    expect(resolveActiveRole({
+      demoMode: false, roleOverride: null, heldRoles: [], sessionRole: null,
+    })).toBe('teacher');
+  });
+});
+
+/* ==================================================================== *
  * THE ADMINISTRATOR IS A SUPERSET OF THE REGISTRAR
  *
  * The school's rule: "administrator is the main admin of the system"
@@ -187,12 +257,100 @@ describe('the administrator menu', () => {
 
   it('keeps My Account last, and lists it once', () => {
     const k = keys('school_admin');
-    expect(k[k.length - 1]).toBe('account');
+    // My Account then Help, which is the order the teacher's menu has
+    // always had. Help moved from the teacher's menu alone to every
+    // role's — a registrar handed this system cold could not open the
+    // guide at all — so the tail is now two items, not one.
+    expect(k.slice(-2)).toEqual(['account', 'help']);
     expect(k.filter((x) => x === 'account')).toHaveLength(1);
+  });
+
+  it('offers the guide to every role, not just the teacher', () => {
+    for (const role of ['teacher', 'adviser', 'registrar', 'school_admin', 'student'] as const) {
+      const k = keys(role);
+      expect(k, `${role} cannot reach Help`).toContain('help');
+      expect(k[k.length - 1], `${role} does not end on Help`).toBe('help');
+    }
   });
 
   it('lists no route twice', () => {
     const k = keys('school_admin');
     expect(new Set(k).size, `duplicates in: ${k.join(', ')}`).toBe(k.length);
+  });
+});
+
+/* ==================================================================== *
+ * PHASE 2.2 — ACADEMIC YEAR LIFECYCLE
+ *
+ * The database has supported multiple coexisting academic years since
+ * migration 0003 (`unique(school_id, label)`, never `unique(school_id)`
+ * alone), and the seed itself proves the full lifecycle: a 2025-2026
+ * year is created, populated with real enrolment and grade rows, then
+ * flipped to 'archived' — specifically "exercising the read-only
+ * guard" per its own comment. None of that needed rebuilding.
+ *
+ * What DID need fixing: `session_context()` fetches every year's
+ * `status` and orders the list most-recent-by-start-date first, but the
+ * client's `AcademicYear` type dropped `status` on the way in, so two
+ * screens (ReportPicker, ConsolidatedGrades) defaulted to "whichever
+ * year starts latest" rather than "whichever year is active." Confirmed
+ * against a rebuilt database: inserting a 'planning' SY 2027-2028 ahead
+ * of time — an ordinary thing for a registrar to do — made it sort
+ * ahead of the actually-active SY 2026-2027 in `session_context()`'s
+ * own output. `App.tsx`'s top-level bootstrap already guarded against
+ * this with `.find(status === 'active') ?? [0]`; the two screens did
+ * not share that logic and are fixed to match it here.
+ * ==================================================================== */
+describe('academic year administration', () => {
+  const keysOf = (role: Role) => NAV[role].map((i) => i.key);
+
+  it('is reachable only by the administrator', () => {
+    for (const role of ['teacher', 'adviser', 'registrar', 'student'] as const) {
+      expect(keysOf(role), `${role} can reach Academic Years`).not.toContain('years');
+    }
+    expect(keysOf('school_admin')).toContain('years');
+  });
+
+  it('is marked ready, not planned — the viewer is built', () => {
+    const item = NAV.school_admin.find((i) => i.key === 'years');
+    expect(item?.readiness).toBe('ready');
+  });
+
+  it('App.tsx actually handles the years route (not a dead menu entry)', () => {
+    expect(HANDLED.has('years'), 'no `case \'years\':` in App.tsx\'s switch').toBe(true);
+  });
+});
+
+describe('year pickers prefer the ACTIVE year, not merely the first one', () => {
+  // No component-rendering harness is set up for these two screens
+  // (vitest here runs under `environment: 'node'`), so this is a
+  // structural guard on the actual source rather than a rendered
+  // assertion — in the same spirit as `HANDLED` above: it reads the
+  // real file, so it cannot drift from what ships.
+  const READ = (name: string) => readFileSync(
+    fileURLToPath(new URL(`./screens/${name}`, import.meta.url)), 'utf8');
+
+  it('ReportPicker seeds its year state from the active year', () => {
+    const src = READ('ReportPicker.tsx');
+    expect(src).toMatch(/years\.find\(\(y\) => y\.status === 'active'\)\s*\?\?\s*years\[0\]/);
+  });
+
+  it('ConsolidatedGrades seeds its year state from the active year', () => {
+    const src = READ('ConsolidatedGrades.tsx');
+    expect(src).toMatch(/years\.find\(\(y\) => y\.status === 'active'\)\s*\?\?\s*years\[0\]/);
+  });
+});
+
+describe('the grading-period selector is not hard-coded to one school year', () => {
+  it("the topbar's period options are built from year.label, never a literal", () => {
+    // A literal like "SY 2026-2027" here would be exactly the defect
+    // Phase 2.2 was asked to rule out. Asserting the template reads
+    // from the variable is a direct check on the actual risk, rather
+    // than an open-ended search for every way a literal could sneak in.
+    expect(APP_SOURCE).toMatch(/SY \{year\.label\} · \{p\.name\}/);
+  });
+
+  it('offers every period of the year, not a fixed count', () => {
+    expect(APP_SOURCE).toMatch(/year\?\.periods\.map\(\(p\) =>/);
   });
 });

@@ -25,6 +25,7 @@ export const YEAR_TRIMESTER: AcademicYear = {
   id: 'year-anhs',
   label: '2026-2027',
   periodStructure: 'three_term',
+  status: 'active',
   periods: [
     { id: 'p1', ordinal: 1, name: 'Term 1', shortName: 'T1', startDate: '2026-06-08', endDate: '2026-09-15', status: 'closed' },
     { id: 'p2', ordinal: 2, name: 'Term 2', shortName: 'T2', startDate: '2026-09-16', endDate: '2026-12-18', status: 'active' },
@@ -37,6 +38,7 @@ export const YEAR_QUARTER: AcademicYear = {
   id: 'year-demo',
   label: '2026-2027',
   periodStructure: 'quarter',
+  status: 'active',
   periods: [
     { id: 'q1', ordinal: 1, name: 'First Quarter', shortName: 'Q1', startDate: '2026-06-08', endDate: '2026-08-14', status: 'closed' },
     { id: 'q2', ordinal: 2, name: 'Second Quarter', shortName: 'Q2', startDate: '2026-08-17', endDate: '2026-10-30', status: 'active' },
@@ -95,6 +97,8 @@ function seeded(seed: string): number {
 
 function buildScores(periodId: string) {
   const scores: GradebookData['scores'] = {};
+  // Nothing has been set up in Term 3, so there is nothing to score.
+  if (periodId === UNSTARTED_PERIOD) return scores;
   for (const student of ROSTER) {
     const row: Record<string, { raw: number | null; isExcused: boolean }> = {};
     for (const item of ASSESSMENTS) {
@@ -174,8 +178,22 @@ export const CLASSES: ClassSummary[] = [
  */
 const importedAssessments = new Map<string, Assessment[]>();
 
+/**
+ * Term 3 has not been set up yet — no assessments, in any class.
+ *
+ * This is the shape the production demonstration dataset actually has
+ * (`supabase/demo-seed.sql` seeds Terms 1 and 2 and stops), and until
+ * the fixtures matched it, demo mode gave every term a full set of
+ * marks. That made the one state most likely to embarrass a
+ * demonstration — a term nobody has started — the only state that was
+ * never once rendered. An empty period is not an error; it has to say
+ * so on screen.
+ */
+const UNSTARTED_PERIOD = 'p3';
+
 function assessmentsFor(classId: string, periodId: string): Assessment[] {
-  return [...ASSESSMENTS, ...(importedAssessments.get(`${classId}|${periodId}`) ?? [])];
+  const base = periodId === UNSTARTED_PERIOD ? [] : ASSESSMENTS;
+  return [...base, ...(importedAssessments.get(`${classId}|${periodId}`) ?? [])];
 }
 
 export function getGradebook(classId: string, periodId: string): GradebookData {
@@ -234,7 +252,7 @@ const FIXTURE_SESSION: SessionContext = {
     id: y.id,
     label: y.label,
     periodStructure: y.periodStructure,
-    status: 'active',
+    status: y.status,
     periods: y.periods.map((p) => ({
       id: p.id, ordinal: p.ordinal, name: p.name, shortName: p.shortName,
       startDate: p.startDate, endDate: p.endDate, status: p.status,
@@ -873,8 +891,19 @@ export function createFixtureSource(): DataSource {
       for (const [key, value] of editedScores) {
         const [ceId, aId] = key.split('|');
         if (!ceId || !aId) continue;
-        const row = base.scores[ceId];
-        if (row) row[aId] = value;
+        // A period that began with NO scores has no row to write into,
+        // and `if (row)` then dropped the edit on the floor: every mark
+        // an import or a teacher entered into an unstarted term
+        // vanished, silently, because the grid just rendered blank.
+        //
+        // The guard's real job is to ignore an edit for somebody who is
+        // not on THIS period's roster, so that is what it now checks.
+        let row = base.scores[ceId];
+        if (!row) {
+          if (!base.roster.some((r) => r.classEnrollmentId === ceId)) continue;
+          row = base.scores[ceId] = {};
+        }
+        row[aId] = value;
       }
       return base;
     },
@@ -2237,10 +2266,20 @@ export function createFixtureSource(): DataSource {
       for (const period of plan.periods) {
         const key = `${cls.id}|${period.periodId}`;
         const added = importedAssessments.get(key) ?? [];
+        // What this class ALREADY holds in THIS period — not the shared
+        // ASSESSMENTS template.
+        //
+        // Consulting the template was wrong in exactly one case, and it
+        // is the case the demonstration runs on: a period with no
+        // assessments of its own. The template still listed WW1..TE, so
+        // the import concluded every column already existed, created
+        // none, then matched no marks against the period's (empty) list
+        // and imported zero — while still reporting success. Silent, and
+        // only reachable once a period was genuinely empty.
+        const existing = assessmentsFor(cls.id, period.periodId);
         for (const a of period.assessments) {
-          const base = ASSESSMENTS.find(
-            (x) => x.componentId === a.componentId && x.ordinal === a.ordinal);
-          if (base) continue;
+          if (existing.some(
+            (x) => x.componentId === a.componentId && x.ordinal === a.ordinal)) continue;
           if (added.some((x) => x.componentId === a.componentId && x.ordinal === a.ordinal)) continue;
           added.push({
             id: `a-imp-${a.componentId}-${a.ordinal}`,

@@ -25,6 +25,7 @@ import { GlobalAnalytics, GlobalLoaReports } from './screens/GlobalReports';
 import { ConsolidatedGrades } from './screens/ConsolidatedGrades';
 import { Users } from './screens/Users';
 import { SchoolSetup } from './screens/SchoolSetup';
+import { AcademicYears } from './screens/AcademicYears';
 import { MyAccount, PasswordForm } from './screens/MyAccount';
 import { StudentRecordScreen } from './screens/StudentRecordScreen';
 import {
@@ -40,7 +41,7 @@ import type { AcademicYear, CurrentUser, Role } from './data/types';
 import { DEMO_MODE, signInBrand } from './config';
 import { getSupabase } from './lib/supabase';
 import {
-  HOME, ROLE_LABEL, defaultRole, isReady, navItem, rolesFromSession,
+  HOME, ROLE_LABEL, defaultRole, isReady, navItem, resolveActiveRole, rolesFromSession,
   type ClassTab, type Route, type RouteId,
 } from './nav';
 
@@ -64,10 +65,11 @@ export default function App() {
    * built as `[role]` — so a registrar signing in was shown the teacher
    * menu, and their real roles were discarded on the way to the UI.
    *
-   * `roleOverride` is the demo switcher and nothing else. It is only
-   * ever consulted when DEMO_MODE is on, and it changes which menu is
-   * drawn — never what the database will return, which is decided by
-   * the JWT and the user's `user_roles` rows.
+   * `roleOverride` backs TWO different switchers in the sidebar: the
+   * DEMO_MODE preview grid, and the "Your roles" group a genuinely
+   * multi-role account sees in every build. See `resolveActiveRole` in
+   * `nav.ts` for how `role` below tells them apart — that function
+   * carries the history of a real bug this used to have.
    */
   const [roleOverride, setRoleOverride] = useState<Role | null>(null);
   const [route, setRoute] = useState<Route>(HOME);
@@ -143,7 +145,9 @@ export default function App() {
     () => defaultRole(session?.user.roles ?? []),
     [session],
   );
-  const role: Role = (DEMO_MODE ? roleOverride : null) ?? sessionRole ?? 'teacher';
+  const role: Role = resolveActiveRole({
+    demoMode: DEMO_MODE, roleOverride, heldRoles, sessionRole,
+  });
   // Who owns the student master record. Both hold `students.write` and
   // `enrollments.write`; the database refuses everyone else regardless,
   // so this only decides whether a control is OFFERED.
@@ -151,7 +155,9 @@ export default function App() {
 
   const year: AcademicYear | null = useMemo(() => {
     const y = session?.academicYears.find((x) => x.id === yearId) ?? session?.academicYears[0];
-    return y ? { id: y.id, label: y.label, periodStructure: y.periodStructure, periods: y.periods } : null;
+    return y
+      ? { id: y.id, label: y.label, periodStructure: y.periodStructure, status: y.status, periods: y.periods }
+      : null;
   }, [session, yearId]);
 
   /**
@@ -164,7 +170,7 @@ export default function App() {
    */
   const allYears: AcademicYear[] = useMemo(
     () => (session?.academicYears ?? []).map((y) => ({
-      id: y.id, label: y.label, periodStructure: y.periodStructure, periods: y.periods,
+      id: y.id, label: y.label, periodStructure: y.periodStructure, status: y.status, periods: y.periods,
     })),
     [session],
   );
@@ -674,6 +680,9 @@ export default function App() {
             onSaved={() => { void refreshSession(); }}
           />
         );
+
+      case 'years':
+        return <AcademicYears years={allYears} />;
 
       case 'users':
         return (

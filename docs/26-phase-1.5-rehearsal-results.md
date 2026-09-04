@@ -327,8 +327,15 @@ worth knowing.
 5. **The GoTrue round trip was not exercised in the rehearsal.** Portal
    *authorization* was proven at the database; portal *sign-in* is
    covered by the `accounts` e2e suite.
-6. **`joshua@anhs.test` is a learner and an administrator at once** (D5).
-   Harmless in a demo, unacceptable with real learners.
+6. ~~**`joshua@anhs.test` is a learner and an administrator at once**~~
+   **(D5) — WITHDRAWN in Phase 2.1. This was never a finding.**
+   The school's owner has confirmed that `joshua@anhs.test` is the
+   **system owner / developer account**, and that its holding every role
+   at once is deliberate. It is not to be split, narrowed, or replaced.
+   What D5 actually found stands and is worth keeping: a *test harness*
+   that picks "the first learner with a portal account" will pick this
+   one and report an RLS failure that is not there. Pick the account by
+   name. See `docs/28-principal-demo-checklist.md` §Owner account.
 7. **The seven demo passwords are still unrotated**, and leaked-password
    protection is still off in Supabase Auth. Both standing from Phase 0.
 

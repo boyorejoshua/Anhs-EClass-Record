@@ -35,6 +35,19 @@ export interface AcademicYear {
   label: string;
   /** Mirrors academic_years.period_structure. `three_term` is DO 009 s.2026. */
   periodStructure: 'three_term' | 'quarter' | 'semester' | 'custom';
+  /**
+   * Mirrors `academic_years.status`. Used to pick a default year (prefer
+   * 'active' over merely "first in the list") and to label a historical
+   * one on screen — added in Phase 2.2 after this field was fetched by
+   * `session_context()` and then discarded on the way into this type,
+   * which is how two screens ended up defaulting to whichever year
+   * happens to start latest rather than the one actually in use. A
+   * school that prepares next year's terms ahead of time — an entirely
+   * normal thing to do — would see its Consolidated Grades and global
+   * report pickers default to the empty future year instead of the
+   * working one.
+   */
+  status: 'planning' | 'active' | 'closed' | 'archived';
   periods: AcademicPeriod[];
 }
 

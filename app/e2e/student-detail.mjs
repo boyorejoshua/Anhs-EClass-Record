@@ -76,20 +76,34 @@ check('3. the strip shows every period of the year plus Final',
   tiles.length === 4, tiles.map((x) => x.replace(/\n/g, ':')).join(' | '));
 check('3b. the current period is marked',
   (await page.locator('.year-strip .stat-btn[aria-current="true"]').count()) === 1);
-// The fixtures score all three terms, so Final here is the completed
-// mean rather than the partial case. Assert the ARITHMETIC instead: it
-// is the one number on the strip the app derives rather than reads, so
-// it is the one that can silently drift.
-const nums = tiles.map((x) => Number((x.match(/\d+/) ?? [])[0]));
-const terms = nums.slice(0, 3);
-const shownFinal = nums[3];
-const expectedFinal = Math.round(terms.reduce((a, b) => a + b, 0) / terms.length);
-check('3c. Final is the mean of the period grades',
+// Term 3 is UNSTARTED in the fixtures, matching the demonstration
+// dataset, so this is the partial case: Final must be the mean of the
+// terms that actually have a grade, and must SAY it is provisional.
+// Averaging in a zero for the unstarted term, or presenting the
+// half-year figure as settled, are the two ways this goes wrong.
+//
+// Read the tiles as label+value pairs; a bare /\d+/ over the whole
+// tile picks the 3 out of "Term 3" and silently invents a grade.
+const gradeOf = (tile) => {
+  const m = tile.match(/(?:^|\D)(\d{2,3})(?:\D|$)/);
+  return m ? Number(m[1]) : null;
+};
+const termGrades = tiles.slice(0, 3).map(gradeOf);
+const shownFinal = gradeOf(tiles[3] ?? '');
+const graded = termGrades.filter((g) => g !== null);
+
+check('3c. the unstarted term carries no grade at all',
+  termGrades[2] === null,
+  `tiles: ${tiles.map((x) => x.replace(/\n/g, ':')).join(' | ')}`);
+
+const expectedFinal = Math.round(graded.reduce((a, b) => a + b, 0) / graded.length);
+check('3d. Final is the mean of the GRADED terms, not of three',
   shownFinal === expectedFinal,
-  `${terms.join(' + ')} / 3 -> expected ${expectedFinal}, shown ${shownFinal}`);
-check('3d. with every term graded, it is NOT labelled provisional',
-  !/Provisional/i.test(await page.locator('body').innerText()),
-  'the partial-mean warning only belongs when a term is missing');
+  `${graded.join(' + ')} / ${graded.length} -> expected ${expectedFinal}, shown ${shownFinal}`);
+
+check('3e. and a half-finished year is labelled provisional',
+  /Provisional/i.test(await page.locator('body').innerText()),
+  'presenting a partial mean as a settled final grade is the failure here');
 
 /* ---- 4. THE REGRESSION: switching period must not show stale marks ---- */
 // Term 1 is fully scored in the fixtures; Term 2 is deliberately partial
@@ -121,10 +135,17 @@ t = await page.locator('body').innerText();
 check('5. the learner changed', t.includes(second.trim()), second);
 check('5b. and the period was kept', /Term 3/.test(t));
 
-/* ---- 6. back to Summary still works ----------------------------------- */
+/* ---- 6. Summary on an unstarted term explains itself ------------------ */
 await page.getByRole('button', { name: /← Summary/ }).click();
 await page.waitForTimeout(600);
-check('6. Back returns to the Summary table',
+check('6. Summary says why an unstarted term has nothing to show',
+  /nothing to summarise/i.test(await page.locator('[role=tabpanel]').innerText()),
+  'Term 3 is still selected, and a bare empty table reads as a fault');
+
+/* ---- 7. and a graded term still renders the table --------------------- */
+await page.getByRole('button', { name: 'Term 1', exact: true }).first().click();
+await page.waitForTimeout(900);
+check('7. Back returns to the Summary table for a term that has grades',
   (await page.locator('table.tbl tbody tr th button.link').count()) > 0);
 
 await browser.close();

@@ -4,6 +4,8 @@ Mendtrix **Academic Records Platform** — a multi-school DepEd records
 system. ANHS is one tenant, not the product.
 
 ## Read first
+- `docs/30-project-state.md` — compact, current: phase, architecture facts,
+  known issues, exact next step. Read this BEFORE re-deriving anything.
 - `docs/23-phase-0-current-state-audit.md` — architecture and feature map
 - `docs/README.md` — the full document index
 
@@ -23,11 +25,21 @@ system. ANHS is one tenant, not the product.
    roles, so the grant silently matches nothing on a fresh database.
 7. **Never invent data.** No parsing `schedule_note` into times, no
    fabricated grades, no ANHS-specific logic in generic workflows.
+8. **A field the session RPC returns must not be dropped in the client
+   type it lands in.** Happened twice: `roleOverride` was wired to only
+   half of what could set it, and `AcademicYear` dropped `status` after
+   `session_context()` fetched it — so two screens defaulted to
+   `years[0]` instead of the active year. Both bugs were "the data was
+   right there and got thrown away on the way to the screen."
+9. **The owner account (`joshua@anhs.test`) is intentionally multi-role.**
+   Do not remove roles from it, do not build a student-only replacement,
+   and do not let a test harness pick "the first account with N roles"
+   without checking which account that is — it silently picks this one.
 
 ## Verifying
 ```
 cd app && npx tsc --noEmit && npm test && npm run build
-# e2e (21 suites): start vite FROM app/, then run the suites
+# e2e (23 suites): start vite FROM app/, then run the suites
 VITE_DEMO_MODE=true VITE_SUPABASE_URL= VITE_SUPABASE_ANON_KEY= npx vite --port 5199 --strictPort
 for f in e2e/*.mjs; do node "$f"; done
 ```
