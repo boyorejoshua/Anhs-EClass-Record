@@ -19,11 +19,25 @@ the tenant/security boundary.
 Complete and **merged to `main`** via PR #44 (squash commit `6136091`,
 confirmed `merged: true` via the GitHub API, not inferred). Vercel
 production deploy was triggered on the merge (commit `6136091`,
-target `production`) — **live verification of that deploy, and manual
-confirmation on the live site that role switching and Academic Years
-both work for `joshua@anhs.test`, is PENDING Joshua's check.** Stopped
-before Phase 3 (Public Enrollment) as instructed, and before Phase B
-(demo student account + rehearsal) pending his explicit go-ahead.
+target `production`), confirmed `READY` and aliased to
+`anhs-grading-system.vercel.app`.
+
+**Phase B — demo student account + rehearsal — done, with one caveat.**
+Joshua ran a manual five-role walkthrough of production
+(`docs/31-manual-role-observations-2026-09-04.md`), flagging three items
+for a follow-up session. All three were investigated and resolved as
+intentional/not-a-bug (no code changed) — see
+`docs/session-log/2026-09-04-qa-triage-and-demo-account.md`. The real
+demo student portal account (`demo.student01@anhs.test`, linked to
+DEMO-0001) was then created for real against production, and Term 1 for
+all four Demo 10-A classes was computed, submitted, received, forwarded,
+approved, finalized, and genuinely **published** — confirmed by the demo
+student's own `my_grades()` session showing real Term 1 grades. **The one
+open caveat: this environment's network policy blocked reaching the
+production URL, so no live browser walkthrough of the actual UI happened
+this session** — the backend workflow is proven correct end-to-end, but
+Joshua still needs to open the app on his own laptop/network (checklist
+item 3) before presenting, per the verdict in that session log.
 
 The feature branch `claude/mendtrix-eclass-architecture-x0z7ef` was
 **not deleted** — left as a rollback reference per instruction.
@@ -160,10 +174,7 @@ only that subtree. See `docs/28-principal-demo-checklist.md`.
 
 ## Known Issues
 
-1. **No demo learner has a portal account yet.** First item on the
-   principal demo checklist — one minute through the product (Registrar
-   → Students → a Demo Student → *Create portal account*).
-2. **`app.reject_write_to_archived_year()` only covers tables carrying
+1. **`app.reject_write_to_archived_year()` only covers tables carrying
    `academic_year_id` directly** (`enrollments`, `classes`). Tables like
    `assessments`/`period_grades` reach a year only via `class_id`, so
    this specific trigger is a no-op for them. Currently unreachable:
@@ -171,12 +182,12 @@ only that subtree. See `docs/28-principal-demo-checklist.md`.
    column-directly, onboarding-time only), so this is latent, not
    exploitable. Left unfixed — patching 6+ more tables' triggers is out
    of scope for "the minimum foundation."
-3. **`public.permissions` is the only table of 46 without FORCE RLS**
+2. **`public.permissions` is the only table of 46 without FORCE RLS**
    (from Phase 2.1). No tenant data, no `anon` access, one policy of
    `USING (true)`. Reported, not changed.
-4. **Seven demo passwords unrotated**, leaked-password protection off
+3. **Seven demo passwords unrotated**, leaked-password protection off
    in Supabase Auth (from Phase 0). Must close before real learner data.
-5. **`principal` exists as a DB role** (seeded, held by the owner
+4. **`principal` exists as a DB role** (seeded, held by the owner
    account) **but has no client-side mapping** — no `ROLE_LABEL`, no
    `NAV` entry. Silently dropped by `rolesFromSession`. Not urgent; no
    screen currently needs it.
@@ -205,21 +216,19 @@ being asked.
 
 ## Current Phase Next Step
 
-**Waiting on Joshua's manual confirmation on the live site**: sign in as
-`joshua@anhs.test`, click through all five roles, and confirm "Academic
-Years" no longer says SOON. Do not start Phase B (the real demo student
-account + principal-demo rehearsal) without his explicit go-ahead in
-this same session.
+**Waiting on Joshua to open the app on his own laptop/network** (the
+principal demo checklist's own item 3) and confirm the production UI
+renders Term 1's now-published grades correctly across the Grade
+Submissions, Consolidated Grades, and My Grades screens. This is the one
+layer this session's environment could not reach — see the caveat in
+`docs/session-log/2026-09-04-qa-triage-and-demo-account.md`. Everything
+beneath that layer (the account, the grading engine, the full custody
+chain, publication) is verified working against real production data.
 
-Once that go-ahead is given:
-1. Confirm `resolveActiveRole` (`app/src/nav.ts`) and the `Academic
-   Years` route (`readiness: 'ready'`, not `'planned'`) on `main`
-   specifically — not the feature branch.
-2. Follow `docs/28-principal-demo-checklist.md` for which demo learner
-   gets the portal account (default `DEMO-0001` if unspecified).
-3. Create that learner's portal account for real, against production —
-   not a rehearsal to roll back.
-4. Run the checklist step by step and deliver an honest verdict.
+Do not start Phase 3 (Public Enrollment), the sort/group backlog, or any
+other item from `docs/31`'s Backlog section without an explicit
+instruction naming it — a positive demo verdict does not authorize any
+of that on its own.
 
 If instead starting fresh, unrelated work:
 1. Read this file and the latest `docs/session-log/*.md` entry.
@@ -232,14 +241,27 @@ If instead starting fresh, unrelated work:
 
 ## Last Updated
 
-2026-09-04, Phase A of the merge session: PR #44 squash-merged to
-`main` (commit `6136091`), confirmed `merged: true`. Vercel deploy
-triggered on the same commit, targeting production. Migration
-`0044_anon_execute_sweep.sql` independently confirmed already applied
-to the live Supabase project (`wxkxdqwhefezjfmysypa`) — was applied
-directly during Phase 2.1, this merge did not need to (re-)apply it.
+2026-09-04, QA triage + real demo account session: investigated three
+manually-flagged items (`docs/31-manual-role-observations-2026-09-04.md`)
+— all resolved as intentional/not-a-bug, no code changed. Created the
+real, permanent demo student portal account (`demo.student01@anhs.test`,
+linked to DEMO-0001) against production. Computed, submitted, and drove
+the full custody chain to **published** for Term 1 across all four Demo
+10-A classes, using the real canonical grading engine and the real
+custody-chain RPCs under proper role impersonation — confirmed by the
+demo student's own `my_grades()` session. One caveat: this environment's
+network policy blocked a live browser walkthrough of the production UI.
+Session log: `docs/session-log/2026-09-04-qa-triage-and-demo-account.md`.
+
+Previous entry: 2026-09-04, Phase A of the merge session: PR #44
+squash-merged to `main` (commit `6136091`), confirmed `merged: true`.
+Vercel deploy triggered on the same commit, targeting production.
+Migration `0044_anon_execute_sweep.sql` independently confirmed already
+applied to the live Supabase project (`wxkxdqwhefezjfmysypa`) — was
+applied directly during Phase 2.1, this merge did not need to
+(re-)apply it.
 Session log: `docs/session-log/2026-09-04-merge-and-demo-rehearsal.md`.
 
-Previous entry: 2026-09-03, end of Phase 2.2 development, commit
+Earlier entry: 2026-09-03, end of Phase 2.2 development, commit
 `fe6989e` on `claude/mendtrix-eclass-architecture-x0z7ef` (now merged).
 Session: `docs/session-log/2026-09-03-phase-2.2.md`.
