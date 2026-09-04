@@ -16,7 +16,17 @@ the tenant/security boundary.
 ## Current Phase
 
 **Phase 2.2 — role switching + academic year lifecycle foundation.**
-Complete. Stopped before Phase 3 (Public Enrollment) as instructed.
+Complete and **merged to `main`** via PR #44 (squash commit `6136091`,
+confirmed `merged: true` via the GitHub API, not inferred). Vercel
+production deploy was triggered on the merge (commit `6136091`,
+target `production`) — **live verification of that deploy, and manual
+confirmation on the live site that role switching and Academic Years
+both work for `joshua@anhs.test`, is PENDING Joshua's check.** Stopped
+before Phase 3 (Public Enrollment) as instructed, and before Phase B
+(demo student account + rehearsal) pending his explicit go-ahead.
+
+The feature branch `claude/mendtrix-eclass-architecture-x0z7ef` was
+**not deleted** — left as a rollback reference per instruction.
 
 ## Completed Phases
 
@@ -195,9 +205,23 @@ being asked.
 
 ## Current Phase Next Step
 
-Phase 2.2 is done. No further Phase 2.x work is queued. Before starting
-anything new:
+**Waiting on Joshua's manual confirmation on the live site**: sign in as
+`joshua@anhs.test`, click through all five roles, and confirm "Academic
+Years" no longer says SOON. Do not start Phase B (the real demo student
+account + principal-demo rehearsal) without his explicit go-ahead in
+this same session.
 
+Once that go-ahead is given:
+1. Confirm `resolveActiveRole` (`app/src/nav.ts`) and the `Academic
+   Years` route (`readiness: 'ready'`, not `'planned'`) on `main`
+   specifically — not the feature branch.
+2. Follow `docs/28-principal-demo-checklist.md` for which demo learner
+   gets the portal account (default `DEMO-0001` if unspecified).
+3. Create that learner's portal account for real, against production —
+   not a rehearsal to roll back.
+4. Run the checklist step by step and deliver an honest verdict.
+
+If instead starting fresh, unrelated work:
 1. Read this file and the latest `docs/session-log/*.md` entry.
 2. If the task is UI-facing, confirm the dev server still boots and the
    e2e sweep still passes before assuming the baseline is intact.
@@ -208,6 +232,14 @@ anything new:
 
 ## Last Updated
 
-2026-09-03, end of Phase 2.2, commit `fe6989e` on
-`claude/mendtrix-eclass-architecture-x0z7ef`. Session:
-`docs/session-log/2026-09-03-phase-2.2.md`.
+2026-09-04, Phase A of the merge session: PR #44 squash-merged to
+`main` (commit `6136091`), confirmed `merged: true`. Vercel deploy
+triggered on the same commit, targeting production. Migration
+`0044_anon_execute_sweep.sql` independently confirmed already applied
+to the live Supabase project (`wxkxdqwhefezjfmysypa`) — was applied
+directly during Phase 2.1, this merge did not need to (re-)apply it.
+Session log: `docs/session-log/2026-09-04-merge-and-demo-rehearsal.md`.
+
+Previous entry: 2026-09-03, end of Phase 2.2 development, commit
+`fe6989e` on `claude/mendtrix-eclass-architecture-x0z7ef` (now merged).
+Session: `docs/session-log/2026-09-03-phase-2.2.md`.
