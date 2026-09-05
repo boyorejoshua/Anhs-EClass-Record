@@ -90,7 +90,25 @@ Do not start without an explicit instruction naming it.
   would leave no way back in through the UI. Recovering the owner account this
   way is exactly what happened on 2026-09-04 and it worked cleanly — see the
   audit trail note in that day's session log.
-- **Help shows identical content to every role.** Confirmed by reading
+- ~~**Help shows identical content to every role.**~~ **RESOLVED 2026-09-05.**
+  Help now orders itself by the signed-in role: the role's own guide renders
+  first under a "Your guide" heading, the reference material follows, and
+  everything belonging to other roles is still on the same screen below a
+  "What the other roles do" heading. Nothing was deleted, hidden, or reworded —
+  every step of every guide is byte-for-byte what it was. The ordering rule is
+  a pure function, `helpPlan()` in `app/src/screens/Help.tsx`, unit-tested
+  across all five roles (`Help.test.ts`), and `e2e/guide-and-exports.mjs`
+  check 9 was rewritten to assert per-role ordering in a real browser — the old
+  check asserted the teacher's steps lead for everyone, which was the defect,
+  and would have kept passing against the fix. One question the fix had to
+  settle: an adviser gets **both** their own four moves and the eleven teaching
+  steps, their own first, because `ROLE_LABEL.adviser` is "Advisory Teacher",
+  `nav.ts` builds the adviser menu as the whole teaching menu plus two items,
+  and `App.tsx` gates class and roster editing on teacher and adviser alike —
+  an adviser teaches. An Administrator gets the registrar's guide as theirs,
+  since `school_admin` is the registrar menu plus School Setup, Academic Years
+  and Users. The original finding, for the record:
+  Confirmed by reading
   `app/src/screens/Help.tsx`: `export function Help()` takes no parameters at
   all, and the render is unconditional — the eleven-step subject-teacher guide,
   then all three short role guides (adviser, registrar, learner), then the
@@ -106,7 +124,9 @@ Do not start without an explicit instruction naming it.
   scroll past all of them to reach their own four. That gap between the stated
   standard and the shipped behaviour is real, and role-filtering Help is the
   obvious answer — **but explicitly not this phase.** Do not implement without an
-  instruction naming it.
+  instruction naming it. *(That instruction came on 2026-09-05; see the
+  resolution note above. The answer turned out to be ordering rather than
+  filtering, which keeps the "misleads the other four" reasoning intact.)*
 
 ---
 

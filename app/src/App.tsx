@@ -458,7 +458,7 @@ export default function App() {
         );
 
       case 'help':
-        return <Help />;
+        return <Help role={role} />;
 
       case 'class':
         if (!cls) {

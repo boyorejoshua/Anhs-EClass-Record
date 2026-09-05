@@ -65,9 +65,45 @@ const guide = await body();
 check('6. the guide covers the adviser', /If you are the adviser/i.test(guide));
 check('7. the guide covers the registrar', /If you are the registrar/i.test(guide));
 check('8. the guide covers the learner', /If you are a learner/i.test(guide));
-check('9. and still leads with the teacher\'s term',
-  /step by step/i.test(guide),
-  'most readers are teachers; their eleven steps stay first');
+/* ---- 9. and each role reads ITS OWN part first ----------------------- */
+/*
+  This replaced a check that asserted the eleven steps lead for everyone.
+  That was the behaviour, and it was the defect: a registrar opening Help
+  landed on the teacher's term and had to scroll past all eleven steps to
+  reach their own four. Ordering is now per role, so the check has to be
+  per role too — a text search for "step by step" would still pass while
+  asserting the opposite of what the screen now does.
+*/
+const openHelp = async () => {
+  await page.getByRole('button', { name: /^\?\s*Help$|^Help$/ }).first().click();
+  await page.waitForTimeout(700);
+  return body();
+};
+/** Does `a` appear ahead of `b` in the rendered page? */
+const leads = (text, a, b) => {
+  const i = text.search(a), j = text.search(b);
+  return i !== -1 && j !== -1 && i < j;
+};
+
+// `guide` was captured as the Student — the last role in the loop above.
+check('9a. a learner reads their own guide before the teacher\'s term',
+  leads(guide, /If you are a learner/i, /step by step/i),
+  'the finding this fixes: every role used to land on the eleven steps');
+
+await asRole('Registrar');
+const registrarGuide = await openHelp();
+check('9b. a registrar reads their own four moves before the teacher\'s term',
+  leads(registrarGuide, /If you are the registrar/i, /step by step/i));
+check('9b2. and the teacher\'s term is still there, marked as somebody else\'s',
+  /What the other roles do/i.test(registrarGuide)
+    && /step by step/i.test(registrarGuide),
+  'ordering, not hiding');
+
+await asRole('Subject');
+const teacherGuide = await openHelp();
+check('9c. a subject teacher still leads with their own eleven steps',
+  leads(teacherGuide, /Your term, step by step/i, /If you are the adviser/i),
+  'the teacher was already well served; that must not regress');
 
 /* ---- 10-12. the exports actually carry rows -------------------------- */
 await asRole('Subject');

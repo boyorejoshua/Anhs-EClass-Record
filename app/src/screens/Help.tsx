@@ -1,19 +1,32 @@
 /**
  * Help — how to use the E-Class Record.
  *
- * Two audiences on one screen, in the order they need it.
+ * Every role opens the same screen, and every role sees all of it. What
+ * changes with the role is the ORDER: the part written for the signed-in
+ * role comes first, under a heading that says so, and everybody else's
+ * part is still there, below, labelled as somebody else's.
  *
- * FIRST, the eleven steps of the teacher's term, in plain words. The
- * school told us this has to work for teachers who have never used
- * anything but a paper class record and Excel, so the guide names what
- * to click and what will happen, and uses no word a teacher would have
- * to look up: no "RPC", no "submission state", no "validation".
+ * That ordering is the whole of this screen's logic, and it is decided by
+ * `helpPlan()` below rather than inline in the markup — the same reason
+ * `resolveActiveRole` was lifted out of `App.tsx`: a rule about roles is
+ * worth unit-testing, and this project has no browser in its test run.
  *
- * SECOND, the keyboard reference and the status glossary — the detail a
- * teacher wants on their fifth day, not their first. Keeping it below
- * the steps rather than on another screen means one place to send
- * somebody who says "I don't know how to start".
+ * Why order rather than filter. Help sits in every role's menu, and a
+ * guide that shows only one of five jobs misleads the other four — an
+ * adviser genuinely benefits from reading what the registrar does with
+ * the section after it leaves them. But the reverse was the real
+ * complaint: a registrar used to land on the teacher's eleven steps and
+ * had to scroll past all of them to reach their own four, which is the
+ * "handed somebody else's job" failure this file's own notes warned
+ * about. Ordering fixes that without hiding anything.
+ *
+ * The reference material — keyboard, pasting, the status glossary, what
+ * a failed save means — sits between the two groups for every role. It
+ * is not any one role's job description, and the status glossary in
+ * particular is the shared vocabulary of the whole custody chain.
  */
+import type { Role } from '../data/types';
+import { ROLE_LABEL } from '../nav';
 
 /**
  * The teacher's term, start to finish.
@@ -127,8 +140,10 @@ const KEYS: Array<[string, string]> = [
  * Short on purpose. A registrar's work in this system is four moves,
  * and a learner's is one.
  */
-const ROLE_GUIDES: Array<{ role: string; who: string; steps: string[] }> = [
+const ROLE_GUIDES: Array<{ id: HelpBlock; for: Role[]; role: string; who: string; steps: string[] }> = [
   {
+    id: 'adviser',
+    for: ['adviser'],
     role: 'If you are the adviser',
     who: 'You look after one section, and every subject teacher sends that section\'s grades to you.',
     steps: [
@@ -139,6 +154,12 @@ const ROLE_GUIDES: Array<{ role: string; who: string; steps: string[] }> = [
     ],
   },
   {
+    // Also the Administrator's guide: `school_admin` in `nav.ts` is
+    // built as the whole registrar menu plus School Setup, Academic
+    // Years and Users, so the registrar's four moves are an
+    // administrator's four moves too.
+    id: 'registrar',
+    for: ['registrar', 'school_admin'],
     role: 'If you are the registrar',
     who: 'You set the school year up, and you are the last signature before a grade becomes part of a learner\'s record.',
     steps: [
@@ -149,6 +170,8 @@ const ROLE_GUIDES: Array<{ role: string; who: string; steps: string[] }> = [
     ],
   },
   {
+    id: 'learner',
+    for: ['student'],
     role: 'If you are a learner',
     who: 'You can see your own record, and only your own.',
     steps: [
@@ -159,49 +182,104 @@ const ROLE_GUIDES: Array<{ role: string; who: string; steps: string[] }> = [
   },
 ];
 
-export function Help() {
-  return (
-    <div className="page">
-      <div className="page-head">
+/**
+ * An orderable piece of the page. `steps` is the eleven-step teacher's
+ * term; the rest are the short per-role guides above.
+ */
+export type HelpBlock = 'steps' | 'adviser' | 'registrar' | 'learner';
+
+/**
+ * Which roles own the eleven steps.
+ *
+ * Both teaching roles, and that is not a guess: `ROLE_LABEL.adviser` is
+ * "Advisory Teacher", `nav.ts` builds the adviser menu as the entire
+ * TEACHING menu with Incoming and Consolidated Grades inserted into it,
+ * and `App.tsx` gates Add class and roster editing on
+ * `role === 'teacher' || role === 'adviser'` alike. An adviser teaches
+ * their own subjects and advises a section on top of that, so they need
+ * the teacher's term as well as their own four moves — their own first,
+ * because that is the part they cannot read anywhere else.
+ */
+const STEPS_FOR: Role[] = ['teacher', 'adviser'];
+
+export interface HelpPlan {
+  /** Belongs to the signed-in role. Rendered first, marked as theirs. */
+  yours: HelpBlock[];
+  /** Everybody else's, still on the page, rendered after `yours`. */
+  others: HelpBlock[];
+}
+
+/**
+ * Decide what this role reads first.
+ *
+ * Ordering only — nothing is dropped, and `yours` + `others` always
+ * together contain every block exactly once.
+ */
+export function helpPlan(role: Role): HelpPlan {
+  const yours: HelpBlock[] = [];
+  const others: HelpBlock[] = [];
+
+  // A role's own short guide leads, ahead of the eleven steps even for
+  // an adviser who needs both: it is the shorter read and the part that
+  // is theirs alone.
+  for (const g of ROLE_GUIDES) {
+    if (g.for.includes(role)) yours.push(g.id);
+  }
+  if (STEPS_FOR.includes(role)) yours.push('steps');
+
+  // `others` keeps the page's original order — the eleven steps, then
+  // the guides as listed — so demoting a block never reshuffles the
+  // ones around it.
+  if (!STEPS_FOR.includes(role)) others.push('steps');
+  for (const g of ROLE_GUIDES) {
+    if (!g.for.includes(role)) others.push(g.id);
+  }
+
+  return { yours, others };
+}
+
+export function Help({ role }: { role: Role }) {
+  const plan = helpPlan(role);
+  const stepsAreYours = plan.yours.includes('steps');
+
+  const steps = (
+    <div className="panel" key="steps">
+      <div className="panel-head">
         <div>
-          <h1 className="greeting">How to use the E-Class Record</h1>
+          {/*
+            "Your term" only when it IS your term. Shown to a registrar
+            under "What the other roles do", the same words would
+            contradict the heading above them.
+          */}
+          <h2>{stepsAreYours ? 'Your term, step by step' : 'The subject teacher\'s term, step by step'}</h2>
           <p className="page-sub">
-            The whole term, step by step. Start at Step 1 — you can do the rest
-            another day.
+            Do these in order the first time. After that, most days are only
+            Steps 1, 2 and 4.
           </p>
         </div>
       </div>
-
-      <div className="panel">
-        <div className="panel-head">
-          <div>
-            <h2>Your term, step by step</h2>
-            <p className="page-sub">
-              Do these in order the first time. After that, most days are only
-              Steps 1, 2 and 4.
-            </p>
-          </div>
-        </div>
-        <div className="panel-body">
-          {/*
-            The step number is REAL TEXT, not a CSS ::before counter.
-            A counter is invisible to a screen reader and to anyone
-            copying the guide into a handout — and "Step 4" is the part
-            a teacher says out loud when asking a colleague for help.
-          */}
-          <ol className="guide-steps">
-            {STEPS.map((s, i) => (
-              <li key={s.title}>
-                <h3><span className="guide-step-n">Step {i + 1}</span>{s.title}</h3>
-                <p>{s.body}</p>
-                {s.note && <p className="guide-note">{s.note}</p>}
-              </li>
-            ))}
-          </ol>
-        </div>
+      <div className="panel-body">
+        {/*
+          The step number is REAL TEXT, not a CSS ::before counter.
+          A counter is invisible to a screen reader and to anyone
+          copying the guide into a handout — and "Step 4" is the part
+          a teacher says out loud when asking a colleague for help.
+        */}
+        <ol className="guide-steps">
+          {STEPS.map((s, i) => (
+            <li key={s.title}>
+              <h3><span className="guide-step-n">Step {i + 1}</span>{s.title}</h3>
+              <p>{s.body}</p>
+              {s.note && <p className="guide-note">{s.note}</p>}
+            </li>
+          ))}
+        </ol>
       </div>
+    </div>
+  );
 
-      <div className="two-col">
+  const reference = (
+    <div className="two-col">
         <div className="panel">
           <div className="panel-head"><h2>Gradebook keyboard</h2></div>
           <div className="panel-body">
@@ -262,33 +340,71 @@ export function Help() {
           </div>
         </div>
       </div>
+  );
 
-      {/*
-        Last, because most readers are teachers and the eleven steps are
-        what they came for. But present, because Help is now in every
-        role's menu, and a guide that describes only one of five jobs
-        misleads the other four.
-      */}
-      {ROLE_GUIDES.map((g) => (
-        <div className="panel" key={g.role}>
-          <div className="panel-head">
-            <div>
-              <h2>{g.role}</h2>
-              <p className="page-sub">{g.who}</p>
-            </div>
-          </div>
-          <div className="panel-body">
-            <ol className="guide-steps">
-              {g.steps.map((step, i) => (
-                <li key={step}>
-                  <h3><span className="guide-step-n">Step {i + 1}</span></h3>
-                  <p>{step}</p>
-                </li>
-              ))}
-            </ol>
+  const guide = (id: HelpBlock) => {
+    if (id === 'steps') return steps;
+    const g = ROLE_GUIDES.find((x) => x.id === id)!;
+    return (
+      <div className="panel" key={g.id}>
+        <div className="panel-head">
+          <div>
+            <h2>{g.role}</h2>
+            <p className="page-sub">{g.who}</p>
           </div>
         </div>
-      ))}
+        <div className="panel-body">
+          <ol className="guide-steps">
+            {g.steps.map((step, i) => (
+              <li key={step}>
+                <h3><span className="guide-step-n">Step {i + 1}</span></h3>
+                <p>{step}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <h1 className="greeting">How to use the E-Class Record</h1>
+          <p className="page-sub">
+            {stepsAreYours
+              ? 'The whole term, step by step. Start at Step 1 — you can do the rest another day.'
+              : 'Your part first, then what everybody else does with the same record.'}
+          </p>
+        </div>
+      </div>
+
+      <div className="page-head">
+        <div>
+          <h2>Your guide</h2>
+          <p className="page-sub">
+            You are signed in as {ROLE_LABEL[role]}.
+            {role === 'school_admin'
+              ? ' You reach everything the registrar does, so their guide is yours too.'
+              : ' This is the part written for you.'}
+          </p>
+        </div>
+      </div>
+      {plan.yours.map(guide)}
+
+      {reference}
+
+      <div className="page-head">
+        <div>
+          <h2>What the other roles do</h2>
+          <p className="page-sub">
+            Not yours to do, but worth knowing — the same record passes through
+            every one of these.
+          </p>
+        </div>
+      </div>
+      {plan.others.map(guide)}
     </div>
   );
 }

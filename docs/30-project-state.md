@@ -39,6 +39,16 @@ this session** — the backend workflow is proven correct end-to-end, but
 Joshua still needs to open the app on his own laptop/network (checklist
 item 3) before presenting, per the verdict in that session log.
 
+**Help is now ordered per role (2026-09-05).** The one code change since
+the merge. Help used to render the eleven-step teacher guide first to
+everyone, so a registrar landed on somebody else's job and scrolled past
+it to reach their own four moves. It now leads with the signed-in role's
+own guide under a "Your guide" heading and keeps everybody else's below
+"What the other roles do" — ordering, not filtering, so nothing is
+hidden and no guide text changed. The rule is a pure function,
+`helpPlan()` in `app/src/screens/Help.tsx`, unit-tested across all five
+roles. Closes the second finding in `docs/31`.
+
 The feature branch `claude/mendtrix-eclass-architecture-x0z7ef` was
 **not deleted** — left as a rollback reference per instruction.
 
@@ -206,7 +216,8 @@ being asked.
 
 (as of the commit below)
 
-- Unit: **254 passed** (`app`, `npx vitest run`)
+- Unit: **262 passed** (`app`, `npx vitest run`) — 254 plus the eight in
+  `src/screens/Help.test.ts` added with the Help ordering fix
 - E2E: **23 suites passed**, 0 failed (Playwright, fixture-backed,
   `VITE_DEMO_MODE=true`, port 5199)
 - SQL/database: **6 suites**, all passing against a database rebuilt
@@ -241,7 +252,17 @@ If instead starting fresh, unrelated work:
 
 ## Last Updated
 
-2026-09-04, QA triage + real demo account session: investigated three
+2026-09-05, Help ordering fix. Help now leads with the signed-in role's
+own guide and demotes (never hides) the rest under "What the other roles
+do", resolving the second finding in `docs/31`. Ordering lives in a pure
+`helpPlan()` so it could be unit-tested without a browser — eight new
+tests, unit suite now 262. `e2e/guide-and-exports.mjs` check 9 was
+rewritten: it previously asserted the teacher's steps lead for *every*
+role, which was the defect and would have passed against the fix.
+Verified: typecheck clean, 262 unit, 23 e2e suites, production build
+clean. No other code touched.
+
+Previous entry: 2026-09-04, QA triage + real demo account session: investigated three
 manually-flagged items (`docs/31-manual-role-observations-2026-09-04.md`)
 — all resolved as intentional/not-a-bug, no code changed. Created the
 real, permanent demo student portal account (`demo.student01@anhs.test`,
@@ -253,7 +274,7 @@ demo student's own `my_grades()` session. One caveat: this environment's
 network policy blocked a live browser walkthrough of the production UI.
 Session log: `docs/session-log/2026-09-04-qa-triage-and-demo-account.md`.
 
-Previous entry: 2026-09-04, Phase A of the merge session: PR #44
+Earlier entry: 2026-09-04, Phase A of the merge session: PR #44
 squash-merged to `main` (commit `6136091`), confirmed `merged: true`.
 Vercel deploy triggered on the same commit, targeting production.
 Migration `0044_anon_execute_sweep.sql` independently confirmed already
