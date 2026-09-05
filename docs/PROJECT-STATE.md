@@ -5,6 +5,11 @@ conversation, `git log`, or other docs. Detailed history lives in
 `docs/session-log/` and the phase docs (`docs/23`–`docs/29`); this file
 is the index into them, not a replacement.
 
+> **Renamed.** This file was `docs/30-project-state.md` until the
+> 2026-09-05 documentation migration. Session logs written before that
+> date still refer to it by the old name; those are historical records
+> and were deliberately left unedited.
+
 ## Product
 
 Mendtrix Academic Records Platform — a multi-tenant DepEd school records
@@ -158,6 +163,54 @@ purpose (the unstarted-term state). Idempotent — re-running rebuilds the
 same 8 learners / 248 scores. `supabase/demo-seed-remove.sql` removes
 only that subtree. See `docs/28-principal-demo-checklist.md`.
 
+## Deployment
+
+Vercel project `anhs-grading-system`, driven by `vercel.json` at the repo
+root. `buildCommand` is `bash app/scripts/vercel-build.sh`, output
+`app/dist`, `framework: null`, install a no-op (there is no root
+`package.json`). Two paths are served:
+
+| Path | Serves |
+|---|---|
+| `/` | the V1 React app, built from `app/` |
+| `/legacy/` | V0, untouched, still working |
+
+The `/legacy` → `/legacy/` redirect and the `(?!legacy/)` guard on the
+SPA catch-all rewrite are both load-bearing — V0 references its assets
+relatively and renders blank without them. `VERCEL.md` explains why in
+full; read it before touching `vercel.json`.
+
+Backend is Supabase project `wxkxdqwhefezjfmysypa` (region
+`ap-southeast-1`). Required build-time variables are
+**`VITE_SUPABASE_URL`** and **`VITE_SUPABASE_ANON_KEY`**, kept in
+`app/.env.production` rather than in `buildCommand` — Vercel caps that
+field at 256 characters and rejects the deployment silently past it.
+Dashboard environment variables beat `.env` files, which has already
+caused one outage by pointing a build at a deleted project. Optional
+flags: `VITE_DEMO_MODE`, `VITE_SINGLE_FILE`.
+
+## Three things named "the old system" — they are not the same thing
+
+This has confused sessions before. There are three distinct artifacts:
+
+1. **`boyorejoshua/anhsgradingsystem`** — a *separate public GitHub
+   repository*, last commit 2026-04-03. Four tracked files
+   (`index.html`, `assets/css/style.css`, `assets/js/main.js`,
+   `README.md`). This is the original standalone legacy repo.
+2. **V0 at the root of *this* repository** — `index.html` + `assets/`,
+   served at `/legacy/`. It has **diverged** from repo 1: 267 lines
+   against that repo's 289, and the files differ by checksum. Neither is
+   a mirror of the other. Which of the two is authoritative for any given
+   behaviour is **UNVERIFIED — REQUIRES HUMAN CONFIRMATION**.
+3. **`supabase_schema.sql` at the repo root** — V0's schema, kept as
+   historical reference only. The live backend is
+   `supabase/migrations/`, and the two are not interchangeable.
+
+V0 is retained deliberately: `VERCEL.md` records that it is the most
+accurate surviving description of how the school actually works, and it
+still functions as a demo asset. Do not delete any of the three without
+asking.
+
 ## Known Issues
 
 1. **No demo learner has a portal account yet.** First item on the
@@ -193,15 +246,82 @@ being asked.
 
 ## Current Test Status
 
-(as of the commit below)
+**Independently re-executed 2026-09-05** on commit `8d51d5c`, from a
+clean checkout in a container with no prior state. Every number below
+was observed, not carried forward from a previous session.
 
-- Unit: **254 passed** (`app`, `npx vitest run`)
-- E2E: **23 suites passed**, 0 failed (Playwright, fixture-backed,
-  `VITE_DEMO_MODE=true`, port 5199)
-- SQL/database: **6 suites**, all passing against a database rebuilt
-  from all 44 migrations + `seed.sql` (`supabase/tests/01`–`06`)
-- Typecheck: clean
-- Production build: clean
+| Suite | Result | How it was run |
+|---|---|---|
+| Unit (vitest) | **254 passed**, 12 files, 0 failed | `cd app && npx vitest run` |
+| E2E (Playwright) | **23 of 23 suites passed** | see prerequisite below |
+| SQL / database | **6 of 6 suites passed**, 76 checks | see prerequisite below |
+| Typecheck | clean | `cd app && npx tsc --noEmit` |
+| Production build | clean | `cd app && npm run build` |
+
+Unit test breakdown: `nav` 33, `import/three-term` 33, `recordbook` 29,
+`grading` 28, `data/enrollment` 27, `import/official` 22, `data/workflow`
+20, `status` 19, `loa` 18, `import/plan` 16, `grading/edge-function` 5,
+`config` 4.
+
+SQL check counts: `04_lifecycle_rehearsal` 29, `05_schedule_and_tenant_security`
+15, `02_student_privacy` 13, `06_demo_workflow` 11, `03_my_classes_contract` 7,
+`01_tenant_isolation` 1.
+
+### Two prerequisites that are not obvious and cost real time
+
+**1. E2E needs the Playwright package version to match the browser build
+already on the machine.** The suites resolve Playwright from the *global*
+npm prefix (`npm root -g`), not from `app/node_modules` — see the header
+comment in `app/e2e/recorded-grades.mjs`. Installing plain
+`npm install -g playwright` gets the newest release, which then demands a
+browser revision that is not present, and **all 23 suites fail
+identically** with `Executable doesn't exist at .../chromium_headless_shell-<n>`.
+That failure is environmental and says nothing about the application.
+
+Match the version to the browser build under `PLAYWRIGHT_BROWSERS_PATH`
+(`/opt/pw-browsers` in the Claude Code web container, build **1194**,
+which is Playwright **1.56.0**). To find the pairing for a different
+build: read `browsers.json` inside the `playwright-core` tarball for a
+candidate version.
+
+```bash
+npm install -g playwright@1.56.0     # must match the installed browser build
+cd app
+VITE_DEMO_MODE=true VITE_SUPABASE_URL= VITE_SUPABASE_ANON_KEY= \
+  npx vite --port 5199 --strictPort &
+for f in e2e/*.mjs; do node "$f" || echo "FAILED $f"; done
+```
+
+**2. `supabase/tests/06_demo_workflow.sql` additionally requires
+`supabase/demo-seed.sql`.** Migrations + `seed.sql` alone are not enough:
+suite 06 asserts against the `DEMO-` dataset, so without it the suite
+reports `FAIL 1. the demo class is in the teacher's My Classes` and then
+aborts on `ERROR: no grading scheme resolves for class <NULL>`. Suites
+01–05 need only migrations + `seed.sql`. Full sequence:
+
+```bash
+createdb mendtrix
+psql -d mendtrix -c "create role anon nologin;
+                     create role authenticated nologin;
+                     create role service_role nologin bypassrls;"
+for f in supabase/migrations/*.sql; do psql -v ON_ERROR_STOP=1 -d mendtrix -f "$f"; done
+psql -v ON_ERROR_STOP=1 -d mendtrix -f supabase/seed.sql
+psql -d mendtrix -f supabase/demo-seed.sql          # required by suite 06 only
+for f in supabase/tests/*.sql; do psql -d mendtrix -f "$f"; done
+```
+
+Note that a passing suite still prints `NOTICE` lines beginning `psql:`.
+Detect failure on the strings `FAIL ` and `ERROR:` — not on a leading
+`psql:`, which matches every notice a *passing* run emits.
+
+### Database facts re-verified against a rebuilt database
+
+Rebuilt from all 44 migrations + `seed.sql` on Postgres 16.13:
+**46 base tables** in `public`; schemas `app`, `public`, `rds`; roles
+seeded `adviser`, `principal`, `registrar`, `school_admin`, `student`,
+`teacher`; **`public.permissions` is the only table of the 46 without
+FORCE RLS** — all three confirm the Known Issues below rather than
+resting on the previous session's word.
 
 ## Current Phase Next Step
 
@@ -232,7 +352,16 @@ If instead starting fresh, unrelated work:
 
 ## Last Updated
 
-2026-09-04, Phase A of the merge session: PR #44 squash-merged to
+2026-09-05 — documentation migration for the Claude → Codex handoff. No
+application code changed. This file was renamed from
+`docs/30-project-state.md`; `docs/ARCHITECTURE.md`, `DECISIONS.md`,
+`ROADMAP.md`, `KNOWN-ISSUES.md` and `HANDOFF.md` were added beside it.
+The whole test suite was re-executed from scratch and the results above
+replaced with observed ones (they matched the previous session's claims
+exactly). Two undocumented test prerequisites were found and recorded,
+and the three-way "legacy" ambiguity above was untangled.
+
+Previous entry: 2026-09-04, Phase A of the merge session: PR #44 squash-merged to
 `main` (commit `6136091`), confirmed `merged: true`. Vercel deploy
 triggered on the same commit, targeting production. Migration
 `0044_anon_execute_sweep.sql` independently confirmed already applied
