@@ -70,6 +70,44 @@ Do not start without an explicit instruction naming it.
   in light ("Standard") theme, wants color; general "fix the UI" note on My Account
   across every role (likely spacing/alignment, not confirmed functional breakage).
 
+### Added 2026-09-05 — two findings from live role editing in production
+
+- **⚠️ Never leave `principal` as an account's only role — it locks the account
+  out.** Confirmed live: setting an account to hold only `principal` produces the
+  "No role assigned" screen, whose only control is *Sign out*. This is **not a new
+  defect** — it is Known Issue #4 (`principal` exists in the database but has no
+  client-side mapping) made concrete. The mechanism, traced in code:
+  `ROLE_PRIORITY` in `app/src/nav.ts:273` lists five roles and does not include
+  `principal`, so `rolesFromSession(['principal'])` returns `[]`, and
+  `App.tsx:294` renders the no-role screen whenever `heldRoles.length === 0`
+  outside DEMO_MODE. Nothing is corrupted — the database still grants `principal`
+  seven real read permissions (`grades.read.all`, `students.read.all`,
+  `attendance.read.all`, `classes.read.all`, `reports.read.school`,
+  `school.config.read`, `audit.read`) — the client simply has no menu to render
+  for it. **The operational hazard worth remembering:** a locked-out account
+  cannot reach the Users screen to fix itself, so recovery needs a *second*
+  account holding `school_admin`. Doing this to the only administrator account
+  would leave no way back in through the UI. Recovering the owner account this
+  way is exactly what happened on 2026-09-04 and it worked cleanly — see the
+  audit trail note in that day's session log.
+- **Help shows identical content to every role.** Confirmed by reading
+  `app/src/screens/Help.tsx`: `export function Help()` takes no parameters at
+  all, and the render is unconditional — the eleven-step subject-teacher guide,
+  then all three short role guides (adviser, registrar, learner), then the
+  reference material, to whoever opens it. The nuance worth recording is that
+  this is a *documented deliberate choice*, not an oversight: the comment above
+  the render (lines 266–271) reasons that since Help now sits in every role's
+  menu, "a guide that describes only one of five jobs misleads the other four" —
+  so the fix applied was to show everything rather than to filter. But the file's
+  other comment (lines 117–129) sets a stricter standard the current render does
+  not meet: a registrar who opens Help "and reads 'open your class and enter the
+  scores' has been handed somebody else's job, which is worse than no guide at
+  all." A registrar still lands on the teacher's eleven steps first and must
+  scroll past all of them to reach their own four. That gap between the stated
+  standard and the shipped behaviour is real, and role-filtering Help is the
+  obvious answer — **but explicitly not this phase.** Do not implement without an
+  instruction naming it.
+
 ---
 
 ## Already answered / by design — no action needed

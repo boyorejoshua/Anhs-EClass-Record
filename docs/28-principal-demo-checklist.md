@@ -111,7 +111,7 @@ The full script is §Demo script in `docs/27`. In outline:
 | A term looks empty | Term 3 is meant to be | Click it — the screen explains itself. This is the point |
 | The learner sees nothing | Nothing has been published for them yet | Correct behaviour. Publish in step 8 first |
 | A final grade shows with blank terms | You are signed in as the owner, not a learner | Switch to the demo learner account |
-| A screen says "planned" | Reports & Documents, Academic Years, Grading Configuration | Deliberate. Each says why in a sentence |
+| A screen says "planned" | Reports & Documents, Grading Configuration | Deliberate. Each says why in a sentence |
 | The type looks different | Google Fonts did not load | Cosmetic only |
 
 ## What is still open
@@ -128,9 +128,12 @@ Carried forward honestly rather than quietly closed.
    days before a demonstration.
 3. **The schedule is a list, not a grid.** `class_meetings` is future
    work; `classes.schedule_note` is shown verbatim and never parsed.
-4. **Three routes are planned, not built** — Reports & Documents,
-   Academic Years, Grading Configuration. Each renders an explanation,
-   and `e2e/navigation-audit.mjs` asserts they do.
+4. **Two routes are planned, not built** — Reports & Documents and
+   Grading Configuration. Each renders an explanation, and
+   `e2e/navigation-audit.mjs` asserts they do. **Academic Years is no
+   longer one of them:** Phase 2.2 replaced that placeholder with a real
+   read-only viewer (years, periods, status pills), Administrator-only.
+   It is a screen to show, not a caveat to explain away.
 5. **Attendance is capture and summary only.** Formal SF2/SF4 remain a
    fast-follow.
 
