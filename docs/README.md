@@ -65,11 +65,25 @@ broke, and what was verified.
 | 27 | [Phase 2 — Demo Readiness](27-phase-2-demo-readiness.md) | The demonstration dataset and the 15-step script |
 | 28 | **[Principal Demo Checklist](28-principal-demo-checklist.md)** | **The sheet to run the demonstration from** |
 | 29 | **[Where the Project Stands](29-project-progress.md)** | **One page: what is done, what is not, what blocks a school going live** |
-| 30 | **[Project State](30-project-state.md)** | **Read this FIRST in any new session — compact, current, kept up to date** |
 
 Session-by-session detail lives in `session-log/`, one dated file per
 session (e.g. `session-log/2026-09-03-phase-2.2.md`) — the working notes
-`30-project-state.md` is the summary of.
+`PROJECT-STATE.md` is the summary of.
+
+### The current-state set — read these first
+
+Added or renamed in the 2026-09-05 Claude → Codex documentation
+migration. These are the entry points; the numbered set above is depth
+on a specific area.
+
+| Document | Read it for |
+|---|---|
+| **[HANDOFF](HANDOFF.md)** | **No prior context at all? Start here.** Routes you through everything else. |
+| **[Project State](PROJECT-STATE.md)** | **Read FIRST in any new session** — phase, verified test status, exact next step. Was `30-project-state.md`. |
+| [Architecture](ARCHITECTURE.md) | How the platform actually works, as built |
+| [Decisions](DECISIONS.md) | Why it is like that — 19 decisions with reasoning |
+| [Known Issues](KNOWN-ISSUES.md) | What is broken, and what only *looks* broken |
+| [Roadmap](ROADMAP.md) | Completed / in progress / next / future / blocked |
 
 ---
 
