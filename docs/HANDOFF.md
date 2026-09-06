@@ -143,9 +143,10 @@ nuance worth knowing up front:
 - "Reports don't display" was **one real fixed bug plus one unbuilt
   feature**. The `years[0]` defaulting is fixed; the Reports & Documents
   screen was never built. Don't read it as a single problem.
-- "The student portal is broken" is most likely "no demo learner has a
-  portal account", which is issue #2. An empty portal is not a broken
-  portal.
+- "The student portal is broken" is most likely "no demo learner *had* a
+  portal account to look at". An empty portal is not a broken portal.
+  `DEMO-0001` has had one since 2026-09-04, with published Term 1 grades
+  behind it — see the last row of `KNOWN-ISSUES.md` § Resolved.
 
 If you see one of these symptoms for real, file it fresh with evidence.
 The old reports do not survive the current test results.
@@ -216,7 +217,7 @@ Supabase project **`wxkxdqwhefezjfmysypa`**, region `ap-southeast-1`
 (Singapore). Postgres 16.
 
 - **46 base tables** in `public`; schemas `app`, `public`, `rds`.
-- FORCE RLS on all but `public.permissions` (`KNOWN-ISSUES.md` #4).
+- FORCE RLS on all but `public.permissions` (`KNOWN-ISSUES.md` #3).
 - Roles seeded: `adviser`, `principal`, `registrar`, `school_admin`,
   `student`, `teacher`.
 - Student spine: `students → enrollments → class_enrollments →

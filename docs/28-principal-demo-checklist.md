@@ -21,7 +21,7 @@ Four things, in order. The first is the only one that is not optional.
 
 | # | Do this | Why | How long |
 |---|---|---|---|
-| 1 | **Give one demo learner a portal account.** Registrar → Students → Grade 10 → `Demo Student 01` → *Create portal account* | Without it there is no learner to sign in as, and the demonstration cannot show its last and best beat. See *Owner account* below for why the owner's own login is not a substitute. | 1 min |
+| 1 | ~~**Give one demo learner a portal account.**~~ **Already done — 2026-09-04.** `Demo Student 01` (`DEMO-0001`) signs in as `demo.student01@anhs.test`. Nothing to do here unless you want a second one, which is the same path: Registrar → Students → Grade 10 → a learner → *Create portal account* | Without it there is no learner to sign in as, and the demonstration cannot show its last and best beat. See *Owner account* below for why the owner's own login is not a substitute. | done |
 | 2 | Run steps 1–14 once yourself, then publish | Step 15 shows a learner their published grades. If nothing has ever been published, it is honestly empty — correct, but a flat ending | 10 min |
 | 3 | Open the app once on the actual laptop and network you will use | The typeface is fetched from Google Fonts. On a slow or filtered school network it falls back to a system face — legible, but not what you rehearsed | 1 min |
 | 4 | Have `docs/27-phase-2-demo-readiness.md` open in a second tab | It carries the full 15-step script. This sheet is the checklist, not the script | — |

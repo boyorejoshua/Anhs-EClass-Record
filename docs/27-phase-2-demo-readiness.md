@@ -211,7 +211,11 @@ tests pass unchanged.
 
 ## Known limitations
 
-1. **No student portal account for the ANHS demo.** Re-verified in
+1. ~~**No student portal account for the ANHS demo.**~~ **CLOSED
+   2026-09-04** — `DEMO-0001` now signs in as `demo.student01@anhs.test`,
+   with Term 1 published behind it. The paragraph below is left as the
+   Phase 2.1 record of why it mattered; it is history, not current state.
+   Re-verified in
    Phase 2.1 against production: none of `DEMO-0001`…`DEMO-0008` has a
    portal account, so the demonstration's last beat — the learner
    opening their own record — has no demo learner to open it as.

@@ -65,6 +65,8 @@ broke, and what was verified.
 | 27 | [Phase 2 — Demo Readiness](27-phase-2-demo-readiness.md) | The demonstration dataset and the 15-step script |
 | 28 | **[Principal Demo Checklist](28-principal-demo-checklist.md)** | **The sheet to run the demonstration from** |
 | 29 | **[Where the Project Stands](29-project-progress.md)** | **One page: what is done, what is not, what blocks a school going live** |
+| 31 | [Manual Role-by-Role Observations](31-manual-role-observations-2026-09-04.md) | The five-role walkthrough of production that drove the 2026-09-05 fixes |
+| 32 | **[Public Enrollment — Audit and Design](32-public-enrollment-design.md)** | **Phase 3.0. The design for the applicant → registrar → enrolled workflow, the `anon` security model it needs, and the ten questions to answer before building it** |
 
 Session-by-session detail lives in `session-log/`, one dated file per
 session (e.g. `session-log/2026-09-03-phase-2.2.md`) — the working notes

@@ -61,23 +61,38 @@ configuration change plus seven rotations. No code, no migration, no
 test will catch it if skipped. Do this before anything that touches a
 real school.
 
-### 2. Create a demo learner's portal account
-**Blocks: showing the student portal in a demonstration.**
-`KNOWN-ISSUES.md` #2. One minute through the product; `DEMO-0001` by
-default. First item on `docs/28-principal-demo-checklist.md`.
+### 2. ~~Create a demo learner's portal account~~ — **done 2026-09-04**
+`DEMO-0001` → `demo.student01@anhs.test`, created against production
+with the go-ahead, and Term 1 published behind it so the portal has real
+content to show. Verified again by direct query on 2026-09-06. See
+`KNOWN-ISSUES.md` § Resolved.
 
-**Requires an explicit go-ahead** — doing it against production is not a
-rehearsal that can be rolled back. This is "Phase B" in earlier session
-notes.
-
-### 3. Run the principal demo checklist end to end
-**Depends on 2.** `docs/28-principal-demo-checklist.md`, step by step,
-delivering an honest verdict. This is the gate the pilot conversation
-depends on.
+### 3. Run the principal demo checklist end to end — **partly done**
+`docs/28-principal-demo-checklist.md` was executed on 2026-09-04 for
+everything reachable from a terminal: the account, the full custody
+chain, publication, and the learner's own view of it. **What remains is
+the part that needs a human at a browser** — opening the deployed site
+on the laptop and network the demonstration will actually use, and
+walking the ten-step script. That is checklist item 3 and it is still
+outstanding.
 
 ### 4. Phase 3 — Public Enrollment
-The next *development* phase. **Explicitly not started**, on
-instruction. Do not begin it without being asked for it by name.
+The next *development* phase. **Phase 3.0 (audit and design) is done —
+2026-09-06 — and no code was written.** The plan, the data model, the
+state machine, the `anon` security model and ten open questions are in
+`docs/32-public-enrollment-design.md`.
+
+**3.1 onward is blocked, and not only on review.** That design's §0
+concludes Public Enrollment must not ship before item 1 above (password
+rotation, leaked-password protection) is closed: this feature *is* the
+mechanism by which real learner data — minors' data, arriving from the
+public, before anyone has decided they are students — enters the system.
+Building the intake path first would create exactly the condition item 1
+exists to prevent.
+
+Also blocking 3.1: Joshua's answers to the ten open questions, three of
+which (the D-005 exception, PII retention for rejected applications, and
+who assigns student numbers) change the schema rather than just the UI.
 
 ---
 
@@ -93,11 +108,11 @@ can tell "deferred with cause" from "forgotten".
 | **Formal SF2 / SF4 attendance compliance** | Attendance is captured; the compliance *forms* are not generated. |
 | **Grading Configuration screen** | Deliberate — editing a scheme mid-year would alter grades already computed under the old one. D-016. Needs a correctness design, not a CRUD screen. |
 | **Structured class schedule (`class_meetings`)** | Deliberate — D-013. A real modelling exercise with a school, not a parser over `schedule_note`. |
-| **Archive action for academic years** | Would make `KNOWN-ISSUES.md` #3 exploitable. **Fix that trigger first.** |
+| **Archive action for academic years** | Would make `KNOWN-ISSUES.md` #2 exploitable. **Fix that trigger first.** |
 | **`principal` role in the client** | No screen needs it yet. D-018. |
 | **Parent portal** | Not designed. |
 | **SMS notifications** | Not designed. |
-| **Bundle splitting** | `KNOWN-ISSUES.md` #8. No user-visible problem yet. |
+| **Bundle splitting** | `KNOWN-ISSUES.md` #7. No user-visible problem yet. |
 | **`docs/grade-persistence-audit.md`** | Long-standing task #33. An audit doc, not code. |
 
 ---
@@ -107,8 +122,8 @@ can tell "deferred with cause" from "forgotten".
 | Item | Blocked on |
 |---|---|
 | Everything downstream of the deploy check | Joshua's live confirmation (§ In progress) |
-| Portal account for a demo learner | Explicit go-ahead to act against production |
 | Real learner data, of any kind | `KNOWN-ISSUES.md` #1 (passwords, leaked-password protection) |
+| **Phase 3.1+ (Public Enrollment build)** | `KNOWN-ISSUES.md` #1 **and** Joshua's answers to the ten open questions in `docs/32-public-enrollment-design.md` § 10 |
 | Commercial claims about SF coverage | The document engine being built |
 | Confirming which V0 copy is authoritative | Human confirmation — the standalone repo and this repo's root V0 have diverged. `PROJECT-STATE.md` |
 

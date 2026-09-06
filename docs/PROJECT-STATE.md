@@ -54,6 +54,28 @@ hidden and no guide text changed. The rule is a pure function,
 `helpPlan()` in `app/src/screens/Help.tsx`, unit-tested across all five
 roles. Closes the second finding in `docs/31`.
 
+**Phase 3.0 — Public Enrollment audit and design — complete
+(2026-09-06). No code, no schema, no migration was written.** The
+deliverable is `docs/32-public-enrollment-design.md`: the data model, the
+application state machine, the security model for the first anonymous
+write path in the system, what is reused versus new, a 3.1–3.5 phase
+breakdown, and ten questions that need Joshua's answer first.
+
+**Phase 3.1+ is blocked on two things, in this order.** First,
+`KNOWN-ISSUES.md` #1 — the audit's §0 concludes Public Enrollment is
+precisely the mechanism by which real learner data (minors', from the
+public, before anyone has decided they are students) enters the system,
+so shipping intake before rotating the passwords and enabling
+leaked-password protection would create the condition #1 exists to
+prevent. Second, the ten open questions — three of them change the
+schema, not just the UI.
+
+The two findings from that audit worth knowing even if Phase 3 never
+happens: Supabase **default ACLs grant `anon` full DML on every future
+table** created in `public`, so any new table is protected by RLS alone
+unless its migration explicitly revokes; and across all six SQL suites
+there is **exactly one** assertion about `anon` at all.
+
 The feature branch `claude/mendtrix-eclass-architecture-x0z7ef` was
 **not deleted** — left as a rollback reference per instruction.
 
@@ -374,7 +396,17 @@ If instead starting fresh, unrelated work:
 
 ## Last Updated
 
-2026-09-05, Help ordering fix. Help now leads with the signed-in role's
+2026-09-06, Phase 3.0 — Public Enrollment audit and design. No code, no
+schema. Deliverable `docs/32-public-enrollment-design.md`; verdict is
+"feasible, small footprint, wrong time" — see the Current Phase section
+above and the design's §0. In the same session, `KNOWN-ISSUES.md` was
+corrected: its #2 ("no demo learner has a portal account") was disproved
+by direct query against production and moved to § Resolved, the
+remaining open issues renumbered, and the cross-references that pointed
+at the old numbering fixed in `HANDOFF.md`, `ROADMAP.md`, `docs/27` and
+`docs/28`.
+
+Previous entry: 2026-09-05, Help ordering fix. Help now leads with the signed-in role's
 own guide and demotes (never hides) the rest under "What the other roles
 do", resolving the second finding in `docs/31`. Ordering lives in a pure
 `helpPlan()` so it could be unit-tested without a browser — eight new
@@ -384,7 +416,7 @@ role, which was the defect and would have passed against the fix.
 Verified: typecheck clean, 262 unit, 23 e2e suites, production build
 clean. No other code touched.
 
-Previous entry: 2026-09-05 — documentation migration for the Claude →
+Earlier entry: 2026-09-05 — documentation migration for the Claude →
 Codex handoff. No application code changed. This file was renamed from
 `docs/30-project-state.md`; `docs/ARCHITECTURE.md`, `DECISIONS.md`,
 `ROADMAP.md`, `KNOWN-ISSUES.md` and `HANDOFF.md` were added beside it.
