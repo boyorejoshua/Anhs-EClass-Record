@@ -2,6 +2,7 @@ import type { AcademicYear, ClassSummary, SubmissionRow } from '../data/types';
 import { StatusBadge } from '../components/StatusBadge';
 import { Async, EmptyState, useAsync } from '../components/Async';
 import { displayStatus, missingCount, pct } from '../lib/status';
+import { sortByGradeThenSection } from '../lib/ordering';
 import type { ClassTab } from '../nav';
 
 /**
@@ -16,6 +17,13 @@ import type { ClassTab } from '../nav';
 /* ------------------------------------------------------------------ *
  * Teacher / adviser
  * ------------------------------------------------------------------ */
+
+/** Grade level, then section, then subject — shared with My Classes. */
+function byGradeThenSection(classes: ClassSummary[]): ClassSummary[] {
+  return sortByGradeThenSection(classes, (c) => ({
+    gradeLevel: c.gradeLevel, section: c.section, tiebreak: c.subject,
+  }));
+}
 
 export function TeacherDashboard({ teacherName, year, periodId, classes, onOpenClass, onGoClasses }: {
   teacherName: string;
@@ -72,7 +80,7 @@ export function TeacherDashboard({ teacherName, year, periodId, classes, onOpenC
         <div className="callout" data-tone="warn">
           <b>{returned.length} submission{returned.length === 1 ? '' : 's'} returned for correction</b>
           <ul>
-            {returned.map((c) => (
+            {byGradeThenSection(returned).map((c) => (
               <li key={c.id}>
                 {c.gradeLevel} – {c.section} · {c.subject}
                 <button className="btn btn-sm" onClick={() => onOpenClass(c.id, 'gradebook')}>
@@ -97,7 +105,9 @@ export function TeacherDashboard({ teacherName, year, periodId, classes, onOpenC
         ) : (
           <div className="panel-body">
             <div className="grid-cards">
-              {classes.map((c) => {
+              {/* Same order as My Classes, so moving between the two
+                  screens does not reshuffle the same set of cards. */}
+              {byGradeThenSection(classes).map((c) => {
                 const p = pct(c.completeness[periodId]);
                 return (
                   <button key={c.id} className="class-card" onClick={() => onOpenClass(c.id, 'gradebook')}>

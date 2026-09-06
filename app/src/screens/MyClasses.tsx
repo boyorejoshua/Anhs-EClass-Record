@@ -5,6 +5,7 @@ import type {
 import { StatusBadge } from '../components/StatusBadge';
 import { EmptyState } from '../components/Async';
 import { displayStatus, pct } from '../lib/status';
+import { sortByGradeThenSection } from '../lib/ordering';
 
 interface Props {
   classes: ClassSummary[];
@@ -57,13 +58,22 @@ export function MyClasses({
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return classes.filter((c) => {
+    const kept = classes.filter((c) => {
       const shown = displayStatus(c, periodId);
       if (filter !== 'all' && shown !== filter) return false;
       if (!q) return true;
       return [c.subject, c.section, c.gradeLevel, c.subjectCode]
         .some((f) => f.toLowerCase().includes(q));
     });
+    // Grade level, then section, then subject — the order a school reads
+    // its own timetable in. `my_classes` does order server-side, but on
+    // `c ->> 'gradeLevel'`, which is the LABEL: 'Grade 10' sorts before
+    // 'Grade 7' as text. Sorting here fixes what four screens show,
+    // because this one component is My Classes, Attendance, Submissions
+    // and Reports depending on `purpose`.
+    return sortByGradeThenSection(kept, (c) => ({
+      gradeLevel: c.gradeLevel, section: c.section, tiebreak: c.subject,
+    }));
   }, [classes, filter, query, periodId]);
 
   // Only offer filters that match something, so the control never leads

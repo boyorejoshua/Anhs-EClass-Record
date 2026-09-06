@@ -4,6 +4,7 @@ import type {
   StudentDraft, StudentQuery, AdmitResult, NamesakeMatch,
 } from '../data/types';
 import { Async, EmptyState, useAsync } from '../components/Async';
+import { sortByGradeThenSection } from '../lib/ordering';
 
 /**
  * How many rows one request may return. A safety net rather than a page
@@ -89,7 +90,17 @@ export function Students({
     () => [...new Set(rows.map((r) => r.section).filter((x): x is string => !!x))].sort(),
     [rows],
   );
-  const shown = rows.filter((r) => !section || r.section === section);
+  // These rows are already one grade level (the screen makes you pick
+  // one first), so ordering here is section, then learner name. The
+  // directory contract orders by display name alone, which interleaves
+  // Pearl and Ruby.
+  const shown = useMemo(
+    () => sortByGradeThenSection(
+      rows.filter((r) => !section || r.section === section),
+      (r) => ({ gradeLevel: r.gradeLevel, section: r.section, tiebreak: r.displayName }),
+    ),
+    [rows, section],
+  );
 
   // The cap is a safety net, not a paging model, and a truncated list
   // that does not say it is truncated is the worst of both. A registrar

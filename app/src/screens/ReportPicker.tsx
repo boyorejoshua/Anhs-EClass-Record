@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { AcademicPeriod, AcademicYear, ClassSummary } from '../data/types';
 import { Async, EmptyState, useAsync } from '../components/Async';
+import { sortByGradeThenSection } from '../lib/ordering';
 
 interface Props {
   title: string;
@@ -78,9 +79,12 @@ export function ReportPicker({ title, blurb, years, loadClasses, children }: Pro
    * reports disagree during testing, and the reports were right.
    */
   const options = useMemo(
-    () => classes
-      .map((c) => ({ id: c.id, label: `${c.gradeLevel} – ${c.section} · ${c.subject}` }))
-      .sort((a, b) => a.label.localeCompare(b.label)),
+    // Sort on the PARTS, not the assembled label. Sorting the label put
+    // 'Grade 10 – …' ahead of 'Grade 7 – …', because that is what a
+    // lexical compare of those strings says.
+    () => sortByGradeThenSection(classes, (c) => ({
+      gradeLevel: c.gradeLevel, section: c.section, tiebreak: c.subject,
+    })).map((c) => ({ id: c.id, label: `${c.gradeLevel} – ${c.section} · ${c.subject}` })),
     [classes],
   );
 

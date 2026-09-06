@@ -3,6 +3,7 @@ import type {
   ClassDraft, SectionDraft, SectionSetupOptions, SubjectCatalogue, SubjectDraft,
 } from '../data/types';
 import { Async, EmptyState, useAsync } from '../components/Async';
+import { sortByGradeThenSection } from '../lib/ordering';
 import { Subjects } from './SchoolSetup';
 
 interface Props {
@@ -166,7 +167,21 @@ export function ClassesAndSections({
                       </tr>
                     </thead>
                     <tbody>
-                      {options.classes.map((c) => {
+                      {/*
+                        The sections table above already arrives in the
+                        right order — `section_setup_options` orders it
+                        by `gl.ordinal, sec.name`. This classes table
+                        does not: its contract orders by subject title
+                        alone, so Grade 7 and Grade 12 interleave. The
+                        grade and section live on the section this class
+                        belongs to, so resolve that first and sort on it.
+                      */}
+                      {sortByGradeThenSection(options.classes, (c) => {
+                        const s = options.sections.find((x) => x.id === c.sectionId);
+                        return {
+                          gradeLevel: s?.gradeLevel, section: s?.name, tiebreak: c.subject,
+                        };
+                      }).map((c) => {
                         const sec = options.sections.find((s) => s.id === c.sectionId);
                         return (
                           <tr key={c.id}>

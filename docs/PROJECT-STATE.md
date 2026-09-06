@@ -54,6 +54,25 @@ hidden and no guide text changed. The rule is a pure function,
 `helpPlan()` in `app/src/screens/Help.tsx`, unit-tested across all five
 roles. Closes the second finding in `docs/31`.
 
+**Grade-level/section ordering is now one shared comparator
+(2026-09-06).** `docs/31`'s most-repeated finding — nine screens listing
+classes and learners in orders that disagreed with each other — is
+resolved. `app/src/lib/ordering.ts` orders by grade level *numerically*
+then section, and the six components behind those nine screens all call
+it. The audit found the real diagnosis was not "unsorted" but **sorted
+as text**: `rds.my_classes` orders on `c ->> 'gradeLevel'`
+(`0014_app_data_sources.sql:117`) and `ReportPicker` sorted the
+assembled label, and `'Grade 10' < 'Grade 7'` as text. The fix is
+client-side and presentation-only — no contract, permission, RLS
+boundary or grading-engine code was touched, and no schema change was
+needed. Two corrections to the finding: the sections table on Classes &
+Sections was already ordered correctly server-side, and Reports &
+Documents is a `readiness: 'planned'` placeholder with no list in it.
+Sorted, deliberately **not** grouped — there is no grouped-list pattern
+in this codebase to match, so headings would be inventing a visual
+pattern rather than fixing an order. See the resolved entry in
+`docs/31`.
+
 **Phase 3.0 — Public Enrollment audit and design — complete
 (2026-09-06). No code, no schema, no migration was written.** The
 deliverable is `docs/32-public-enrollment-design.md`: the data model, the
@@ -289,25 +308,36 @@ being asked.
 
 ## Current Test Status
 
-**Independently re-executed 2026-09-05** on commit `8d51d5c`, from a
-clean checkout in a container with no prior state. Every number below
-was observed, not carried forward from a previous session.
+**Re-executed 2026-09-06** after the grade/section ordering change.
+Unit, e2e, typecheck and build numbers below were observed this session;
+the SQL row is carried forward from the 2026-09-05 clean-checkout run on
+commit `8d51d5c`, because nothing in this change touches SQL.
 
 | Suite | Result | How it was run |
 |---|---|---|
-| Unit (vitest) | **262 passed**, 13 files, 0 failed | `cd app && npx vitest run` |
-| E2E (Playwright) | **23 of 23 suites passed** | see prerequisite below |
+| Unit (vitest) | **276 passed**, 14 files, 0 failed | `cd app && npx vitest run` |
+| E2E (Playwright) | **24 of 24 suites passed** | see prerequisite below |
 | SQL / database | **6 of 6 suites passed**, 76 checks | see prerequisite below |
 | Typecheck | clean | `cd app && npx tsc --noEmit` |
 | Production build | clean | `cd app && npm run build` |
 
 Unit test breakdown: `nav` 33, `import/three-term` 33, `recordbook` 29,
 `grading` 28, `data/enrollment` 27, `import/official` 22, `data/workflow`
-20, `status` 19, `loa` 18, `import/plan` 16, `screens/Help` 8,
-`grading/edge-function` 5, `config` 4.
+20, `status` 19, `loa` 18, `import/plan` 16, `lib/ordering` 14,
+`screens/Help` 8, `grading/edge-function` 5, `config` 4.
 
-The `screens/Help` eight arrived with the 2026-09-05 Help ordering fix;
-the other twelve files are the 254 counted on `8d51d5c`.
+The `lib/ordering` fourteen arrived with the 2026-09-06 grade/section
+ordering fix, and the `screens/Help` eight with the 2026-09-05 Help
+ordering fix; the other twelve files are the 254 counted on `8d51d5c`.
+
+The 24th e2e suite is `grade-section-ordering.mjs`, which reads the
+**rendered DOM order** on four screens — a comparator unit test cannot
+catch a screen that forgets to call the comparator. Worth knowing: four
+existing suites (`consolidated-grades`, `custody-chain`,
+`guide-and-exports`, `loa-report`) failed on the new order and were
+right to — each opened a class with `.first()`, which silently meant
+"Grade 10 – Pearl" only because the old wrong order put it first. All
+four now select the class by name.
 
 SQL check counts: `04_lifecycle_rehearsal` 29, `05_schedule_and_tenant_security`
 15, `02_student_privacy` 13, `06_demo_workflow` 11, `03_my_classes_contract` 7,
@@ -380,10 +410,12 @@ layer this session's environment could not reach — see the caveat in
 beneath that layer (the account, the grading engine, the full custody
 chain, publication) is verified working against real production data.
 
-Do not start Phase 3 (Public Enrollment), the sort/group backlog, or any
-other item from `docs/31`'s Backlog section without an explicit
-instruction naming it — a positive demo verdict does not authorize any
-of that on its own.
+Do not start Phase 3 (Public Enrollment) or any item from `docs/31`'s
+Backlog section without an explicit instruction naming it — a positive
+demo verdict does not authorize any of that on its own. The three
+Backlog items still open are submission undo/cancel, the "Incoming
+Grades" vs "Consolidated Grades" naming question, and visual polish;
+sort/group was closed 2026-09-06.
 
 If instead starting fresh, unrelated work:
 1. Read this file and the latest `docs/session-log/*.md` entry.
@@ -396,7 +428,19 @@ If instead starting fresh, unrelated work:
 
 ## Last Updated
 
-2026-09-06, Phase 3.0 — Public Enrollment audit and design. No code, no
+2026-09-06, grade-level/section ordering. One shared comparator,
+`app/src/lib/ordering.ts`, now orders by grade level numerically then
+section across the six components behind the nine screens named in
+`docs/31` (`MyClasses` alone is four of them). Presentation only: no
+contract, permission, RLS boundary or grading-engine code touched, and
+`grade_levels.ordinal` already existed so no schema change was needed.
+Sorted, not grouped — no grouped-list pattern exists here to match.
+14 new unit tests, one new e2e suite reading real DOM order, and four
+existing suites corrected where they had been relying on the old wrong
+order via `.first()`. Verified: typecheck clean, 276 unit, 24 e2e
+suites, production build clean.
+
+Previous entry: 2026-09-06, Phase 3.0 — Public Enrollment audit and design. No code, no
 schema. Deliverable `docs/32-public-enrollment-design.md`; verdict is
 "feasible, small footprint, wrong time" — see the Current Phase section
 above and the design's §0. In the same session, `KNOWN-ISSUES.md` was

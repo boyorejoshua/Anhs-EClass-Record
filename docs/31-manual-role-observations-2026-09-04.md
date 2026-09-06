@@ -51,12 +51,62 @@ because two of them touch identity/data resolution that account would inherit.
 
 Do not start without an explicit instruction naming it.
 
-- **Sort/group by Grade Year + Section.** By far the most repeated note — independently
-  raised on Dashboard, My Classes, Students, Attendance, Academic Records, Classes &
-  Sections, Submissions, Analytics, and Reports, across Administrator, Registrar,
-  Advisory Teacher, and Subject Teacher docs. Currently these render as flat lists.
-  Well-corroborated, cross-cutting, but a UI change across many screens — a
-  right-sized future phase on its own, not a fold-in.
+- ~~**Sort/group by Grade Year + Section.**~~ **RESOLVED 2026-09-06 — sorted, not
+  grouped.** One shared comparator, `app/src/lib/ordering.ts`, now orders every list
+  in scope by grade level *numerically* then section name, and every screen named in
+  the finding calls it. 14 unit tests (`ordering.test.ts`) cover the comparator,
+  including the case the whole finding turns on — `'Grade 7'` before `'Grade 10'`,
+  which a text compare gets backwards — and `e2e/grade-section-ordering.mjs` reads
+  the rendered DOM order on four screens, because a unit test cannot catch a screen
+  that forgets to call the comparator.
+
+  **The audit changed the shape of the job.** Nine *screens* are six *components*,
+  and four of those nine are one component: `MyClasses.tsx` is My Classes,
+  Attendance, Submissions and Reports, differing only by a `purpose` prop. The rest:
+  `Dashboards.tsx`, `Students.tsx`, `RegistrarStudents.tsx` (Academic Records),
+  `ReportPicker.tsx` (Analytics and LOA Reports), `ClassesAndSections.tsx`.
+
+  **And the diagnosis was not "unsorted".** These lists were sorted, and sorted
+  *wrongly* — `rds.my_classes` orders on `c ->> 'gradeLevel'`
+  (`0014_app_data_sources.sql:117`), which is a **text** compare, and `ReportPicker`
+  sorted the fully assembled label. Both put Grade 10 ahead of Grade 7. The fix is
+  client-side and presentation-only: no contract, permission, RLS boundary or
+  grading-engine code was touched.
+
+  **No schema change was needed, and the doc had drifted in two places.**
+  `grade_levels.ordinal` (7…12) already exists and is already used correctly by the
+  setup-options contracts — but the row types these screens receive
+  (`ClassSummary`, `DirectoryStudent`, and friends) carry only `gradeLevel: string`,
+  so the ordinal is fetched and dropped on the way to the screen. Rather than run a
+  migration through several `rds.*` functions for a presentation fix, the comparator
+  parses the number out of the label **and** accepts an explicit `gradeLevelOrdinal`,
+  so threading the real ordinal through later needs no caller change. Two things the
+  finding asserted are no longer true: the **sections** table on Classes & Sections
+  was *already* correctly ordered server-side (only its classes table needed the
+  fix), and **Reports & Documents** is `readiness: 'planned'` — a SOON placeholder
+  with no list in it — so it is out of scope with nothing to sort.
+
+  **Sorted, deliberately not grouped.** The finding says "sort/group"; this sorts.
+  There is no grouped-list pattern anywhere in this codebase to match — every list is
+  a flat table or a flat run of cards, and the only sectioning device that exists is
+  the class workspace's tab seam, which is not a list. Adding grade-level headings to
+  six screens would be *inventing* a visual pattern, which is a design decision rather
+  than an ordering one. Order answers the complaint as reported; headings, if wanted,
+  are a deliberate later pass over these same call sites.
+
+  **One thing the change surfaced, worth remembering:** four e2e suites
+  (`consolidated-grades`, `custody-chain`, `guide-and-exports`, `loa-report`) failed
+  on the new order, and *correctly so* — each opened a class with
+  `.first()`, which silently meant "Grade 10 – Pearl" only because the old wrong
+  order put it first. All four now select the class by name. `custody-chain.mjs`
+  already carried a comment warning against exactly this.
+
+  The original finding, for the record: by far the most repeated note —
+  independently raised on Dashboard, My Classes, Students, Attendance, Academic
+  Records, Classes & Sections, Submissions, Analytics, and Reports, across
+  Administrator, Registrar, Advisory Teacher, and Subject Teacher docs. Currently
+  these render as flat lists. Well-corroborated, cross-cutting, but a UI change
+  across many screens — a right-sized future phase on its own, not a fold-in.
 - **Grade submission workflow gaps** (Advisory Teacher doc): once submitted, no way
   to undo/cancel before the registrar acknowledges; no visible distinction between
   "submitted, awaiting acknowledgment" and "acknowledged" (only after which it should

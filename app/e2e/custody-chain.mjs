@@ -51,7 +51,14 @@ const rowFor = (cls, period) =>
 const openSubmission = async () => {
   await page.getByRole('button', { name: /my classes/i }).first().click();
   await page.waitForTimeout(400);
-  await page.getByRole('button', { name: 'Open class' }).first().click();
+  // Pick the class BY NAME, not by position. This used to take the
+  // first card, which quietly meant "Grade 10 – Pearl, Mathematics 10"
+  // only because the list happened to be ordered that way. My Classes
+  // now orders grade level numerically, so the first card is Grade 9,
+  // and every assertion below is about Grade 10 – Pearl.
+  await page.locator('.class-card')
+    .filter({ hasText: 'Pearl' }).filter({ hasText: 'Mathematics 10' })
+    .getByRole('button', { name: 'Open class' }).click();
   await page.waitForTimeout(400);
   await page.getByRole('tab', { name: /submission/i }).click();
   await page.waitForTimeout(500);

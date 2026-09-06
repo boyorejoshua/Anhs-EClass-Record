@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { DirectoryStudent, StudentQuery } from '../data/types';
 import { Async, EmptyState, useAsync } from '../components/Async';
+import { sortByGradeThenSection } from '../lib/ordering';
 
 interface Props {
   yearId: string;
@@ -99,7 +100,15 @@ export function RegistrarStudents({ yearId, load, onOpenRecord, purpose }: Props
                   </tr>
                 </thead>
                 <tbody>
-                  {d.map((s) => (
+                  {/*
+                    This directory spans every grade, so it reads grade
+                    level, then section, then learner. The contract
+                    behind it orders by display name alone, which shows
+                    as one undifferentiated roll.
+                  */}
+                  {sortByGradeThenSection(d, (r) => ({
+                    gradeLevel: r.gradeLevel, section: r.section, tiebreak: r.displayName,
+                  })).map((s) => (
                     <tr key={s.studentId}>
                       <th scope="row">
                         {s.displayName}
