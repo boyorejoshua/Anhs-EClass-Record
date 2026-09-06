@@ -61,9 +61,13 @@ objection is **sequencing**, not feasibility.
 
 *(Investigation question 1.)*
 
-Everything below is in `supabase/migrations/0025_student_management.sql`.
+Everything below is in `supabase/migrations/0025_student_management.sql`,
+**except that `admit_student` was later replaced by
+`0041_enrollment_lifecycle.sql` § 8**, which added the namesake guard in
+§4 and a third parameter. Read 0041's version, not 0025's — the live
+signature is the one 0041 defines.
 
-### `public.admit_student(p_student jsonb, p_enrollment jsonb)`
+### `public.admit_student(p_student jsonb, p_enrollment jsonb, p_confirm_namesake boolean default false)`
 
 `SECURITY DEFINER`. The whole registrar-driven creation path, in one
 call:
@@ -71,7 +75,8 @@ call:
 1. `app.has_permission('students.write')`, else `42501`.
 2. `app.current_school_id()` must be non-null, else `42501`.
 3. First and last name required, else `23514`.
-4. **Duplicate refusal before any write** — see §4.
+4. **Duplicate refusal before any write**, then the **namesake warning**
+   unless `p_confirm_namesake` — see §4 for both.
 5. `insert into public.students (…)` — 19 columns, all read out of the
    `p_student` jsonb with `btrim`/`nullif` normalisation.
 6. `v_enrol_id := public.enrol_student(v_student_id, p_enrollment)`.
@@ -96,8 +101,8 @@ no new mechanism.
 
 **Reusable as-is, on approval:** `admit_student` end to end. An approval
 RPC executing as a registrar can call it and get student + enrolment +
-duplicate refusal + audit for free. This is the single largest piece of
-the feature and it already exists.
+identifier refusal + namesake warning + audit for free. This is the
+single largest piece of the feature and it already exists.
 
 **What a public path genuinely needs that is different:**
 
@@ -275,7 +280,18 @@ casually. Q-3.
 
 Two existing mechanisms, and they are quite different in quality.
 
-### What `admit_student` already does — exact match, refuse
+> **Corrected 2026-09-06.** This section originally said `admit_student`
+> does exact-identifier refusal and "does not help a registrar recognise
+> a returning student," and recommended building normalised-name matching
+> as new work. **That was wrong, and it understated the reuse.** It came
+> from reading `0025_student_management.sql` without checking whether a
+> later migration replaced the function — `0041_enrollment_lifecycle.sql`
+> § 8 does exactly that. The namesake guard described under "recommended"
+> below is **already built, inside `admit_student` itself**. The
+> correction is recorded here rather than silently edited because the
+> conclusion changes: Phase 3 reuses more and builds less.
+
+### What `admit_student` already does — part 1: exact match, refuse
 
 ```sql
 select st.id into v_existing
@@ -291,8 +307,37 @@ display name. There is also a partial unique index on LRN — the comment
 notes it is partial "because a learner can be admitted before one is
 issued," which is exactly the applicant's situation.
 
-This is a *refusal*, not a *match*: it stops a duplicate, it does not
-help a registrar recognise a returning student.
+This is a *refusal*: a clash on a national identifier is a certainty, so
+it raises.
+
+### What `admit_student` already does — part 2: the namesake guard
+
+Added by `0041_enrollment_lifecycle.sql` § 8, and it is the pattern this
+design needs, already written:
+
+- Matches on `app.normalise_name(first_name)` **and**
+  `app.normalise_name(last_name)`, scoped to the school, excluding
+  soft-deleted rows.
+- **Narrowed by birth date only when both sides have one** — the comment
+  is explicit that most schools admit learners without a birth date on
+  the form, so a missing date must not suppress the warning.
+- **Warns, never refuses.** Its own words: *"An identifier clash above is
+  a certainty and raises. A name clash is a SUSPICION: real namesakes
+  exist, siblings share surnames, and a hard block would leave a
+  registrar unable to admit a real learner who happens to share a name
+  with one already here."*
+- Returns rather than raising —
+  `{status: 'needs_confirmation', reason: 'namesake', message, matches[]}`
+  where each match carries `studentId`, `displayName`, `lrn`,
+  `studentNumber`, `birthDate`. The reasoning given: an exception rolls
+  the statement back and carries only a string, so the caller would have
+  to parse a message to render a comparison. *"A status the caller reads
+  is a contract."*
+- The caller re-submits with `p_confirm_namesake => true` to proceed.
+
+So the "propose, don't decide" behaviour, the candidate payload, and the
+two-step confirmation all exist. Phase 3's approval step gets them by
+calling `admit_student` — it does not reimplement them.
 
 ### What the Import Center already does — fuzzy match, offer candidates
 
@@ -321,9 +366,10 @@ their session and their RLS.
 
 ### Recommended approach
 
-Match at **review time**, not submission time, reusing
-`app.normalise_name` and the `matched/ambiguous/new` vocabulary already
-in the codebase:
+Match at **review time**, not submission time. Most of this is now a
+matter of *calling* what exists rather than writing it — the namesake
+guard above is reached automatically by `admit_student`, and the Import
+Center's `matched/ambiguous/new` vocabulary covers the rest:
 
 1. **Exact LRN** — the strongest signal. Present as "this is almost
    certainly the same learner."
@@ -350,7 +396,10 @@ isolation suite say a school cannot see another school's learners. Q-8.
 ### Reused, unchanged
 
 - `admit_student`, `enrol_student`, `update_enrollment` — the entire
-  approval-side write path
+  approval-side write path, **including the namesake guard and its
+  two-step `needs_confirmation` contract** (0041 § 8), which is the
+  duplicate-detection behaviour this feature needs and does not have to
+  build
 - `app.normalise_name`, `app.fold_accents` — matching
 - `app.write_audit` — the audit trail
 - `app.has_permission` and the `students.write` / `enrollments.write`

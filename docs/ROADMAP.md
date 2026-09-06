@@ -56,10 +56,25 @@ One thing is genuinely *pending*, and it is not code:
 The order is not arbitrary; each item's dependency is named.
 
 ### 1. Rotate demo passwords, enable leaked-password protection
-**Blocks: any real learner data.** `KNOWN-ISSUES.md` #1. A Supabase Auth
-configuration change plus seven rotations. No code, no migration, no
-test will catch it if skipped. Do this before anything that touches a
-real school.
+**Blocks: any real learner data.** `KNOWN-ISSUES.md` #1 — investigated
+2026-09-06 and now split, because the two halves need different things.
+
+**1a, rotation — Joshua, ~10 minutes, no blocker.** Seven accounts still
+carry their 2026-08-22 seed password (confirmed by bcrypt work factor,
+not by assumption). *Users* → *Reset password* on each, and his own from
+*My Account*. Deliberately not scripted: a bulk rotation means an agent
+minting and handing over live staff credentials, which is worse than the
+button that already exists.
+
+**1b, leaked-password protection — blocked on money, not effort.** It is
+**not** the "one dashboard toggle" earlier notes described. Supabase
+gates it behind **Pro Plan and above**, and the organization is on
+`free`. Closing it means upgrading the plan or consciously accepting the
+risk — a decision for Joshua, and not one an agent should make.
+
+Consequence worth seeing: because `docs/32` § 0 gates Phase 3 on this
+item, **Public Enrollment is indirectly blocked on a paid Supabase
+plan.**
 
 ### 2. ~~Create a demo learner's portal account~~ — **done 2026-09-04**
 `DEMO-0001` → `demo.student01@anhs.test`, created against production

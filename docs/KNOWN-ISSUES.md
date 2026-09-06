@@ -11,8 +11,10 @@ as a missing one.
 Bulk status as of **2026-09-05**, verified against commit `8d51d5c` and a
 database rebuilt from all 44 migrations + `seed.sql`. Amended
 **2026-09-06**: the portal-account entry was re-checked against
-production and moved to § Resolved, and #3 and #7 were re-measured. The
-rest still rests on the 2026-09-05 audit.
+production and moved to § Resolved; #3 and #7 were re-measured; and **#1
+was investigated properly and split into 1a (rotation) and 1b
+(leaked-password protection, which turns out to be blocked on a paid
+plan, not a toggle)**. The rest still rests on the 2026-09-05 audit.
 
 > **Numbering changed on 2026-09-06.** The old #2 ("no demo learner has a
 > portal account") was written from a snapshot that predated the
@@ -32,18 +34,106 @@ cosmetic, latent, or unimplemented-by-choice.
 ## Open
 
 ### 1 · Demo passwords unrotated; leaked-password protection off
-**Technical debt / security** · **High** · open since Phase 0
+**Technical debt / security** · **High** · open since Phase 0 ·
+**still open, investigated 2026-09-06 — and it is two problems, not one**
 
-Seven demo accounts still carry their original passwords, and
-leaked-password protection is disabled in Supabase Auth.
+Neither half is closed. They need different people and one of them needs
+money, so they are now tracked separately.
 
-**Must be closed before any real learner data enters the system.** This
-is the single highest-severity item in the file. It is not a code change
-— it is a Supabase Auth configuration change plus a password rotation,
-so no migration will fix it and no test will catch it.
+#### 1a · Seven accounts still on their original seed password — OPEN
 
-**Next step:** rotate all seven, enable leaked-password protection in
-the Supabase dashboard for project `wxkxdqwhefezjfmysypa`.
+**Confirmed, with a marker better than "we think it's seven."** Bcrypt
+records its work factor in the hash. Every account seeded on 2026-08-22
+carries `$2a$06$`; GoTrue re-hashes at **cost 10** whenever a password is
+actually changed through it. So a `$2a$06$` prefix is direct evidence the
+password has never been changed through the application.
+
+Proof the marker is sound, not a guess: `demo.student01@anhs.test` was
+created by SQL at cost 6 on 2026-09-04 and now reads `$2a$10$`, and the
+password set at creation no longer verifies — it was changed through the
+app, and the rehash is visible.
+
+The seven, all `$2a$06$`, all created 2026-08-22:
+
+| Account | Roles |
+|---|---|
+| `joshua@anhs.test` | owner — all six roles |
+| `admin@anhs.test` | school_admin |
+| `registrar@anhs.test` | registrar |
+| `maria@anhs.test` | teacher |
+| `juan@anhs.test` | adviser, teacher |
+| `teacher@demo.test` | teacher |
+| `learner@demo.test` | student |
+
+(`demo.student01@anhs.test` is the eighth account and is **not** in scope
+— already rotated, cost 10.)
+
+**A second problem inside this one:** cost 6 is a weak work factor —
+64 rounds against cost 10's 1024, roughly 16× cheaper to attack offline.
+Rotating through the product fixes both at once, because the reset path
+goes through GoTrue and rehashes at cost 10.
+
+**How to close it — Joshua clicks, nobody scripts.** *Users* screen as
+Administrator → *Reset password* on each account. It is an
+administrator-typed temporary password, shown in plain text on purpose
+(`Users.tsx`'s comment: a masked field the administrator cannot check is
+how a password gets mistyped and a teacher locked out), minimum 8
+characters, applied immediately with **no email sent**. It then sets
+`must_change_password: true`, so the holder is asked to replace it at
+next sign-in.
+
+This was deliberately **not** scripted in this session. A bulk rotation
+would mean an agent generating and handing over six live staff
+credentials, which is strictly worse than the button that already exists
+and is already tenant-scoped and audited.
+
+Two things to expect when doing it:
+- `joshua@anhs.test` is his own active login. **He changes that one
+  himself**, from *My Account*, not from *Users*.
+- Rotating the demo accounts sets `must_change_password` on each, so the
+  next sign-in as `maria@anhs.test` (etc.) will require setting a new
+  password before anything else. That is correct behaviour, and it is a
+  small tax on demo/testing use worth knowing about in advance.
+
+#### 1b · Leaked-password protection — OPEN, and BLOCKED ON A PAID PLAN
+
+Still disabled. Confirmed 2026-09-06 by Supabase's own security advisor:
+`auth_leaked_password_protection` — *"Leaked Password Protection
+Disabled."*
+
+**It cannot currently be enabled at all**, and the earlier description of
+it as "one dashboard toggle" (Phase 0 finding M4) is no longer accurate:
+
+> *"Leaked password protection is available on the Pro Plan and above."*
+> — Supabase docs, *Password security*
+
+Organization `zbtxetbtrhfathhtyxzu` ("boyorejoshua's Org") is on the
+**`free`** plan. So the toggle is not merely unset; it is unavailable.
+
+**This is a cost decision, not a technical task, and it is Joshua's.**
+No agent should make it. Closing 1b requires either upgrading the
+organization to Pro, or a written, deliberate acceptance that the
+platform runs without HIBP checking — which is a materially different
+posture once real learner accounts exist.
+
+Not reachable from an agent session either way: the Supabase MCP server
+exposes no auth-configuration tool, there is no Management API token or
+CLI in the environment, and `api.supabase.com` is blocked by the egress
+policy (`403` on CONNECT). Verified, not assumed.
+
+**If the plan is upgraded**, the setting lives at
+Dashboard → project `wxkxdqwhefezjfmysypa` → **Authentication →
+Providers → Email** (`/dashboard/project/wxkxdqwhefezjfmysypa/auth/providers?provider=Email`)
+→ *"Prevent the use of leaked passwords."* The same screen carries
+minimum length and required-character-class settings, which are worth
+setting at the same time and do **not** require Pro.
+
+#### Why this matters more than it did
+
+`docs/32-public-enrollment-design.md` § 0 makes closing this the gate on
+Phase 3. 1b being plan-blocked means **Public Enrollment is, indirectly,
+blocked on a paid Supabase plan** — a public signup surface with no
+leaked-password checking is close to the scenario HIBP exists for.
 
 ---
 
