@@ -112,10 +112,85 @@ Do not start without an explicit instruction naming it.
   "submitted, awaiting acknowledgment" and "acknowledged" (only after which it should
   become truly locked, reversible only by registrar rejection). Real workflow-design
   request, not a bug.
-- **"Incoming Grades" vs "Consolidated Grades"** — purpose/difference unclear to the
-  tester in both Advisory Teacher and Subject Teacher docs. Naming/discoverability
-  issue at minimum; possibly two screens doing overlapping jobs. Worth a clear written
-  answer, not necessarily a rebuild.
+- ~~**"Incoming Grades" vs "Consolidated Grades"**~~ **RESOLVED 2026-09-07 —
+  naming/discoverability only; the screens do not overlap.** The audit found no
+  functional overlap at all. They share the phrase "grades", the adviser role, and
+  two adjacent slots in the menu; they share **no columns, no contract, and no
+  grain**:
+
+  | | Incoming Grades | Consolidated Grades |
+  |---|---|---|
+  | Component | `AdviserQueue.tsx` | `ConsolidatedGrades.tsx` |
+  | Contract | `rds.adviser_queue(year)` | `rds.consolidated_grades(section, period)` |
+  | One row is | one class **submission** | one **learner** |
+  | Carries | status + custody timestamps + teacher | the computed period grade |
+  | Marks? | **none, by design** | that is all it is |
+  | Status? | that is all it is | **none** |
+  | Scope | every advised class, whole year | one section, one period |
+  | Writes? | yes — receive / forward / take back | no, read-only |
+
+  So this was left as a naming fix and nothing was merged or restructured.
+
+  **The distinction had already been decided and written down — just nowhere the
+  adviser could see it.** `docs/20-assumptions-register.md` § "Closed: adviser had no
+  way to see grades across subjects (27 Aug 2026)" states it exactly: Incoming Grades
+  "only ever shows chain-of-custody status, never marks, by design — receiving a
+  submission is acknowledging a hand-off, not reviewing it", which left the adviser
+  with no answer to "has everyone in my section actually filed a grade, and what did
+  they file", and migration 0030 plus the Consolidated Grades screen closed that. That
+  sentence appeared in no screen, no tooltip and no menu. This change puts it in front
+  of the person who needs it.
+
+  **What changed.** Each screen's `page-sub` now says what it is, what it deliberately
+  is **not**, and names the other one — matching how Academic Years explains its own
+  boundary in its own copy. Consolidated Grades also states that a dash means "not
+  filed yet, not a zero", which previously existed only as a hover `title` and is the
+  main reason the screen reads as broken on first open, when every cell is a dash.
+  Incoming Grades' empty state — exactly what the tester saw — now says the list can
+  be empty while teachers already have grades entered, and points at the other screen.
+
+  **Two defects surfaced on the way, both fixed.** (1) `AdviserQueue` was the only
+  top-level destination in the app rendering as a bare `panel` with an `<h2>` while
+  the other seventeen screens use `page` / `page-head` / `<h1 class="greeting">` — it
+  presented as a fragment of some larger screen rather than as a destination. It now
+  uses the same markup as `RegistrarQueue`, its opposite number in the chain. (2) The
+  in-app **Help** guide told the adviser to "Check the grades, then sign for them" on
+  the one screen that deliberately shows no grades. The adviser's four steps now read
+  in sequence: see the hand-offs, open Consolidated Grades for the marks, go back and
+  sign, then pass the section up.
+
+  **Names kept, deliberately.** Renaming Incoming Grades (to "Incoming Submissions",
+  say) was considered and rejected: "Consolidated Grades" is the legacy Record Book's
+  own name, carried over on purpose (`docs/legacy-function-migration-map.md` § 10),
+  and both labels appear in the principal demo checklist (`docs/28` step 7) that
+  Joshua is about to walk. Renaming a screen out from under a checklist days before a
+  demo trades one confusion for another. The labels are under-specified rather than
+  wrong, and copy fixes that where a rename would only move it. If Joshua would still
+  rather rename, the copy stands either way.
+
+  **One relationship worth recording, because it is the sharpest illustration of the
+  difference.** A grade appears on Consolidated Grades as soon as the subject teacher
+  computes and saves it — which can be well before they submit. `rds.consolidated_grades`
+  and the `period_grades_read_adviser` policy (migration 0030) filter on `is_current`
+  and the period alone and never consult submission status, while `rds.adviser_queue`
+  excludes `draft` outright. So a section can be full of marks on one screen and show
+  nothing at all on the other. That is correct and useful — knowing who already has
+  their marks in is exactly what an adviser chasing a term needs, and the custody
+  queue cannot tell them.
+
+  **A correction to this finding's own wording.** It says the question was raised "in
+  both Advisory Teacher and Subject Teacher docs". The raw notes in the appendix below
+  place it in the **Advisory Teacher doc only**; the Subject Teacher doc records "no
+  new items" beyond what the adviser doc lists. That fits the code — neither screen is
+  in the subject teacher's menu, so a subject teacher could not have seen either one.
+
+  Covered by four new e2e checks (two in `custody-chain.mjs`, two in
+  `consolidated-grades.mjs`) asserting the rendered copy, since a defect that is
+  "the screen explains nothing" can only be caught by reading what the screen renders.
+
+  The original finding, for the record: purpose/difference unclear to the tester.
+  Naming/discoverability issue at minimum; possibly two screens doing overlapping
+  jobs. Worth a clear written answer, not necessarily a rebuild.
 - **Visual polish**: Analytics and LOA Reports described as "plain"/"eye irritating"
   in light ("Standard") theme, wants color; general "fix the UI" note on My Account
   across every role (likely spacing/alignment, not confirmed functional breakage).

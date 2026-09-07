@@ -73,6 +73,30 @@ in this codebase to match, so headings would be inventing a visual
 pattern rather than fixing an order. See the resolved entry in
 `docs/31`.
 
+**The adviser's two screens now explain themselves (2026-09-07).**
+`docs/31`'s "Incoming Grades vs Consolidated Grades" finding is
+resolved, and the investigation found **no functional overlap** — they
+share no columns, no contract and no grain. Incoming Grades
+(`rds.adviser_queue`) is one row per class *submission*: status and
+custody timestamps, no marks by design, and it writes. Consolidated
+Grades (`rds.consolidated_grades`) is one row per *learner*: the
+computed period grade, no status, read-only. The distinction had already
+been decided and written down in `docs/20-assumptions-register.md`
+(27 Aug 2026) — it just appeared on no screen, in no tooltip and in no
+menu. Each screen's `page-sub` now states what it is, what it
+deliberately is not, and names the other one. Names were kept
+deliberately: "Consolidated Grades" is the legacy Record Book's own
+name, and both labels appear in the `docs/28` demo checklist Joshua is
+about to walk.
+
+Two defects surfaced while fixing it, both closed. `AdviserQueue` was
+the only top-level screen rendering as a bare `panel` with an `<h2>`
+while seventeen others use `page` / `page-head` / `<h1 class="greeting">`
+— it read as a fragment rather than a destination, and now uses the same
+markup as `RegistrarQueue`. And the in-app Help told the adviser to
+"check the grades" on the one screen that deliberately shows none; the
+adviser's four steps now read in sequence.
+
 **Phase 3.0 — Public Enrollment audit and design — complete
 (2026-09-06). No code, no schema, no migration was written.** The
 deliverable is `docs/32-public-enrollment-design.md`: the data model, the
@@ -308,7 +332,7 @@ being asked.
 
 ## Current Test Status
 
-**Re-executed 2026-09-06** after the grade/section ordering change.
+**Re-executed 2026-09-07** after the adviser-screen copy change.
 Unit, e2e, typecheck and build numbers below were observed this session;
 the SQL row is carried forward from the 2026-09-05 clean-checkout run on
 commit `8d51d5c`, because nothing in this change touches SQL.
@@ -338,6 +362,12 @@ existing suites (`consolidated-grades`, `custody-chain`,
 right to — each opened a class with `.first()`, which silently meant
 "Grade 10 – Pearl" only because the old wrong order put it first. All
 four now select the class by name.
+
+Four checks added 2026-09-07 (two in `custody-chain.mjs`, two in
+`consolidated-grades.mjs`) assert the *rendered copy* on the adviser's
+two screens — unusual for e2e and deliberate: the defect being fixed was
+"the screen explains nothing", which only a rendered read can catch
+coming back.
 
 SQL check counts: `04_lifecycle_rehearsal` 29, `05_schedule_and_tenant_security`
 15, `02_student_privacy` 13, `06_demo_workflow` 11, `03_my_classes_contract` 7,
@@ -412,10 +442,10 @@ chain, publication) is verified working against real production data.
 
 Do not start Phase 3 (Public Enrollment) or any item from `docs/31`'s
 Backlog section without an explicit instruction naming it — a positive
-demo verdict does not authorize any of that on its own. The three
-Backlog items still open are submission undo/cancel, the "Incoming
-Grades" vs "Consolidated Grades" naming question, and visual polish;
-sort/group was closed 2026-09-06.
+demo verdict does not authorize any of that on its own. The two Backlog
+items still open are submission undo/cancel and visual polish;
+sort/group was closed 2026-09-06 and the "Incoming Grades" vs
+"Consolidated Grades" naming question on 2026-09-07.
 
 If instead starting fresh, unrelated work:
 1. Read this file and the latest `docs/session-log/*.md` entry.
@@ -428,7 +458,19 @@ If instead starting fresh, unrelated work:
 
 ## Last Updated
 
-2026-09-06, grade-level/section ordering. One shared comparator,
+2026-09-07, the adviser's two screens. `docs/31`'s "Incoming Grades vs
+Consolidated Grades" finding closed as **naming only** — the audit found
+no functional overlap, so nothing was merged or restructured. The
+distinction was already decided and written in `docs/20` and simply
+never reached a screen; it now lives in each screen's own copy, each
+naming the other. Two defects found on the way and fixed: `AdviserQueue`
+was the only top-level screen not using the `page`/`h1` pattern, and
+Help told the adviser to check grades on the screen that shows none.
+Labels unchanged, deliberately — `docs/28`'s demo checklist names both.
+Verified: typecheck clean, 276 unit, 24 e2e suites (four new checks),
+production build clean.
+
+Previous entry: 2026-09-06, grade-level/section ordering. One shared comparator,
 `app/src/lib/ordering.ts`, now orders by grade level numerically then
 section across the six components behind the nine screens named in
 `docs/31` (`MyClasses` alone is four of them). Presentation only: no

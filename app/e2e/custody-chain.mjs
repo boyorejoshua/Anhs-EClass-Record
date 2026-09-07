@@ -110,6 +110,21 @@ await page.waitForTimeout(700);
 check('the adviser has an Incoming Grades screen',
   /Incoming Grades/i.test(await page.locator('body').innerText()));
 
+/*
+  Two testers independently could not tell Incoming Grades from
+  Consolidated Grades (docs/31). The distinction WAS written down — in
+  docs/20 — just nowhere the adviser could see it, so these two checks
+  assert it is now on the screen itself. They are about copy, which is
+  unusual for an e2e check and deliberate here: the defect was that the
+  screen explained nothing, and only a rendered read can catch that
+  coming back.
+*/
+const incomingSub = await page.locator('.page-sub').first().innerText();
+check('Incoming Grades says it does NOT carry the marks',
+  /not the marks|no scores/i.test(incomingSub), incomingSub.slice(0, 90));
+check('Incoming Grades points at Consolidated Grades for the marks',
+  /Consolidated Grades/.test(incomingSub));
+
 const ours = rowFor('Grade 10 – Pearl', 'Term 2');
 const receiveBtn = ours.getByRole('button', { name: 'Receive', exact: true });
 check('a Receive button is offered on our row', (await receiveBtn.count()) === 1);

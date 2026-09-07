@@ -21,6 +21,25 @@ interface Props {
  * this period yet — not zero, not an error. Distinguishing the two is
  * the entire point of a consolidated view: it is a checklist for "who
  * still owes me a grade," not a finished report card.
+ *
+ * ## Why this is not Incoming Grades
+ *
+ * Two testers independently could not tell the adviser's two screens
+ * apart (`docs/31`). They share no columns and answer different
+ * questions: Incoming Grades is one row per class SUBMISSION — status
+ * and custody timestamps, deliberately no marks, and it writes. This is
+ * one row per LEARNER — the marks, deliberately no status, read-only.
+ *
+ * A consequence worth knowing, because it is the sharpest illustration
+ * of the difference: a grade appears HERE as soon as the subject teacher
+ * computes and saves it, which can be well before they submit anything.
+ * `rds.consolidated_grades` and the `period_grades_read_adviser` policy
+ * (migration 0030) filter on `is_current` and the period alone — neither
+ * consults submission status — while `rds.adviser_queue` excludes
+ * `draft` outright. So a section can be full of grades here and show
+ * nothing at all on Incoming Grades. That is correct: knowing who has
+ * already got their marks in is precisely what an adviser chasing a
+ * term needs, and it is not something the custody queue can tell them.
  */
 export function ConsolidatedGrades({ years, loadSections, loadGrades }: Props) {
   // The ACTIVE year, not merely the first one. `years` is ordered by
@@ -62,8 +81,11 @@ export function ConsolidatedGrades({ years, loadSections, loadGrades }: Props) {
         <div>
           <h1 className="greeting">Consolidated Grades</h1>
           <p className="page-sub">
-            Every subject in one of your advisory sections, side by side, for the
-            grading period you choose.
+            The grades themselves: every subject in one of your advisory sections,
+            side by side, for the grading period you choose. A dash means that
+            subject&rsquo;s teacher has not filed a grade for that learner yet
+            &mdash; it is not a zero. For who has handed their section over and
+            what you still have to sign for, open <strong>Incoming Grades</strong>.
           </p>
         </div>
       </div>

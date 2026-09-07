@@ -147,9 +147,9 @@ const ROLE_GUIDES: Array<{ id: HelpBlock; for: Role[]; role: string; who: string
     role: 'If you are the adviser',
     who: 'You look after one section, and every subject teacher sends that section\'s grades to you.',
     steps: [
-      'Open Incoming Grades. Each subject teacher who has finished a term appears here.',
-      'Check the grades, then sign for them. Signing tells the teacher you have them — after that they cannot change the term without asking you.',
-      'Consolidated Grades shows your whole section, every subject in one table. This is the view that replaces the adviser\'s summary sheet.',
+      'Open Incoming Grades. Each subject teacher who has finished a term appears here. It shows how far along each hand-off is, not the marks — receiving is signing that a record arrived, not reviewing it.',
+      'To see the marks, open Consolidated Grades: your whole section, every subject in one table. This is the view that replaces the adviser\'s summary sheet, and a dash there means that teacher has not filed a grade yet.',
+      'Back on Incoming Grades, sign for each one. Signing tells the teacher you have them — after that they cannot change the term without asking you.',
       'When the section is complete, pass it to the registrar.',
     ],
   },

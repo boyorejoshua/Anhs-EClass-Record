@@ -38,6 +38,25 @@ function when(iso: string | null): string | null {
  * teacher's marks here and has no Approve button. Returning a record for
  * correction stays with the registrar, who holds `grades.return`.
  *
+ * ## Why this is not Consolidated Grades
+ *
+ * Two testers independently could not tell these two adviser screens
+ * apart (`docs/31`), and the reason is that the distinction was written
+ * down in `docs/20-assumptions-register.md` and nowhere the adviser can
+ * see it. They answer different questions and share no columns:
+ *
+ *   - **here** — one row per class submission: who has handed their
+ *     section's grades over, and where each one sits in the chain.
+ *     `rds.adviser_queue`, status and timestamps only, **no marks**,
+ *     and it WRITES (receive / forward / take back).
+ *   - **Consolidated Grades** — one row per learner, one column per
+ *     subject: the computed period grade itself.
+ *     `rds.consolidated_grades`, marks only, **no status**, read-only.
+ *
+ * So the page copy below now says what this screen is *not*, and names
+ * the other one. A label alone could not carry that: "Incoming Grades"
+ * promises marks this screen deliberately withholds.
+ *
  * Which buttons appear is decided by the status, and the database
  * refuses anything else regardless — a modified client gains nothing by
  * rendering a button it should not have.
@@ -64,17 +83,30 @@ export function AdviserQueue({ yearId, load, actions, onOpenClass }: Props) {
   }, [retry]);
 
   return (
-    <div className="panel">
-      <div className="panel-head">
+    /*
+      A `page`, not a bare `panel`. This screen was the only top-level
+      destination in the app rendering as a panel with an <h2> while the
+      other seventeen use page / page-head / <h1 class="greeting">, so it
+      read as a fragment of some larger screen rather than as the
+      adviser's own desk. Same markup vocabulary as RegistrarQueue, which
+      is this screen's opposite number in the chain.
+    */
+    <div className="page">
+      <div className="page-head">
         <div>
-          <h2>Incoming Grades</h2>
+          <h1 className="greeting">Incoming Grades</h1>
           <p className="page-sub">
-            Grades submitted by the subject teachers in your advisory sections.
-            Receive each one, then forward the section to the registrar.
+            Who has handed their section&rsquo;s grades to you, and how far along
+            the chain each one is. Receive each submission, then forward the
+            section to the registrar. This screen tracks the hand-off, not the
+            marks &mdash; receiving is signing that a record arrived, not
+            reviewing it, so no scores appear here. To see the grades
+            themselves, open <strong>Consolidated Grades</strong>.
           </p>
         </div>
       </div>
 
+      <div className="panel">
       {error && (
         <div className="err-banner" role="alert">
           <span>{error}</span>
@@ -85,8 +117,10 @@ export function AdviserQueue({ yearId, load, actions, onOpenClass }: Props) {
       <Async state={state} retry={retry} rows={6}>
         {(rows) => (rows.length === 0 ? (
           <EmptyState title="Nothing has been submitted yet">
-            When a subject teacher submits grades for one of your sections,
-            it appears here for you to receive.
+            When a subject teacher submits grades for one of your sections, it
+            appears here for you to receive. Until then this list stays empty
+            even though the teachers may already have grades entered &mdash;
+            Consolidated Grades shows you those.
           </EmptyState>
         ) : (
           <div className="tbl-wrap">
@@ -186,6 +220,7 @@ export function AdviserQueue({ yearId, load, actions, onOpenClass }: Props) {
           </div>
         ))}
       </Async>
+      </div>
     </div>
   );
 }

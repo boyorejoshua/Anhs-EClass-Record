@@ -80,6 +80,17 @@ check('the screen does not blank-screen or error', fails.length === 0,
 check('the header period selector stands down here',
   (await page.locator('#period-select:visible').count()) === 0);
 
+/*
+  The other half of the docs/31 naming finding — see the note in
+  custody-chain.mjs. A dash in this table means "not filed yet", not
+  zero, and that meaning used to live only in a hover tooltip.
+*/
+const consSub = await page.locator('.page-sub').first().innerText();
+check('Consolidated Grades explains that a dash is not a zero',
+  /not a zero/i.test(consSub), consSub.slice(0, 90));
+check('Consolidated Grades points at Incoming Grades for the hand-off',
+  /Incoming Grades/.test(consSub));
+
 const sectionOptions = await page.getByLabel('Section').locator('option').allInnerTexts();
 const realSections = sectionOptions.filter((s) => !/^choose/i.test(s));
 check('the only advisory section is offered',
