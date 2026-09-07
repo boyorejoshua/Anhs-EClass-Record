@@ -97,6 +97,34 @@ markup as `RegistrarQueue`. And the in-app Help told the adviser to
 "check the grades" on the one screen that deliberately shows none; the
 adviser's four steps now read in sequence.
 
+**Grade Submissions now says what it is, and why the Administrator has
+it (2026-09-07).** `docs/31`'s open clarification question — asked
+independently by two testers — is answered. It is an **action** screen,
+not a read-only view: `RegistrarQueue` over `rds.submission_queue`, with
+receive / approve / finalize / publish and return throughout. The fact
+worth knowing, previously written nowhere: that contract excludes
+`draft`, `submitted` **and** `received`, so **nothing reaches the screen
+until the adviser has forwarded it** — the usual explanation for an
+empty queue while teachers insist they submitted. It is one component
+for both roles (`nav.ts` defines the item once in `REGISTRAR`;
+`school_admin` spreads that array; `App.tsx` does not branch on role),
+and the two roles render **byte-identically** — verified in a browser,
+not assumed. The Administrator has it because `seed.sql` grants
+`school_admin` every permission via a bare cross join, so it held all
+five workflow rights before any menu offered them; `docs/20` § "The
+administrator's reach" records the school's own request for that.
+Three screens carry "submission" in their name and they are three
+different desks: **Submissions** (own classes, going out),
+**Incoming Grades** (arriving for your section), **Grade Submissions**
+(what advisers forwarded, plus the last four signatures). Only the third
+can approve, finalize or publish.
+
+⚠️ **Left open deliberately, for Joshua:** an Administrator can approve,
+finalize *and* publish — the same account that configures the school.
+`docs/20` flagged this separation-of-duties question when the access was
+widened and it is unchanged; the permission rows already support either
+answer. A naming fix does not settle it and this session did not.
+
 **Phase 3.0 — Public Enrollment audit and design — complete
 (2026-09-06). No code, no schema, no migration was written.** The
 deliverable is `docs/32-public-enrollment-design.md`: the data model, the
@@ -332,7 +360,7 @@ being asked.
 
 ## Current Test Status
 
-**Re-executed 2026-09-07** after the adviser-screen copy change.
+**Re-executed 2026-09-07** after the Grade Submissions copy change.
 Unit, e2e, typecheck and build numbers below were observed this session;
 the SQL row is carried forward from the 2026-09-05 clean-checkout run on
 commit `8d51d5c`, because nothing in this change touches SQL.
@@ -367,7 +395,8 @@ Four checks added 2026-09-07 (two in `custody-chain.mjs`, two in
 `consolidated-grades.mjs`) assert the *rendered copy* on the adviser's
 two screens — unusual for e2e and deliberate: the defect being fixed was
 "the screen explains nothing", which only a rendered read can catch
-coming back.
+coming back. Four more followed on 2026-09-07 for Grade Submissions —
+three in `subjects-and-admin.mjs`, one in `guide-and-exports.mjs`.
 
 SQL check counts: `04_lifecycle_rehearsal` 29, `05_schedule_and_tenant_security`
 15, `02_student_privacy` 13, `06_demo_workflow` 11, `03_my_classes_contract` 7,
@@ -445,7 +474,9 @@ Backlog section without an explicit instruction naming it — a positive
 demo verdict does not authorize any of that on its own. The two Backlog
 items still open are submission undo/cancel and visual polish;
 sort/group was closed 2026-09-06 and the "Incoming Grades" vs
-"Consolidated Grades" naming question on 2026-09-07.
+"Consolidated Grades" naming question on 2026-09-07. `docs/31`'s
+"Needs a one-line clarification" list is down to three: they all still
+need Joshua, not code.
 
 If instead starting fresh, unrelated work:
 1. Read this file and the latest `docs/session-log/*.md` entry.
@@ -458,7 +489,21 @@ If instead starting fresh, unrelated work:
 
 ## Last Updated
 
-2026-09-07, the adviser's two screens. `docs/31`'s "Incoming Grades vs
+2026-09-07, Grade Submissions. Answered `docs/31`'s open clarification
+question at code level: an action screen (`RegistrarQueue` over
+`rds.submission_queue`) whose contract excludes everything the adviser
+has not forwarded — one component, offered to two roles that render it
+byte-identically, because `seed.sql` grants `school_admin` every
+permission the registrar holds. Explanation added to the screen, the
+heading matched to its menu label, and Help's registrar guide retitled
+so an administrator is not told they are reading somebody else's job.
+Left open on purpose: whether an administrator *should* be able to
+approve, finalize and publish is a separation-of-duties policy question
+for Joshua, flagged in `docs/20` when the access was widened.
+Verified: typecheck clean, 276 unit, 24 e2e suites (four new checks),
+production build clean.
+
+Previous entry: 2026-09-07, the adviser's two screens. `docs/31`'s "Incoming Grades vs
 Consolidated Grades" finding closed as **naming only** — the audit found
 no functional overlap, so nothing was merged or restructured. The
 distinction was already decided and written in `docs/20` and simply

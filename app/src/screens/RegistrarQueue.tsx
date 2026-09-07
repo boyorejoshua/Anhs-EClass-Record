@@ -52,6 +52,38 @@ function actionable(r: SubmissionRow): boolean {
  * enforces (app.assert_transition, migration 0010). The UI uses it to
  * decide what to OFFER; the refusal itself happens in the database, so a
  * modified client gains nothing by showing a button it should not.
+ *
+ * ## The third desk, and why the Administrator has one too
+ *
+ * Two testers independently asked what this screen is and why BOTH the
+ * registrar and the administrator have it (`docs/31`). Three screens in
+ * this app have "submission" in their name and they are three different
+ * things, one per desk the record crosses:
+ *
+ *   1. **Submissions** (teacher, adviser) — a class picker into the
+ *      class workspace's Submission tab. Your OWN classes, going out.
+ *   2. **Incoming Grades** (adviser) — `rds.adviser_queue`. Other
+ *      teachers' submissions arriving for your advisory section.
+ *   3. **Grade Submissions** — here. `rds.submission_queue`, which
+ *      excludes `draft`, `submitted` AND `received`: nothing reaches
+ *      this screen until the ADVISER has forwarded it. A registrar
+ *      staring at an empty queue while teachers insist they submitted
+ *      is usually looking at records still sitting on the adviser's
+ *      desk, and the page copy below now says so.
+ *
+ * Only this screen carries `completeness` and `studentCount`; only this
+ * screen offers return / approve / finalize / publish.
+ *
+ * The administrator sees exactly this screen, with exactly these
+ * powers, and that is deliberate rather than a leak: `seed.sql` grants
+ * `school_admin` EVERY permission (a bare cross join over
+ * `public.permissions`), so it already held all five workflow rights
+ * before any menu offered them. The school asked for it in those words
+ * — "administrator should have the same access as the registrar" — and
+ * `docs/20-assumptions-register.md` § "The administrator's reach"
+ * records both the decision and the consequence it flagged at the time:
+ * an administrator can approve, finalize AND publish. If ANHS ever
+ * wants separation of duties, that is a policy change, not a bug.
  */
 export function RegistrarQueue({ yearId, load, actions, onOpenClass }: Props) {
   const [state, retry] = useAsync(() => load(yearId), [yearId]);
@@ -103,8 +135,19 @@ export function RegistrarQueue({ yearId, load, actions, onOpenClass }: Props) {
     <div className="page">
       <div className="page-head">
         <div>
-          <h1 className="greeting">Grade submissions</h1>
+          {/* "Grade Submissions" — matching the menu label exactly. It
+              read "Grade submissions" here, which is a small thing until
+              you are the person checking you clicked the right item. */}
+          <h1 className="greeting">Grade Submissions</h1>
           <p className="page-sub">
+            The registrar&rsquo;s end of the chain: every section an adviser has
+            forwarded, and the signatures that turn it into a learner&rsquo;s
+            record &mdash; receive, approve, finalize, then publish. Nothing
+            appears here until the adviser has forwarded it, so a class a teacher
+            has already submitted is still on the adviser&rsquo;s desk, not lost.
+            Publishing is the last step and the only one learners ever see.
+          </p>
+          <p className="page-sub faint">
             {counts
               ? `${counts.submitted ?? 0} awaiting review · ${counts.approved ?? 0} approved · ${counts.finalized ?? 0} to publish`
               : 'Loading…'}

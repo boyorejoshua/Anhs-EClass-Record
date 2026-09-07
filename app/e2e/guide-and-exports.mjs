@@ -64,6 +64,11 @@ for (const role of ['Subject', 'Advisory', 'Registrar', 'Administrator', 'Studen
 const guide = await body();
 check('6. the guide covers the adviser', /If you are the adviser/i.test(guide));
 check('7. the guide covers the registrar', /If you are the registrar/i.test(guide));
+// docs/31 asked why the Administrator has Grade Submissions. Part of the
+// answer is that the app told them their own guide was the registrar's.
+check('7b. and names the administrator, whose guide this also is',
+  /If you are the registrar or the administrator/i.test(guide),
+  'school_admin holds every registrar permission; the heading now says so');
 check('8. the guide covers the learner', /If you are a learner/i.test(guide));
 /* ---- 9. and each role reads ITS OWN part first ----------------------- */
 /*

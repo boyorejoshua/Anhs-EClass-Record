@@ -87,6 +87,24 @@ check('5. Grade Submissions opens for the administrator',
   !/not available/i.test(await page.locator('body').innerText()),
   'a menu entry that renders NotAvailable would be the same defect wearing a label');
 
+/*
+  docs/31: two testers independently asked what this screen is and why
+  the administrator has it. The page-sub used to be a bare counts line —
+  "0 awaiting review · 0 approved · 0 to publish" — so the screen never
+  said what it was for. These assert the explanation is on the screen,
+  not only in docs/20. Copy checks, like the pair in custody-chain.mjs
+  and consolidated-grades.mjs: a screen that explains nothing can only
+  be caught by reading what it renders.
+*/
+const queueSub = await page.locator('.page-sub').first().innerText();
+check('5a. Grade Submissions says what the screen is for',
+  /forwarded/i.test(queueSub) && /publish/i.test(queueSub), queueSub.slice(0, 90));
+check('5b. and explains why a queue can look empty — it is still with the adviser',
+  /until the adviser/i.test(queueSub), queueSub.slice(0, 120));
+check('5c. the heading matches the menu label exactly',
+  (await page.locator('h1.greeting').innerText()) === 'Grade Submissions',
+  await page.locator('h1.greeting').innerText());
+
 /* ---- 6-8. the subject list ------------------------------------------ */
 await page.getByRole('button', { name: /^School Setup$/ }).first().click();
 await page.waitForTimeout(900);

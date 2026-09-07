@@ -283,10 +283,83 @@ Do not start without an explicit instruction naming it.
   transfer.** Could be real seed/fixture data doing exactly what it's supposed to for
   a different demo learner than expected, or a genuine display-logic issue. Needs the
   specific learner identified before it's actionable.
-- **"Why does Administrator have Grade Submissions?" / "Why does Registrar have Grade
-  Submissions?"** — asked independently in two docs. Needs one real, code-level answer
-  (what does that menu item actually show for each role — a submission action, or a
-  read-only view of what's been submitted?), not a guess from either of us.
+- ~~**"Why does Administrator have Grade Submissions?" / "Why does Registrar have
+  Grade Submissions?"**~~ **ANSWERED 2026-09-07, and the answer is now on the screen.**
+
+  **What it shows.** `RegistrarQueue.tsx` reading `rds.submission_queue(year)` — an
+  *action* screen, not a read-only view. Every section an adviser has forwarded, with
+  the class, teacher, period, a completeness figure (`scored/total`) and status, plus
+  the five signatures that carry a record the rest of the way: **receive → approve →
+  finalize → publish**, with **return** available throughout. Which buttons appear
+  comes from the same transition table the database enforces
+  (`app.assert_transition`, 0010); the database refuses anything else regardless.
+
+  **The single most useful fact about it, previously written nowhere:**
+  `rds.submission_queue` excludes `draft`, `submitted` **and** `received`
+  (`0022_receipt_chain_and_recall.sql:486`). **Nothing reaches this screen until the
+  adviser has forwarded it.** A registrar looking at an empty queue while teachers
+  insist they have submitted is looking at records still sitting on the adviser's
+  desk. That is now the second sentence of the screen's own copy.
+
+  **Same component for both roles — verified, not assumed.** `nav.ts` defines the item
+  once, in the `REGISTRAR` const, and `school_admin` is built as
+  `[...REGISTRAR.filter(…), …administration]`, so it is literally the same object.
+  `App.tsx`'s `case 'queue'` does not branch on role. Rendered side by side in a
+  browser, the two roles' screens are **byte-identical** — same heading, same subtitle,
+  same columns, same row count, same buttons.
+
+  **Why the Administrator has it — decided, documented, and at the school's request.**
+  `seed.sql` grants `school_admin` **every** permission (a bare
+  `cross join public.permissions`, no filter), so it already held `grades.return`,
+  `grades.approve`, `grades.finalize` and `grades.publish` before any menu offered
+  them. `docs/20-assumptions-register.md` § "The administrator's reach" records the
+  school's own words — *"administrator should have the same access as the registrar"*
+  — and notes that the permissions were never the problem: **only the menu disagreed**,
+  withholding Grade Submissions, Students and Academic Records from an account fully
+  entitled to all three. Showing it was the fix, not the defect.
+
+  **This is not the trio it looked like — it is three desks.** Three screens carry
+  "submission" in their name and they are three different components, one per desk the
+  record crosses:
+
+  | Screen | Roles | Component / contract | It is |
+  |---|---|---|---|
+  | **Submissions** | teacher, adviser | `MyClasses` → class workspace Submission tab | your OWN classes, going out |
+  | **Incoming Grades** | adviser | `AdviserQueue` / `rds.adviser_queue` | other teachers' work arriving for your section |
+  | **Grade Submissions** | registrar, admin | `RegistrarQueue` / `rds.submission_queue` | what advisers have forwarded, and the last four signatures |
+
+  Only the third carries `completeness` and `studentCount`; only the third can approve,
+  finalize or publish. The adviser is the one role holding two of the three, which is
+  why the adviser doc is where the confusion was recorded.
+
+  **What changed.** The screen's `page-sub` was a bare counts line —
+  *"0 awaiting review · 0 approved · 0 to publish"* — so it never said what it was for;
+  the counts now sit on their own line beneath a real explanation. The heading read
+  "Grade submissions" while the menu said "Grade Submissions", now matched. And in
+  **Help**, an administrator's own guide was headed *"If you are the registrar"* —
+  the app itself telling them they were looking at somebody else's job, which is a
+  fair part of why the question got asked. It now reads *"If you are the registrar or
+  the administrator"* and says plainly that an administrator holds everything a
+  registrar holds. The registrar's Grade Submissions step also now names the
+  forwarded-only rule.
+
+  **⚠️ One thing this does NOT settle, and it is Joshua's call, not a naming fix.**
+  An Administrator can approve, finalize **and** publish grades — the same account
+  that configures the school. `docs/20` flagged exactly this when the access was
+  widened: *"If ANHS later wants separation of duties — the person who publishes not
+  being the person who configures — that is a policy decision to revisit, and the
+  permission rows already support it."* If the testers' question was really *"should*
+  an administrator have this?" rather than *"why does* it appear?", that is a live
+  policy question, it is unchanged by this session, and the permission rows can
+  express either answer. Nothing here pre-empts it.
+
+  Covered by four new e2e checks — three in `subjects-and-admin.mjs` on the screen's
+  rendered copy and heading, one in `guide-and-exports.mjs` on the guide heading.
+
+  The original question, for the record: asked independently in two docs. Needs one
+  real, code-level answer (what does that menu item actually show for each role — a
+  submission action, or a read-only view of what's been submitted?), not a guess from
+  either of us.
 
 ---
 

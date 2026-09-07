@@ -160,12 +160,12 @@ const ROLE_GUIDES: Array<{ id: HelpBlock; for: Role[]; role: string; who: string
     // administrator's four moves too.
     id: 'registrar',
     for: ['registrar', 'school_admin'],
-    role: 'If you are the registrar',
-    who: 'You set the school year up, and you are the last signature before a grade becomes part of a learner\'s record.',
+    role: 'If you are the registrar or the administrator',
+    who: 'You set the school year up, and you are the last signature before a grade becomes part of a learner\'s record. An administrator holds everything a registrar holds — the school asked for that — so both of you work from these four moves.',
     steps: [
       'Sections, classes and subjects are yours to create. Do this before a term starts — a teacher cannot enter grades for a class that does not exist.',
       'Students is where a learner is admitted, enrolled, transferred between sections, or withdrawn. Nothing is ever deleted; a withdrawal is recorded with the reason.',
-      'Grade Submissions lists everything advisers have passed up. Receive it, then approve or return it. Returning it asks for a reason, and the teacher sees that reason.',
+      'Grade Submissions lists everything advisers have passed up — and only that. A class the teacher has submitted but the adviser has not yet forwarded does not reach you, which is the usual answer to an empty queue. Receive it, then approve or return it. Returning it asks for a reason, and the teacher sees that reason.',
       'Publishing is the last step, and it is the only one learners can see. Until you publish, a learner sees nothing — not a draft, not an approved grade.',
     ],
   },
