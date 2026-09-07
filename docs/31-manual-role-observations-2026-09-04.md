@@ -107,11 +107,82 @@ Do not start without an explicit instruction naming it.
   Administrator, Registrar, Advisory Teacher, and Subject Teacher docs. Currently
   these render as flat lists. Well-corroborated, cross-cutting, but a UI change
   across many screens — a right-sized future phase on its own, not a fold-in.
-- **Grade submission workflow gaps** (Advisory Teacher doc): once submitted, no way
-  to undo/cancel before the registrar acknowledges; no visible distinction between
-  "submitted, awaiting acknowledgment" and "acknowledged" (only after which it should
-  become truly locked, reversible only by registrar rejection). Real workflow-design
-  request, not a bug.
+- ~~**Grade submission workflow gaps**~~ **ANSWERED 2026-09-07 — both halves already
+  existed; the investigation found and fixed a different bug instead.**
+
+  **Self-undo before acknowledgment: already built, since migration 0022.**
+  `public.recall_grades` returns a submission to `draft` and reopens editing. It is
+  surfaced as a **Recall {period}** button on the class Submission tab, offered only
+  when `canRecall(status)`.
+
+  **"Acknowledged" is the ADVISER's `received_at`** — not the registrar's
+  `registrar_received_at`, and no new state was needed. The transition table is
+  explicit: `submitted → ['draft', 'received', 'returned']`, where `'draft'` *is* the
+  recall, and `canRecall(st)` is `st === 'submitted'` — true for exactly one status out
+  of ten. That is precisely the window in which nobody has taken responsibility for the
+  record. From `received` onward the only way back is the registrar's `return`,
+  untouched.
+
+  **Which also answers "what would an undo have to reverse?" — nothing.** Because
+  recall is legal *only* from `submitted`, there is by construction no `received_at`,
+  `forwarded_at` or `registrar_received_at` to unwind. `recall_grades` clears
+  `submitted_by`/`submitted_at`, writes an audit row, and touches no other receipt
+  column. Three independent guards: the permission + `teaches_class` check, an explicit
+  `v_from <> 'submitted'` refusal written for a person (*"this period is already with
+  the class adviser and can no longer be recalled; ask for it to be returned instead"*),
+  and `app.assert_transition`.
+
+  **The visible distinction was already there too.** `STATUS_MEANING` renders on the
+  Submission tab: `submitted` → *"Sent to the class adviser, who has not yet received
+  it. You can still recall it."*; `received` → *"The class adviser has received it.
+  Editing is locked and it can no longer be recalled — ask the adviser to return it."*
+  Alongside it, a three-step chain-of-custody list with real timestamps names who has
+  and has not signed. `e2e/custody-chain.mjs` has walked the whole boundary in a real
+  browser since 0022, including asserting the Recall button *disappears* once the
+  adviser signs.
+
+  **Grade Entry already autosaves, so that half scoped down as anticipated** — debounced
+  700 ms, batched, per dirty cell, with a `SaveIndicator` reading *No changes / Saving… /
+  Saved 3s ago / Not saved — retry* and a Retry that keeps the values in the inputs. No
+  new save mechanism was written.
+
+  **⚠️ What the investigation DID find — a real bug, now fixed.** Grade Entry showed
+  *"Saved just now"* and then **showed the cell empty** after leaving the tab and coming
+  back. `App` fetches the gradebook once per class+period and `ClassWorkspace` renders
+  `{tab === 'gradebook' && <Gradebook/>}`, so leaving unmounts the grid and returning
+  re-seeds it from the pre-edit snapshot. The value was on the server the whole time —
+  reopening the class showed it — but the screen contradicted the save indicator, which
+  is worse than having no indicator. Caught by driving the path, not by review. A save
+  now marks the cached copy stale and re-entering the tab refetches once.
+
+  **Three smaller things fixed with it.** (1) Pending edits are flushed on unmount
+  rather than left to a timer racing an unmounted component. (2) A `beforeunload` guard
+  while work is genuinely outstanding — which in practice means a *failed* save, since
+  the debounce case is now flushed. (3) `Gradebook` had declared `onDirtyChange`, called
+  it in four places, and **nobody ever passed it** — the count was computed and thrown
+  away, AGENTS.md 8 in mirror image. It now drives an unsaved-count badge on the Grade
+  Entry tab, reusing the same `tab-count` badge the Submission tab already uses, and the
+  count appears in the indicator (*"Not saved — 3 changes"*) so a teacher can tell one
+  stray cell from a lost column.
+
+  Covered by nine new e2e checks (`save-and-undo.mjs`) and nine new unit tests —
+  `saveLabel` extracted as a pure function so the wording is testable in a node
+  environment, plus three tests pinning the undo boundary: that it ends at the
+  adviser's signature and not the registrar's, that exactly one status out of the whole
+  table is recallable (checked exhaustively, so a status added later cannot silently
+  widen the window), and that undo never needs to unwind an adviser or registrar action.
+
+  **Still open, and deliberately untouched:** the doc's third clause — *"no visible
+  distinction between 'submitted, awaiting acknowledgment' and 'acknowledged'"* — is
+  satisfied on the **Submission tab**, which is where the teacher acts. It is *not*
+  surfaced on the My Classes card list, where a teacher scanning several classes still
+  sees only a status badge. That is a presentation change across a shared component and
+  was not asked for here.
+
+  The original finding, for the record: once submitted, no way to undo/cancel before the
+  registrar acknowledges; no visible distinction between "submitted, awaiting
+  acknowledgment" and "acknowledged" (only after which it should become truly locked,
+  reversible only by registrar rejection). Real workflow-design request, not a bug.
 - ~~**"Incoming Grades" vs "Consolidated Grades"**~~ **RESOLVED 2026-09-07 —
   naming/discoverability only; the screens do not overlap.** The audit found no
   functional overlap at all. They share the phrase "grades", the adviser role, and

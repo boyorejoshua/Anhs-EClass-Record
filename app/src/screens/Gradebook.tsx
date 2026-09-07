@@ -12,6 +12,13 @@ interface Props {
   data: GradebookData;
   onSaveScores: (edits: ScoreEdit[]) => Promise<{ written: number }>;
   onDirtyChange?: (dirty: number) => void;
+  /**
+   * A save reached the server, so any cached copy of this gradebook the
+   * parent is holding is now out of date. See the note in
+   * `ClassWorkspace` — without this, leaving the tab and returning shows
+   * a teacher the values from BEFORE their edit.
+   */
+  onSaved?: () => void;
   /** Named so an unstarted period can say WHICH period is unstarted. */
   periodName?: string;
   /** Sends the teacher to Setup, where assessments are actually created. */
@@ -30,7 +37,7 @@ interface Props {
  * with one grid where bulk is a MODE, not a page.
  */
 export function Gradebook({
-  data, onSaveScores, onDirtyChange, periodName, onGoSetup,
+  data, onSaveScores, onDirtyChange, onSaved, periodName, onGoSetup,
 }: Props) {
   const { scheme, assessments, roster, editable } = data;
 
@@ -43,6 +50,14 @@ export function Gradebook({
   const [onlyGaps, setOnlyGaps] = useState(false);
 
   const dirty = useRef<Set<string>>(new Set());
+  /*
+    `dirty` is a ref because the debounced timer reads it without wanting
+    a re-render per keystroke. But "is there unsaved work" has to drive an
+    EFFECT (the leave guard below) and a badge, and an effect cannot
+    depend on a ref. So the count is mirrored into state through
+    `markDirty`, which is now the only place either is written.
+  */
+  const [unsaved, setUnsaved] = useState(0);
   // Remembers the last rendered grade per learner so a recomputed value
   // can pulse once. Without it the number changes silently three columns
   // away from where the teacher is typing and the causal link is lost.
@@ -50,11 +65,18 @@ export function Gradebook({
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gridRef = useRef<HTMLTableElement>(null);
 
+  /** The ONLY place `dirty` and its mirrors are written. */
+  const syncDirty = useCallback(() => {
+    setUnsaved(dirty.current.size);
+    onDirtyChange?.(dirty.current.size);
+  }, [onDirtyChange]);
+
   useEffect(() => {
     setScores(data.scores);
     dirty.current.clear();
+    syncDirty();
     setSaveState('idle');
-  }, [data.classId, data.periodId, data.scores]);
+  }, [data.classId, data.periodId, data.scores, syncDirty]);
 
   /* ---------------------------------------------------------------- *
    * Columns — only components that actually have assessments, so an
@@ -143,48 +165,86 @@ export function Gradebook({
   const scoresRef = useRef(scores);
   useEffect(() => { scoresRef.current = scores; }, [scores]);
 
+  /**
+   * Send the dirty cells now.
+   *
+   * Split out of the debounce so it can also be called on the way OUT —
+   * see the unmount flush below. Switching tabs unmounts this component
+   * (`ClassWorkspace` renders `{tab === 'gradebook' && <Gradebook/>}`),
+   * and a pending 700ms timer plus a discarded `scores` state is exactly
+   * how a teacher's last cell disappears.
+   */
+  const saveNow = useCallback(() => {
+    // Post only the dirty cells. Snapshot the keys first: more edits
+    // may arrive while the request is in flight, and those belong to
+    // the next batch, not this one.
+    const batch = [...dirty.current];
+    if (batch.length === 0) { setSaveState('idle'); return; }
+
+    const edits: ScoreEdit[] = batch.flatMap((key) => {
+      const [ceId, assessmentId] = key.split(':');
+      if (!ceId || !assessmentId) return [];
+      const cell = scoresRef.current[ceId]?.[assessmentId];
+      return [{
+        classEnrollmentId: ceId,
+        assessmentId,
+        raw: cell?.raw ?? null,
+        isExcused: cell?.isExcused ?? false,
+      }];
+    });
+
+    void onSaveScores(edits)
+      .then(() => {
+        for (const k of batch) dirty.current.delete(k);
+        setSaveState('saved');
+        setSavedAt(new Date());
+        syncDirty();
+        onSaved?.();
+      })
+      .catch((e: unknown) => {
+        // Keep the values in the inputs and keep them dirty, so a
+        // retry re-sends them. Losing a teacher's typing because a
+        // request failed is the one unforgivable bug here.
+        setSaveState('error');
+        setSaveError(e instanceof Error ? e.message : 'Could not save.');
+      });
+  }, [onSaveScores, syncDirty, onSaved]);
+
   const scheduleSave = useCallback(() => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     setSaveState('saving');
     setSaveError(null);
-
-    saveTimer.current = setTimeout(() => {
-      // Post only the dirty cells. Snapshot the keys first: more edits
-      // may arrive while the request is in flight, and those belong to
-      // the next batch, not this one.
-      const batch = [...dirty.current];
-      if (batch.length === 0) { setSaveState('idle'); return; }
-
-      const edits: ScoreEdit[] = batch.flatMap((key) => {
-        const [ceId, assessmentId] = key.split(':');
-        if (!ceId || !assessmentId) return [];
-        const cell = scoresRef.current[ceId]?.[assessmentId];
-        return [{
-          classEnrollmentId: ceId,
-          assessmentId,
-          raw: cell?.raw ?? null,
-          isExcused: cell?.isExcused ?? false,
-        }];
-      });
-
-      void onSaveScores(edits)
-        .then(() => {
-          for (const k of batch) dirty.current.delete(k);
-          setSaveState('saved');
-          setSavedAt(new Date());
-          onDirtyChange?.(dirty.current.size);
-        })
-        .catch((e: unknown) => {
-          // Keep the values in the inputs and keep them dirty, so a
-          // retry re-sends them. Losing a teacher's typing because a
-          // request failed is the one unforgivable bug here.
-          setSaveState('error');
-          setSaveError(e instanceof Error ? e.message : 'Could not save.');
-        });
-    }, 700);
-  }, [onSaveScores, onDirtyChange]);
+    saveTimer.current = setTimeout(saveNow, 700);
+  }, [saveNow]);
 
   const retrySave = useCallback(() => { scheduleSave(); }, [scheduleSave]);
+
+  /*
+    Two ways a teacher can leave with work not yet on the server, and
+    they need different answers.
+
+    1. UNMOUNT (switching tab, closing the class). Recoverable without
+       asking: flush the pending batch instead of warning about it. A
+       dialog for something the app can simply finish is a nag.
+    2. CLOSING or RELOADING the page. Nothing can be flushed reliably
+       there, so this is the one case that warrants the browser's own
+       "leave site?" prompt — and only while work is genuinely
+       outstanding, which in practice means a save that FAILED, since a
+       pending debounce is covered by (1).
+  */
+  const flushRef = useRef(saveNow);
+  useEffect(() => { flushRef.current = saveNow; }, [saveNow]);
+  useEffect(() => () => {
+    if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
+    if (dirty.current.size > 0) flushRef.current();
+  }, []);
+
+  useEffect(() => {
+    if (unsaved === 0) return undefined;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [unsaved]);
 
   const setScore = useCallback(
     (ceId: string, assessmentId: string, raw: number | null) => {
@@ -193,10 +253,10 @@ export function Gradebook({
         [ceId]: { ...(prev[ceId] ?? {}), [assessmentId]: { raw, isExcused: false } },
       }));
       dirty.current.add(`${ceId}:${assessmentId}`);
-      onDirtyChange?.(dirty.current.size);
+      syncDirty();
       scheduleSave();
     },
-    [scheduleSave, onDirtyChange],
+    [scheduleSave, syncDirty],
   );
 
   /* ---------------------------------------------------------------- *
@@ -314,10 +374,10 @@ export function Gradebook({
         });
         return next;
       });
-      onDirtyChange?.(dirty.current.size);
+      syncDirty();
       scheduleSave();
     },
-    [visibleRoster, visibleAssessments, scheduleSave, onDirtyChange],
+    [visibleRoster, visibleAssessments, scheduleSave, syncDirty],
   );
 
   const fillColumn = useCallback(
@@ -402,7 +462,7 @@ export function Gradebook({
         </div>
 
         <div className="spacer" />
-        <SaveIndicator state={saveState} savedAt={savedAt} />
+        <SaveIndicator state={saveState} savedAt={savedAt} unsaved={unsaved} />
         {saveState === 'error' && (
           <button className="btn btn-sm" onClick={retrySave}>Retry</button>
         )}

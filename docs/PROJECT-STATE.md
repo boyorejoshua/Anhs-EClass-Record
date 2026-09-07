@@ -125,6 +125,40 @@ finalize *and* publish — the same account that configures the school.
 widened and it is unchanged; the permission rows already support either
 answer. A naming fix does not settle it and this session did not.
 
+**Submission self-undo and Grade Entry saving — both already existed;
+the investigation found a real bug instead (2026-09-07).** `docs/31`'s
+submission-workflow entry asked for a self-undo window before
+acknowledgment and a save confirmation on Grade Entry. Both were already
+built. **"Acknowledged" is the ADVISER's `received_at`**, not the
+registrar's, and needs no new state: the transition table has
+`submitted → ['draft','received','returned']` where `'draft'` *is* the
+recall, and `canRecall(st)` is `st === 'submitted'` — one status out of
+ten. That also settles what an undo must reverse: **nothing**, because
+recall is legal only from the one state in which nobody has signed, so
+there is no receipt column to unwind. Grade Entry already autosaved
+(debounced 700 ms, batched) behind a `SaveIndicator`, so no save
+mechanism was written.
+
+⚠️ **The bug, now fixed:** Grade Entry said *"Saved just now"* and then
+showed the cell **empty** after leaving the tab and returning. `App`
+fetches the gradebook once per class+period and `ClassWorkspace` renders
+`{tab === 'gradebook' && <Gradebook/>}`, so leaving unmounts the grid and
+returning re-seeds it from the pre-edit snapshot. The value was on the
+server throughout — reopening the class showed it — but the screen
+contradicted the save indicator, which is worse than no indicator at all.
+Found by driving the path, not by review. A save now marks the cached
+copy stale and re-entering the tab refetches once. With it: pending edits
+flush on unmount, a `beforeunload` guard while work is genuinely
+outstanding, and `onDirtyChange` — declared, called in four places, and
+passed by **nobody**, AGENTS.md 8 in mirror image — now drives an
+unsaved-count badge on the Grade Entry tab.
+
+Still open and untouched: the "submitted vs acknowledged" distinction is
+clear on the **Submission tab**, where the teacher acts, but not on the
+My Classes card list, where a teacher scanning several classes sees only
+a status badge. That is a shared-component presentation change and was
+not asked for.
+
 **Phase 3.0 — Public Enrollment audit and design — complete
 (2026-09-06). No code, no schema, no migration was written.** The
 deliverable is `docs/32-public-enrollment-design.md`: the data model, the
@@ -360,23 +394,24 @@ being asked.
 
 ## Current Test Status
 
-**Re-executed 2026-09-07** after the Grade Submissions copy change.
+**Re-executed 2026-09-07** after the Grade Entry save fix.
 Unit, e2e, typecheck and build numbers below were observed this session;
 the SQL row is carried forward from the 2026-09-05 clean-checkout run on
 commit `8d51d5c`, because nothing in this change touches SQL.
 
 | Suite | Result | How it was run |
 |---|---|---|
-| Unit (vitest) | **276 passed**, 14 files, 0 failed | `cd app && npx vitest run` |
-| E2E (Playwright) | **24 of 24 suites passed** | see prerequisite below |
+| Unit (vitest) | **285 passed**, 15 files, 0 failed | `cd app && npx vitest run` |
+| E2E (Playwright) | **25 of 25 suites passed** | see prerequisite below |
 | SQL / database | **6 of 6 suites passed**, 76 checks | see prerequisite below |
 | Typecheck | clean | `cd app && npx tsc --noEmit` |
 | Production build | clean | `cd app && npm run build` |
 
 Unit test breakdown: `nav` 33, `import/three-term` 33, `recordbook` 29,
 `grading` 28, `data/enrollment` 27, `import/official` 22, `data/workflow`
-20, `status` 19, `loa` 18, `import/plan` 16, `lib/ordering` 14,
-`screens/Help` 8, `grading/edge-function` 5, `config` 4.
+20, `status` 22, `loa` 18, `import/plan` 16, `lib/ordering` 14,
+`screens/Help` 8, `components/SaveIndicator` 6,
+`grading/edge-function` 5, `config` 4.
 
 The `lib/ordering` fourteen arrived with the 2026-09-06 grade/section
 ordering fix, and the `screens/Help` eight with the 2026-09-05 Help
@@ -396,7 +431,10 @@ Four checks added 2026-09-07 (two in `custody-chain.mjs`, two in
 two screens — unusual for e2e and deliberate: the defect being fixed was
 "the screen explains nothing", which only a rendered read can catch
 coming back. Four more followed on 2026-09-07 for Grade Submissions —
-three in `subjects-and-admin.mjs`, one in `guide-and-exports.mjs`.
+three in `subjects-and-admin.mjs`, one in `guide-and-exports.mjs`. The
+25th suite, `save-and-undo.mjs`, types into the grid and reads the value
+back after a tab round-trip — the only way the stale-snapshot bug above
+could have been caught.
 
 SQL check counts: `04_lifecycle_rehearsal` 29, `05_schedule_and_tenant_security`
 15, `02_student_privacy` 13, `06_demo_workflow` 11, `03_my_classes_contract` 7,
@@ -489,7 +527,20 @@ If instead starting fresh, unrelated work:
 
 ## Last Updated
 
-2026-09-07, Grade Submissions. Answered `docs/31`'s open clarification
+2026-09-07, submission self-undo + Grade Entry saving. Investigated
+before building, and both requested features turned out to already
+exist: recall since migration 0022, autosave with a visible indicator
+since the gradebook was written. The undo boundary is the adviser's
+`received_at` — confirmed from the transition table, not chosen — and
+needs no new state and no unwinding of receipts. What the investigation
+actually found was a bug: Grade Entry reported "Saved just now" and then
+showed the cell empty after a tab round-trip, because the cached
+gradebook snapshot went stale. Fixed, along with an unmount flush, a
+`beforeunload` guard, and wiring up `onDirtyChange`, which nothing had
+ever consumed. Verified: typecheck clean, 285 unit, 25 e2e suites,
+production build clean.
+
+Previous entry: 2026-09-07, Grade Submissions. Answered `docs/31`'s open clarification
 question at code level: an action screen (`RegistrarQueue` over
 `rds.submission_queue`) whose contract excludes everything the adviser
 has not forwarded — one component, offered to two roles that render it

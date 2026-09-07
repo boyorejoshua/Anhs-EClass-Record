@@ -125,6 +125,53 @@ describe('the state machine', () => {
     }
   });
 
+  /*
+    The boundary Joshua asked about, pinned.
+
+    The question was whether "acknowledged" means the ADVISER's
+    `received_at` or the REGISTRAR's `registrar_received_at`. It is the
+    adviser's, and these assert that rather than leaving it to the
+    reading of a table — because the difference is three whole states of
+    silent self-undo if it ever drifts.
+  */
+  it('ends self-undo at the ADVISER\'s signature, not the registrar\'s', () => {
+    // The moment the adviser signs, the teacher is out of options that
+    // do not involve asking somebody.
+    expect(canRecall('submitted')).toBe(true);
+    expect(canRecall('received')).toBe(false);
+    // And `received` is the adviser's desk, not the registrar's — so the
+    // boundary really is the first signature in the chain.
+    expect(custodian('received')).toMatch(/adviser/i);
+    expect(custodian('registrar_received')).toMatch(/registrar/i);
+    // Had the boundary been the registrar's signature instead, these
+    // three would be recallable. They must not be.
+    for (const st of ['received', 'forwarded', 'registrar_received'] as SubmissionStatus[]) {
+      expect(canRecall(st), `${st} is past the acknowledgment point`).toBe(false);
+    }
+  });
+
+  it('allows self-undo from exactly ONE status, checked exhaustively', () => {
+    // Deliberately not a hand-listed subset: a status added later would
+    // slip past a list, and quietly widening the undo window is the
+    // failure mode worth guarding. Enumerate the whole table instead.
+    const recallable = (Object.keys(TRANSITIONS) as SubmissionStatus[])
+      .filter((st) => canRecall(st));
+    expect(recallable).toEqual(['submitted']);
+  });
+
+  it('never needs to unwind an adviser or registrar action', () => {
+    // Why the undo is safe to implement as a status change alone:
+    // the only recallable status is the one in which nobody has signed,
+    // so there is no received_at / forwarded_at / registrar_received_at
+    // to reverse. `recall_grades` (0022) clears submitted_by and
+    // submitted_at and touches no other receipt column.
+    for (const st of (Object.keys(TRANSITIONS) as SubmissionStatus[])) {
+      if (!canRecall(st)) continue;
+      expect(st).toBe('submitted');
+      expect(custodian(st)).toMatch(/not yet received|waiting/i);
+    }
+  });
+
   it('keeps the chain strict — no desk can be skipped', () => {
     expect(canTransition('submitted', 'approved')).toBe(false);            // skips the adviser
     expect(canTransition('submitted', 'registrar_received')).toBe(false);

@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import type {
   AcademicPeriod, AcademicYear, AttendanceDay, AttendanceMark, ClassStudent, ClassSummary,
   GradebookData, LearnerNameFix, LearnerToAdd, MyClassRoster, PersistedGrade, ValidationReport,
@@ -131,6 +131,35 @@ export function ClassWorkspace(props: Props) {
    * renamed without orphaning their marks.
    */
   const [detailId, setDetailId] = useState<string | null>(null);
+  /*
+    Score cells edited but not yet on the server. `Gradebook` has
+    computed and offered this since it was written — `onDirtyChange` was
+    declared, called in four places, and passed by nobody, so the number
+    was thrown away on the way out of the component. AGENTS.md 8, in
+    mirror image. It drives the badge on the Grade Entry tab.
+  */
+  const [unsavedScores, setUnsavedScores] = useState(0);
+  /*
+    The gradebook is fetched ONCE per class+period by `App`, and the tab
+    panels are `{tab === '…' && <Component/>}` — so leaving Grade Entry
+    unmounts the grid and returning re-seeds it from that original fetch.
+    After a save, that snapshot is stale, and the effect was ugly: type a
+    score, watch it say "Saved just now", switch to Summary, come back,
+    and the cell is EMPTY. The value was on the server the whole time —
+    reopening the class showed it — but the screen contradicted the save
+    indicator, which is worse than having no indicator at all.
+
+    So a save marks the cached copy stale, and re-entering the tab
+    refetches once. A ref rather than state: this must not itself cause
+    a render, and it is read only inside the effect below.
+  */
+  const gradebookStale = useRef(false);
+  useEffect(() => {
+    if (tab === 'gradebook' && gradebookStale.current) {
+      gradebookStale.current = false;
+      retryGradebook();
+    }
+  }, [tab, retryGradebook]);
   const status = displayStatus(cls, periodId);
   const period = year.periods.find((p) => p.id === periodId);
   const done = cls.completeness[periodId];
@@ -246,6 +275,22 @@ export function ClassWorkspace(props: Props) {
                   {t.key === 'submission' && missing > 0 && (
                     <span className="tab-count" title={`${missing} missing scores`}>{missing}</span>
                   )}
+                  {/*
+                    Same badge the Submission tab already uses, for the
+                    same reason: a number that follows you out of the tab.
+                    Grade Entry flushes pending edits on the way out, so
+                    this only ever appears when a save actually FAILED —
+                    which is precisely when leaving the tab would
+                    otherwise hide the problem.
+                  */}
+                  {t.key === 'gradebook' && unsavedScores > 0 && (
+                    <span
+                      className="tab-count"
+                      title={`${unsavedScores} change${unsavedScores === 1 ? '' : 's'} not saved`}
+                    >
+                      {unsavedScores}
+                    </span>
+                  )}
                 </button>
               </Fragment>
             ))}
@@ -306,6 +351,8 @@ export function ClassWorkspace(props: Props) {
               <Gradebook
                 data={g}
                 onSaveScores={onSaveScores}
+                onDirtyChange={setUnsavedScores}
+                onSaved={() => { gradebookStale.current = true; }}
                 periodName={period?.name}
                 onGoSetup={() => onTabChange('setup')}
               />
