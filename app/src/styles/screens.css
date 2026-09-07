@@ -802,3 +802,95 @@
   border-left: 2px solid var(--border-strong);
   color: var(--muted); font-size: var(--fs-sm);
 }
+
+/* --- Direction A: the light-blue tier ramp ---------------------------- *
+ * Applied to the three screens the 2026-09-04 walkthrough called "plain"
+ * and "eye irritating" in the light theme: Analytics, LOA Reports and
+ * My Account. Colour only — no geometry is touched here, and no new
+ * tier was invented: every selector below attaches to a category these
+ * screens ALREADY compute.
+ *
+ * Two cascade rules this block obeys, because getting either wrong is
+ * how a tint quietly eats a status colour:
+ *
+ *   1. Every tinted surface re-asserts the amber and red status colours
+ *      underneath it at equal-or-higher specificity. `.rb-stats .stat b`
+ *      outranks the older `.stat b[data-warn]`, so the warn rule is
+ *      restated rather than left to lose.
+ *   2. Nothing here is scoped by element type alone. `.stat`, `.tbl` and
+ *      `.field-label` are shared with Dashboards, the registrar queue
+ *      and every form in the app; each rule is scoped so the palette
+ *      cannot leak past the three screens it was approved for.
+ * --------------------------------------------------------------------- */
+
+/* Analytics — the KPI tiles. `.rb-stats` is the hook; bare `.stat` is
+   used by five other screens and must not move. */
+.rb-stats .stat {
+  background: var(--tier-tint);
+  border-color: var(--tier-border);
+}
+.rb-stats .stat b    { color: var(--tier-ink); }
+.rb-stats .stat span { color: var(--tier-label); }
+/* Rule 1. "Failing" and "Missing scores" are the third tier and stay
+   amber — the existing role token, not a new colour. */
+.rb-stats .stat b[data-warn="true"] { color: var(--warning); }
+
+/* Analytics — performance bands. Only RecordBook renders `.band`. */
+.band { background: var(--tier-tint); border-color: var(--tier-border); }
+.band-label { color: var(--tier-label); }
+.band-count { color: var(--tier-label); }
+.band-list li { background: var(--panel); }
+/* Rule 1 again: a band below the pass mark is a failure, not a tier, and
+   keeps the red it already had. Restated after the tint so it wins. */
+.band[data-low="true"] {
+  background: var(--panel);
+  border-color: color-mix(in srgb, var(--error) 30%, var(--border));
+}
+.band[data-low="true"] .band-label { color: var(--error); }
+
+/* LOA Reports — the filed sheet. Header bands and the totals row are the
+   two tiers this report already distinguishes. */
+.loa-title { color: var(--tier-label); }
+.tbl.loa thead th {
+  background: var(--tier-tint);
+  color: var(--tier-label);
+}
+.tbl.loa th[colspan] { border-left-color: var(--tier-border); }
+/* `!important` here, reluctantly, and only to beat another one:
+   `.sub-th` at the top of this file sets `color: var(--faint) !important`,
+   which has been silently defeating the deliberate `--muted` rule ~430
+   lines above ever since. On the new header tint that leaves the band
+   ranges and the No./%% sub-headers at 4.52:1 in light and 2.98:1 in
+   DARK — below AA. Scoped to `.tbl.loa` so the shared `.sub-th` rule,
+   and the Summary tab that also uses it, are left exactly as they were.
+   The unscoped rule is a real pre-existing defect; fixing it belongs to
+   whoever owns the Summary tab, not to a palette change. */
+.tbl.loa .sub-th { color: var(--tier-label) !important; }
+.tbl.loa tr[data-total] { border-top-color: var(--tier-border); }
+.tbl.loa tr[data-total] th[scope="row"],
+.tbl.loa tr[data-total] td {
+  background: var(--tier-tint);
+  color: var(--tier-ink);
+}
+/* Rule 1. An entry total that does not reach 100 is the amber warning it
+   always was; it now sits on the tint, where it still clears AA. */
+.tbl.loa tr[data-total] td[data-warn="true"],
+.tbl.loa td[data-warn="true"] { color: var(--warning); font-weight: 600; }
+/* A percentage is a value, and a zero band is genuine de-emphasis. Both
+   keep their existing tokens against the new header tint. */
+.tbl.loa th[scope="row"] { background: var(--panel); }
+
+/* My Account — the form the walkthrough flagged on every role. The one
+   distinction this screen already draws is yours-to-edit versus
+   administrator-set, so that is the only thing tinted. */
+.acct .panel-head h2 { color: var(--tier-label); }
+.acct .field-label   { color: var(--tier-label); }
+/* The two read-only values an administrator owns. `.mono` inside a
+   `.picker` that is a div rather than a label is exactly that pair. */
+.acct .form-grid div.picker p.mono { color: var(--tier-ink); }
+/* "Saved." and "Your password has been changed." are status, and were
+   rendered in --faint — the token this codebase's own comment says is
+   "for placeholders and de-emphasis, never for a value". */
+.acct [role="status"] { color: var(--tier-label); font-weight: 600; }
+/* Rule 1. The must-change-password prompt is the amber tier and stays. */
+.acct .page-sub[data-warn="true"] { color: var(--warning); }

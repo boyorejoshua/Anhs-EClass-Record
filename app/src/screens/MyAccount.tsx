@@ -37,7 +37,9 @@ export function MyAccount({ load, save, changePassword, onPasswordChanged }: Pro
   const [state, retry] = useAsync(load, [load]);
 
   return (
-    <div className="page">
+    /* `acct` scopes the Direction A palette to this screen — `.field-label`
+       and `.picker` are used by every form in the app. */
+    <div className="page acct">
       <div className="page-head">
         <div>
           <h1 className="greeting">My Account</h1>

@@ -47,9 +47,17 @@ because two of them touch identity/data resolution that account would inherit.
 
 ---
 
-## Backlog — real, corroborated, not this session's scope
+## Backlog — **EMPTY as of 2026-09-07**
 
-Do not start without an explicit instruction naming it.
+All four items are resolved and struck through below; they are kept for
+the reasoning, not as work. Sorting (2026-09-06), Incoming vs
+Consolidated Grades (2026-09-07), submission undo/cancel (2026-09-07,
+which found the two requested features already existed and a real bug
+instead), and visual polish (2026-09-07).
+
+What remains open in this document is the **"Needs a one-line
+clarification"** section further down — three items, all waiting on a
+sentence from Joshua rather than on code.
 
 - ~~**Sort/group by Grade Year + Section.**~~ **RESOLVED 2026-09-06 — sorted, not
   grouped.** One shared comparator, `app/src/lib/ordering.ts`, now orders every list
@@ -262,9 +270,69 @@ Do not start without an explicit instruction naming it.
   The original finding, for the record: purpose/difference unclear to the tester.
   Naming/discoverability issue at minimum; possibly two screens doing overlapping
   jobs. Worth a clear written answer, not necessarily a rebuild.
-- **Visual polish**: Analytics and LOA Reports described as "plain"/"eye irritating"
-  in light ("Standard") theme, wants color; general "fix the UI" note on My Account
-  across every role (likely spacing/alignment, not confirmed functional breakage).
+- ~~**Visual polish**~~ **RESOLVED 2026-09-07 — Direction A applied. This empties the
+  Backlog.** The confirmed light-blue ramp is now on Analytics, LOA Reports and My
+  Account. Colour only: no layout, no data, no `loa.ts` logic.
+
+  **Defined once, as tokens.** `--tier-tint #e6f1fb`, `--tier-ink #042c53`,
+  `--tier-label #0c447c`, `--tier-border #c9dff5` in `tokens.css`, with dark-theme
+  counterparts in `themes.css` beside the existing `--info` pair. Named for the role
+  rather than the colour, and not pasted into three stylesheets — the same reasoning
+  the type scale already carries in that file. `--info` was close but is spoken for by
+  informational banners; a tier tint that moved whenever a banner changed would be a
+  different bug.
+
+  **A note on the brief's token names.** It specified `--surface-1` and
+  `--text-secondary` for neutral rows. Neither exists in this codebase — the
+  equivalents are `--panel` / `--panel-alt` and `--muted` / `--body`, and those are
+  what neutral rows use. The amber third tier is the existing `--warning`, unchanged
+  and un-recoloured.
+
+  **No new categories were invented.** Every selector attaches to a distinction these
+  screens already compute: the eight analytics KPI tiles, the performance bands, the
+  LOA header groups and totals row, and My Account's yours-to-edit versus
+  administrator-set fields.
+
+  **Contrast measured from what actually rendered**, in both themes, not calculated on
+  paper — `e2e/legibility.mjs` check 4 takes the worst-contrast text anywhere on screen
+  and demands 4.5:1:
+
+  | | light | dark |
+  |---|---|---|
+  | `--tier-ink` on tint | 12.31:1 | 11.82:1 |
+  | `--tier-label` on tint | 8.60:1 | 8.36:1 |
+  | `--warning` on tint (third tier) | 5.18:1 | — |
+  | `--error` on tint (failing band) | 6.43:1 | — |
+
+  **Two cascade guards, verified by mutating the live DOM rather than by reading the
+  file.** A tinted surface must not swallow a status colour, so: setting `data-warn` on
+  a tinted KPI value still turns it amber (`rgb(138, 90, 0)`), and a band marked
+  `data-low` drops the tint entirely and goes red (`rgb(163, 36, 47)`). Both were
+  confirmed to still win after the tint rules.
+
+  **Scoped so it cannot leak.** `.stat`, `.field-label` and `.tbl` are shared with
+  Dashboards, the registrar queue and every form in the app, so the palette hangs off
+  two new hook classes — `rb-stats` on the analytics tile row and `acct` on the My
+  Account page. Checked: the Dashboard's tiles are still white, and the class Summary
+  tab is untouched.
+
+  **⚠️ A pre-existing defect found and deliberately NOT fixed.** `screens.css`'s
+  `.sub-th { color: var(--faint) !important }` has been silently defeating the
+  deliberate `--muted` rule ~80 lines below it, which exists precisely because
+  `--faint` is documented in `tokens.css` as "for placeholders and de-emphasis, never
+  for a value". On the new header tint that left the LOA band ranges at 4.52:1 in light
+  and **2.98:1 in dark — below AA**. Overridden scoped to `.tbl.loa` only. The
+  unscoped rule still affects the class **Summary** tab, which is outside this task,
+  and is left as it was: it is a real accessibility defect and belongs to whoever owns
+  that screen, not to a palette change.
+
+  Verified: typecheck clean, 285 unit tests, 25 of 25 e2e suites (`legibility.mjs`
+  included), production build clean.
+
+  The original finding, for the record: Analytics and LOA Reports described as
+  "plain"/"eye irritating" in light ("Standard") theme, wants color; general "fix the
+  UI" note on My Account across every role (likely spacing/alignment, not confirmed
+  functional breakage).
 
 ### Added 2026-09-05 — two findings from live role editing in production
 

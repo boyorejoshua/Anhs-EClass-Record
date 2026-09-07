@@ -266,7 +266,10 @@ export function RecordBookAnalytics({ cls, period, data, onGoGradebook }: Omit<P
 
   return (
     <>
-      <div className="stat-row">
+      {/* `rb-stats` is a styling hook, nothing more: `.stat` is shared
+          with Dashboards, Student Detail and the class Summary, so the
+          Direction A tint is scoped rather than applied to `.stat`. */}
+      <div className="stat-row rb-stats">
         <div className="stat"><b>{a.average ?? '—'}</b><span>Class average</span></div>
         <div className="stat"><b>{a.highest ?? '—'}</b><span>Highest</span></div>
         <div className="stat"><b>{a.lowest ?? '—'}</b><span>Lowest</span></div>

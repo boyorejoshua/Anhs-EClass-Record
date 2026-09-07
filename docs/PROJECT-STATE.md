@@ -159,6 +159,35 @@ My Classes card list, where a teacher scanning several classes sees only
 a status badge. That is a shared-component presentation change and was
 not asked for.
 
+**Direction A applied — and `docs/31`'s Backlog is now EMPTY
+(2026-09-07).** The confirmed light-blue ramp is on Analytics, LOA
+Reports and My Account. Colour only: no layout, no data, no `loa.ts`
+logic. Four tokens define it once — `--tier-tint #e6f1fb`,
+`--tier-ink #042c53`, `--tier-label #0c447c`, `--tier-border #c9dff5` —
+with dark-theme counterparts beside the existing `--info` pair, so the
+light-theme fill cannot carry dark-navy text onto a dark page. No new
+tier was invented: every rule attaches to a category these screens
+already computed, and the amber third tier is the existing `--warning`.
+
+Contrast was **measured from what rendered**, in both themes: tier ink
+12.31:1 light / 11.82:1 dark, tier label 8.60 / 8.36, and the amber and
+red status tokens still clear AA *on* the tint (5.18:1, 6.43:1) — so
+tinting a surface cannot swallow a status colour. Both cascade guards
+were proved by mutating the live DOM: `data-warn` still turns a tinted
+KPI amber, and a failing band drops the tint and goes red. The palette
+is scoped behind two hook classes (`rb-stats`, `acct`) because `.stat`,
+`.field-label` and `.tbl` are shared with Dashboards, the registrar
+queue and every form; Dashboard tiles were confirmed still white.
+
+⚠️ **Found, deliberately not fixed:** `screens.css`'s
+`.sub-th { color: var(--faint) !important }` silently defeats the
+deliberate `--muted` rule below it — and `--faint` is documented in
+`tokens.css` as "never for a value". It left the LOA band ranges at
+**2.98:1 in dark**, below AA. Overridden scoped to `.tbl.loa`; the
+unscoped rule still affects the class **Summary** tab, which was outside
+this task. That is a real accessibility defect and the next natural
+piece of work.
+
 **Phase 3.0 — Public Enrollment audit and design — complete
 (2026-09-06). No code, no schema, no migration was written.** The
 deliverable is `docs/32-public-enrollment-design.md`: the data model, the
@@ -394,7 +423,7 @@ being asked.
 
 ## Current Test Status
 
-**Re-executed 2026-09-07** after the Grade Entry save fix.
+**Re-executed 2026-09-07** after the Direction A palette change.
 Unit, e2e, typecheck and build numbers below were observed this session;
 the SQL row is carried forward from the 2026-09-05 clean-checkout run on
 commit `8d51d5c`, because nothing in this change touches SQL.
@@ -527,7 +556,19 @@ If instead starting fresh, unrelated work:
 
 ## Last Updated
 
-2026-09-07, submission self-undo + Grade Entry saving. Investigated
+2026-09-07, Direction A palette — **`docs/31`'s Backlog is now empty.**
+The light-blue ramp is on Analytics, LOA Reports and My Account as four
+role-named tokens with dark counterparts, scoped behind two hook classes
+so it cannot leak into the screens that share `.stat` and
+`.field-label`. Colour only. Contrast measured from the rendered DOM in
+both themes; the amber and red status tiers were proved to still win
+over the tint. One pre-existing AA failure was found under it
+(`.sub-th`'s `!important` on `--faint`, 2.98:1 in dark), overridden for
+LOA and left untouched for the Summary tab, which is outside this task.
+Verified: typecheck clean, 285 unit, 25 e2e suites, production build
+clean.
+
+Previous entry: 2026-09-07, submission self-undo + Grade Entry saving. Investigated
 before building, and both requested features turned out to already
 exist: recall since migration 0022, autosave with a visible indicator
 since the gradebook was written. The undo boundary is the adviser's

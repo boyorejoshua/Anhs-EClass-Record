@@ -90,6 +90,12 @@
   --warning: #e0aa5a; --warning-tint: #33280f; --warning-border: #6b5423;
   --error:   #e88b92; --error-tint:   #3a1d20; --error-border:   #703a3f;
   --info:    #7fb0ea; --info-tint:    #16263a;
+  /* The tier ramp inverted for dark, the same way --info is: the tint
+     becomes the dark surface and the two inks become the light text.
+     Without this the light-theme #e6f1fb fill would carry dark-navy
+     text on a dark page and the screens would go unreadable. */
+  --tier-tint: #16263a; --tier-ink: #d3e4f8; --tier-label: #9dc3ee;
+  --tier-border: #2c4666;
 
   --side-bg:      #0b0d11;
   --side-divider: #1d212a;

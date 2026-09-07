@@ -55,6 +55,35 @@
   --info:           #2a5f9e;
   --info-tint:      #eaf1fa;
 
+  /* ---- tier tint (Direction A) ----
+   *
+   * The confirmed light-blue ramp for the screens the 2026-09-04
+   * walkthrough called "plain" and "eye irritating" in the light theme:
+   * Analytics, LOA Reports, My Account.
+   *
+   * Named for the ROLE, not the colour, and defined once here rather
+   * than pasted into three stylesheets — same reason the type scale is
+   * one decision. `--info` was close but is already spoken for by
+   * informational banners; a tier tint that moved whenever a banner
+   * changed would be a different bug.
+   *
+   * NEVER plain black on the fill. Measured against #e6f1fb, as it
+   * actually renders — `e2e/legibility.mjs` check 4 takes the
+   * worst-contrast text anywhere on screen and requires 4.5:1:
+   *
+   *   --tier-ink    #042c53   12.30:1
+   *   --tier-label  #0c447c    8.60:1
+   *   --warning     #8a5a00    5.18:1   (the third tier, unchanged)
+   *   --error       #a3242f    6.43:1   (failing bands, unchanged)
+   *
+   * All four clear AA on the tint, so tinting a surface cannot make an
+   * existing status colour illegible.
+   */
+  --tier-tint:      #e6f1fb;
+  --tier-ink:       #042c53;
+  --tier-label:     #0c447c;
+  --tier-border:    #c9dff5;
+
   /* ---- surfaces ---- */
   --app-bg:         #f4f6f9;
   --panel:          #ffffff;
