@@ -4,19 +4,17 @@ Last updated: 2026-09-10
 
 ## Current objective
 
-Validate and establish the lightweight repository-based AI handoff protocol
-for E-Class before using it in normal development sessions.
+Use the newly established repository-based AI handoff protocol through 2–3
+contained Codex sessions before broader Mendtrix rollout.
 
 No feature, production, database, authentication, or deployment work is
 authorized by this workstream.
 
 ## Current state
 
-- VERIFIED: Clean authoritative project baseline is `main` at `20c10a40`.
-- VERIFIED: The repository-based handoff protocol has been implemented on `docs/eclass-handoff-pilot`.
+- VERIFIED: The handoff protocol is merged into `main`.
+- VERIFIED: `AGENTS.md` and `progress.md` are the active repository handoff mechanism.
 - VERIFIED: The handoff self-test passed.
-- VERIFIED: The pilot branch contains only `AGENTS.md` and `progress.md` changes relative to main.
-- VERIFIED: The pilot branch has been pushed to GitHub for review.
 - DOCUMENTED BUT UNVERIFIED: Existing Phase 2.2 production/live behavior remains outside this pilot.
 - UNKNOWN: Current production environment state unless separately verified.
 
@@ -27,18 +25,18 @@ authorized by this workstream.
 - Minimal session-handoff rules added to `AGENTS.md`.
 - Root `progress.md` created.
 - Repository-only handoff self-test passed.
-- Pilot documentation branch created and pushed.
-- Handoff protocol prepared for merge review.
+- Pilot documentation branch created, reviewed, and merged into `main`.
+- Handoff protocol is active for controlled normal-session use.
 
 ## Current task
 
-- [ ] Review and approve the handoff protocol for merge into `main`.
+- [ ] Begin the first contained real Codex session using the new handoff protocol.
 
 ## Next tasks
 
-- [ ] Merge the approved handoff protocol.
-- [ ] Use it through 2–3 contained real Codex sessions.
-- [ ] Evaluate whether `progress.md` remains concise and useful before wider Mendtrix rollout.
+- [ ] Complete 2–3 contained real Codex sessions.
+- [ ] Evaluate whether `progress.md` remains concise, accurate, and useful.
+- [ ] Decide whether to standardize the protocol across other Mendtrix repositories.
 
 ## Blockers / risks
 
@@ -63,8 +61,7 @@ Last verification:
 
 - Repository / Git baseline: PASS
 - Handoff self-test: PASS
-- Pilot branch review: PASS
-- Remote branch presence: PASS
+- Main merge verification: PASS
 - Typecheck: NOT RUN
 - Unit: NOT RUN
 - Database / SQL: NOT RUN
@@ -74,9 +71,6 @@ Last verification:
 
 ## Repository reference
 
-Baseline main commit: `20c10a40`
-Pilot branch: `docs/eclass-handoff-pilot`
-
 For live branch, working-tree, remote-tracking, or commit state, verify directly
 with Git rather than relying on this file.
 
@@ -84,11 +78,11 @@ with Git rather than relying on this file.
 
 Last completed:
 The lightweight repository-based handoff protocol was implemented, self-tested,
-and prepared on the pilot branch.
+reviewed, and merged into `main`.
 
 Currently stopped at:
-Final merge review.
+Before the first contained real Codex session.
 
 Next smallest safe step:
-Review the complete documentation-only branch diff and approve or reject merge
-into `main`.
+Start a normal repository session using AGENTS.md → progress.md → Git status →
+task-specific evidence.
