@@ -4,33 +4,36 @@ Last updated: 2026-09-10
 
 ## Current objective
 
-Establish and validate the lightweight repository-based AI handoff protocol
-for E-Class. No feature, production, database, authentication, or deployment
-work is authorized in this workstream.
+Validate the repository-based AI handoff protocol and prepare it for merge
+into E-Class main. No feature or production work is authorized.
 
 ## Current state
 
-- VERIFIED: Clean authoritative Git clone established from `main` at `20c10a40`.
-- VERIFIED: Existing durable handoff/state documentation and project-specific `AGENTS.md` are present.
-- VERIFIED: The handoff self-test passed using only `AGENTS.md`, `progress.md`, and a documentation-only Git diff check.
-- DOCUMENTED BUT UNVERIFIED: Phase 2.2 production deployment and live role-switching / Academic Years behavior.
-- UNKNOWN: Current production environment state unless independently verified later.
+- VERIFIED: Clean authoritative repository baseline remains `main` at `20c10a40`.
+- VERIFIED: Handoff protocol self-test passed.
+- VERIFIED: Documentation-only pilot commit `7ff073c` was created and pushed to `origin/docs/eclass-handoff-pilot`.
+- VERIFIED: The pilot branch contains only `AGENTS.md` and `progress.md` changes relative to main.
+- DOCUMENTED BUT UNVERIFIED: Existing Phase 2.2 production/live behavior remains outside this pilot.
+- UNKNOWN: Production environment state unless separately verified later.
 
 ## Completed in current work
 
-- Clean Git development baseline established.
-- Existing repository-based transition documentation confirmed.
-- Handoff protocol design approved for pilot.
-- Minimal `AGENTS.md` handoff rule and tracked `progress.md` created.
-- Repository-only handoff self-test passed.
+- Clean clone established.
+- Handoff protocol designed.
+- Minimal `AGENTS.md` addition created.
+- `progress.md` created.
+- Repository-only self-test passed.
+- Documentation-only commit created.
+- Remote pilot branch pushed.
 
 ## Current task
 
-- [x] Add and validate the lightweight `AGENTS.md` + `progress.md` handoff protocol.
+- [ ] Final review and approval before merging the handoff pilot into main.
 
 ## Next tasks
 
-- [ ] Use the protocol through 2–3 contained Codex work sessions before deciding on wider Mendtrix rollout.
+- [ ] Merge the approved handoff protocol into main.
+- [ ] Use the protocol through 2–3 contained real Codex sessions before wider Mendtrix rollout.
 
 ## Blockers / risks
 
@@ -54,6 +57,7 @@ Last verification:
 
 - Repository / Git baseline: PASS
 - Handoff self-test: PASS
+- Branch push verification: PASS
 - Typecheck: NOT RUN
 - Unit: NOT RUN
 - Database / SQL: NOT RUN
@@ -64,11 +68,13 @@ Last verification:
 ## Repository state
 
 Branch: docs/eclass-handoff-pilot
-Working tree: documentation-only changes; uncommitted
-Baseline commit: `20c10a40`
+Remote tracking: origin/docs/eclass-handoff-pilot
+Baseline main commit: `20c10a40`
+Latest pilot commit before this checkpoint update: `7ff073c`
+Working tree: documentation-only progress.md update pending commit
 
 ## Handoff
 
-Last completed: Minimal handoff protocol added; repository-only handoff self-test passed.
-Currently stopped at: Documentation review checkpoint before a proposed pilot commit.
-Next smallest safe step: Review and approve the documentation-only pilot commit.
+Last completed: Documentation-only handoff commit created and pilot branch pushed successfully.
+Currently stopped at: Refreshing progress.md to match actual Git state before final merge review.
+Next smallest safe step: Commit and push this checkpoint-only progress.md update, then reassess merge readiness.
