@@ -15,6 +15,22 @@ system. ANHS is one tenant, not the product.
 - `docs/23-phase-0-current-state-audit.md` — architecture and feature map
 - `docs/README.md` — the full 30-document index
 
+## Session handoff
+
+At the start of ordinary work:
+
+1. Read this `AGENTS.md`.
+2. Read root `progress.md` if present.
+3. Verify its current task and claims against relevant repository evidence.
+4. Read only task-relevant durable documentation and implementation files.
+
+After a meaningful checkpoint, update `progress.md` with actual changes,
+verification executed, blockers, and the next smallest safe step.
+
+This protocol supplements, and never replaces, the project-specific rules
+above. Source code, migrations, schema, configuration, tests, and Git state
+remain implementation truth.
+
 ## Non-negotiables
 1. **LOA logic is authoritative.** Do not change `app/src/lib/loa.ts`.
 2. **One grading engine.** `app/src/lib/grading/` is vendored into
