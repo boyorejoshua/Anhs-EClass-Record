@@ -125,9 +125,10 @@ The three that will actually affect you:
 - **`app.reject_write_to_archived_year()` only covers tables with
   `academic_year_id` directly.** Latent — nothing archives a year in-app
   yet. **Becomes live the moment anyone builds an archive action.**
-- **E2E fails 23/23 if the Playwright version doesn't match the
-  installed browser build.** Environmental, not a regression. Recipe in
-  `PROJECT-STATE.md`.
+- **E2E cannot launch until its project-local browser assets are installed.**
+  After `npm ci`, run `npm run e2e:install-browser`; it uses the pinned local
+  Playwright dependency rather than a global installation. Environmental, not
+  a regression. Recipe in `PROJECT-STATE.md`.
 
 ### Six things you may be told are broken that are not
 
@@ -333,7 +334,7 @@ demo passwords and enable leaked-password protection**
 | `@supabase/supabase-js` ^2.112 | Client | |
 | `xlsx` (SheetJS) ^0.18.5 | Excel import/export | Heaviest bundle contributor. |
 | Vitest 3 | Unit tests | Local dependency. |
-| Playwright | E2E | **Global** install, version must match the browser build. |
+| Playwright 1.56.0 | E2E | Exact local dev dependency; install ignored local browser assets with `npm run e2e:install-browser`. |
 | DepEd DO 015 s.2026, DO 011 s.2018, DO 009 s.2026 | Domain rules | Not code, but they define correctness. |
 | RA 10173 (Data Privacy Act) | Compliance | Drives the publication gate and audit trail. |
 

@@ -269,28 +269,32 @@ SQL check counts: `04_lifecycle_rehearsal` 29, `05_schedule_and_tenant_security`
 
 ### Two prerequisites that are not obvious and cost real time
 
-**1. E2E needs the Playwright package version to match the browser build
-already on the machine.** The suites resolve Playwright from the *global*
-npm prefix (`npm root -g`), not from `app/node_modules` — see the header
-comment in `app/e2e/recorded-grades.mjs`. Installing plain
-`npm install -g playwright` gets the newest release, which then demands a
-browser revision that is not present, and **all 23 suites fail
-identically** with `Executable doesn't exist at .../chromium_headless_shell-<n>`.
-That failure is environmental and says nothing about the application.
-
-Match the version to the browser build under `PLAYWRIGHT_BROWSERS_PATH`
-(`/opt/pw-browsers` in the Claude Code web container, build **1194**,
-which is Playwright **1.56.0**). To find the pairing for a different
-build: read `browsers.json` inside the `playwright-core` tarball for a
-candidate version.
+**1. E2E uses the project's exact local Playwright dependency and browser
+assets.** `app/package.json` pins `playwright@1.56.0`; the shared
+`app/e2e/playwright.mjs` resolver sets `PLAYWRIGHT_BROWSERS_PATH` to ignored
+`app/.playwright-browsers/`. A clean clone has no global Playwright or shared
+browser-cache prerequisite. The browser executable must be installed before
+any E2E suite can launch.
 
 ```bash
-npm install -g playwright@1.56.0     # must match the installed browser build
 cd app
+npm ci
+npm run e2e:install-browser
 VITE_DEMO_MODE=true VITE_SUPABASE_URL= VITE_SUPABASE_ANON_KEY= \
   npx vite --port 5199 --strictPort &
 for f in e2e/*.mjs; do node "$f" || echo "FAILED $f"; done
 ```
+
+For the focused non-demo held-role regression, start the same local server
+with `VITE_DEMO_MODE=false VITE_E2E_MULTI_ROLE_SESSION=true` and blank
+Supabase variables, then run `node e2e/non-demo-role-switching.mjs`.
+
+On 2026-09-11, Chromium build **1194** installed and the focused regression
+executed with Node **24.19.0**. The same pinned install downloaded fully but
+stalled during extraction under this machine's Node **26.5.0** runtime. This
+is an observed environment interaction, not evidence that Node 26 is
+unsupported; when it repeats, use an already-available isolated LTS runtime
+without changing the project's dependencies or global Node configuration.
 
 **2. `supabase/tests/06_demo_workflow.sql` additionally requires
 `supabase/demo-seed.sql`.** Migrations + `seed.sql` alone are not enough:

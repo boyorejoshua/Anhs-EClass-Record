@@ -14,14 +14,10 @@
  *     npx vite --port 5199 --strictPort
  *   node e2e/recorded-grades.mjs
  *
- * Playwright is resolved from the global install; there is no local
- * dependency on it, so a normal `npm ci` stays small.
+ * Playwright is the project's pinned dev dependency. Install its Chromium
+ * binary once with `npm run e2e:install-browser` after `npm ci`.
  */
-import { execSync } from 'node:child_process';
-
-// Playwright lives in the global prefix, not in this package.
-const globalRoot = execSync('npm root -g', { encoding: 'utf8' }).trim();
-const { chromium } = await import(`${globalRoot}/playwright/index.mjs`);
+import { chromium } from './playwright.mjs';
 
 const BASE = 'http://localhost:5199/';
 const fails = [];

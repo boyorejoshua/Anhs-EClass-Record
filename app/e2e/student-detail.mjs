@@ -18,10 +18,7 @@
  *     npx vite --port 5199 --strictPort
  *   node e2e/student-detail.mjs
  */
-import { execSync } from 'node:child_process';
-const { chromium } = await import(
-  `${execSync('npm root -g', { encoding: 'utf8' }).trim()}/playwright/index.mjs`
-);
+import { chromium } from './playwright.mjs';
 
 const fails = [], ok = [];
 const check = (n, c, d = '') => (c ? ok : fails).push(`${n}${d ? ` — ${d}` : ''}`);

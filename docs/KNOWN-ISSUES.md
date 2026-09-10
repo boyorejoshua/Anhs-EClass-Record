@@ -121,22 +121,20 @@ was updated in the same commit.
 
 ---
 
-### 7 · E2E Playwright version must match the installed browser build
-**Documentation gap / environment trap** · **Medium** · found by this audit
+### 7 · E2E browser assets must be installed from the pinned local Playwright
+**Environment setup requirement** · **Medium** · updated 2026-09-11
 
-The e2e suites resolve Playwright from the **global** npm prefix, not
-`app/node_modules`. `npm install -g playwright` installs the newest
-release, which demands a browser revision that is not present, and **all
-23 suites then fail identically** with `Executable doesn't exist at
-.../chromium_headless_shell-<n>`.
+The e2e suites now import exact local `playwright@1.56.0` through
+`app/e2e/playwright.mjs`. Its browser assets live in ignored
+`app/.playwright-browsers/`, not in a global npm prefix or shared cache. A
+clean clone must run `cd app && npm ci && npm run e2e:install-browser` before
+it can launch an E2E suite. Do not install Playwright globally.
 
-That failure says nothing about the application, but it looks
-catastrophic, and it will cost the next agent an hour if undocumented.
-
-**Fix:** install the Playwright version matching the browser build under
-`PLAYWRIGHT_BROWSERS_PATH`. In the Claude Code web container that is
-build **1194** → **`playwright@1.56.0`**. Full recipe in
-`PROJECT-STATE.md` § Current Test Status.
+On this Windows environment, Node 26.5.0 downloaded Chromium build 1194 but
+stalled while extracting it; Node 24.19.0 completed the same pinned install
+and ran the focused browser regression. This is an observed environment
+interaction, not a claim that Node 26 is unsupported. Full recipe and scope
+are in `PROJECT-STATE.md` § Current Test Status.
 
 ---
 

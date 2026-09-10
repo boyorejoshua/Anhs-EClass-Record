@@ -28,15 +28,11 @@
  *     npx vite --port 5199 --strictPort
  *   node e2e/import-choices.mjs
  */
-import { execSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import XLSX from 'xlsx';
-
-const { chromium } = await import(
-  `${execSync('npm root -g', { encoding: 'utf8' }).trim()}/playwright/index.mjs`
-);
+import { chromium } from './playwright.mjs';
 
 const fails = [], ok = [];
 const check = (n, c, d = '') => (c ? ok : fails).push(`${n}${d ? ` — ${d}` : ''}`);

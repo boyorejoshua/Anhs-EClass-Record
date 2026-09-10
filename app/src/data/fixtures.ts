@@ -11,7 +11,7 @@
 import type {
   AcademicYear, AttendanceDay, AttendanceMark, ClassStudent, ClassSummary, ConsolidatedGradeCell,
   CurrentUser, DirectoryStudent, GradebookData, GradeLevelCensus, PersistedGrade,
-  RosterStudent, StaffAccount, StudentQuery,
+  Role, RosterStudent, StaffAccount, StudentQuery,
   StudentGradeRow,
   EnrollmentRow, StudentHistoryRow, StudentIdentity, StudentProfile, SubmissionRow,
   SubmissionStatus, ValidationReport,
@@ -56,6 +56,17 @@ export const CURRENT_USER: CurrentUser = {
   schoolName: 'Angono National High School',
   schoolCode: 'ANHS',
 };
+
+/**
+ * E2E-only multi-role session. The normal fixture remains a teacher so
+ * development and demo behavior do not change. A focused non-demo browser
+ * regression sets this flag to exercise the real "Your roles" control with
+ * roles that exist in the application's production model.
+ */
+const FIXTURE_SESSION_ROLES: Role[] =
+  import.meta.env.VITE_E2E_MULTI_ROLE_SESSION === 'true'
+    ? ['school_admin', 'registrar', 'adviser', 'teacher']
+    : CURRENT_USER.roles;
 
 const NAMES = [
   'Abad, Juan C.', 'Alvarez, Maria L.', 'Bautista, Pedro R.', 'Castillo, Ana M.',
@@ -237,7 +248,7 @@ const FIXTURE_SESSION: SessionContext = {
     email: 'maria@anhs.test',
     employeeId: 'EMP-003',
     schoolId: CURRENT_USER.schoolId,
-    roles: ['teacher'],
+    roles: [...FIXTURE_SESSION_ROLES],
   },
   school: {
     id: CURRENT_USER.schoolId,

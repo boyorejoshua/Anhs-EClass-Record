@@ -418,5 +418,5 @@ knows to ask rather than assume.
 | `xlsx` (SheetJS) for import/export | Chosen and used throughout `lib/import/`; no comparison recorded. **UNVERIFIED.** |
 | Supabase over other BaaS | Implied by V0 already using it; no explicit V1 re-evaluation found. **REQUIRES HUMAN CONFIRMATION.** |
 | Vitest over Jest | No rationale recorded (Vite-native is the obvious inference, but it is an inference). **UNVERIFIED.** |
-| Hand-rolled `.mjs` Playwright scripts rather than `@playwright/test` | The e2e header comment explains only *where* Playwright is resolved from, not why the runner was not used. **UNVERIFIED.** |
+| Hand-rolled `.mjs` Playwright scripts rather than `@playwright/test` | The E2E setup explains the local Playwright resolver, but no record explains why the runner was not used. **UNVERIFIED.** |
 | Which of the two V0 copies is authoritative | The standalone `anhsgradingsystem` repo and this repo's root V0 have diverged. **REQUIRES HUMAN CONFIRMATION.** |
