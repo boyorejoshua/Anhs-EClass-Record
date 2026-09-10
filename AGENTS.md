@@ -61,7 +61,8 @@ remain implementation truth.
 ## Verifying
 ```
 cd app && npx tsc --noEmit && npm test && npm run build
-# e2e (23 suites): start vite FROM app/, then run the suites
+# e2e: install the project-local browser once, start vite FROM app, then run suites
+npm ci && npm run e2e:install-browser
 VITE_DEMO_MODE=true VITE_SUPABASE_URL= VITE_SUPABASE_ANON_KEY= npx vite --port 5199 --strictPort
 for f in e2e/*.mjs; do node "$f"; done
 ```
@@ -69,10 +70,11 @@ Two prerequisites that are NOT obvious. Both produce failures that look
 like application defects and are not — full recipes in
 `docs/PROJECT-STATE.md` § Current Test Status:
 
-- **E2E resolves Playwright from the GLOBAL npm prefix**, not
-  `app/node_modules`. Install the version matching the browser build
-  already on the machine (build 1194 → `playwright@1.56.0`). A mismatch
-  fails all 23 suites identically with "Executable doesn't exist at …".
+- **E2E uses the exact local `playwright@1.56.0` dev dependency.** After
+  `npm ci`, run `npm run e2e:install-browser`; the shared resolver keeps its
+  browser assets in ignored `app/.playwright-browsers/`. Do not install or
+  resolve Playwright globally. The browser install must finish before E2E can
+  launch.
 - **SQL suite 06 also needs `supabase/demo-seed.sql`.** Suites 01–05 need
   a Postgres rebuilt from every migration plus `seed.sql`; 06 asserts
   against the `DEMO-` dataset and aborts without it. They roll back; run

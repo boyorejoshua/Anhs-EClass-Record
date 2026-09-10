@@ -294,10 +294,11 @@ sees zero School A rows. **It must run on every migration and block the
 deploy on failure.** If it ever fails, the multi-tenant decision is void
 and a database per school becomes correct by default.
 
-The e2e suites resolve Playwright from the *global* npm prefix, not from
-`app/node_modules`, so `npm ci` stays small. See `PROJECT-STATE.md` for
-the version-matching prerequisite — getting it wrong fails all 23 suites
-identically and misleadingly.
+The e2e suites use the exact local `playwright@1.56.0` dev dependency through
+`app/e2e/playwright.mjs`. After `npm ci`, install the ignored project-local
+browser assets with `npm run e2e:install-browser`; no global npm package or
+shared browser cache is part of the architecture. See `PROJECT-STATE.md` for
+the local execution recipe and environment notes.
 
 > **Run the path, don't just read it.** Every serious defect in this
 > project was found by executing a workflow end to end, never by review:
