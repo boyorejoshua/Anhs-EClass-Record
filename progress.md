@@ -22,6 +22,7 @@ authorized by this workstream.
 - VERIFIED: A clean `npm ci` followed by `npm run e2e:install-browser` completed Chromium 1194 installation and the focused browser regression under the existing isolated Node 24.19.0 runtime.
 - DOCUMENTED ENVIRONMENT INTERACTION: Under this machine's Node 26.5.0 runtime, the same pinned install completed the archive download but stalled during Chromium extraction. This is not evidence that Node 26 is unsupported.
 - VERIFIED: The fixture-backed non-demo `Your roles` browser regression passed all eight checks: held roles, no demo preview, Administrator → Registrar switch, Dashboard reset, Registrar navigation, and no page/console errors.
+- VERIFIED: The approved Session 2B testing/documentation-only change set was merged through PR #46, and the required post-merge local verification passed: `src/nav.test.ts` (33/33), typecheck, the focused eight-check browser regression, and E2E syntax/import validation.
 - DOCUMENTED BUT UNVERIFIED: Current live-site behavior for role switching and role-specific navigation has not been freshly exercised in this session.
 - DOCUMENTED BUT UNVERIFIED: Existing Phase 2.2 production/live behavior remains outside this pilot.
 - UNKNOWN: Current production environment state unless separately verified.
@@ -39,6 +40,7 @@ authorized by this workstream.
 - Session 1B: pre-verification confirmed only `progress.md` is modified; targeted unit verification stopped before execution because the local Vitest runner is absent.
 - Session 1C: reproducible local dependency setup completed without tracked dependency-file changes; the targeted role-navigation unit test passed. No application source or test was changed.
 - Session 2B: the project-local Playwright migration was completed and tested. The exact browser installation works with Node 24.19.0; the focused non-demo role-switching E2E passes all eight checks. E2E syntax (26 files), local resolver imports (24 suites), TypeScript, and `src/nav.test.ts` (33/33; latest 2.82s) pass. No application business logic changed.
+- Session 2C: PR #46 was merged using the normal GitHub merge method. On merged `main`, the targeted navigation unit test (33/33; 3.24s), typecheck, the focused non-demo browser regression (8/8), and E2E syntax/import validation (26 scripts; 24 shared imports; no global resolver references) passed. No application business logic changed.
 
 ## Current task
 
@@ -46,8 +48,8 @@ authorized by this workstream.
 
 ## Next tasks
 
-- [ ] Complete 2–3 contained real Codex sessions.
-- [ ] Complete review, commit, PR, and merge of the approved Session 2B testing-only change set.
+- [x] Complete the contained Session 2 testing-only change set and its normal merge workflow.
+- [ ] Assess the handoff pilot after the intended contained sessions before proposing broader rollout.
 - [ ] Evaluate whether `progress.md` remains concise, accurate, and useful.
 - [ ] Decide whether to standardize the protocol across other Mendtrix repositories.
 
@@ -87,10 +89,14 @@ Last verification:
 - Typecheck: PASS (Node 24.19.0)
 - Unit — targeted `src/nav.test.ts`: PASS (Vitest 3.2.7; 1 file, 33/33 tests; 2.82s; Node 24.19.0)
 - Non-demo browser regression: PASS (fixture-backed local browser run; 8/8 checks; Node 24.19.0)
+- Session 2C merged-main unit — targeted `src/nav.test.ts`: PASS (Vitest 3.2.7; 1 file, 33/33 tests; 3.24s; Node 24.19.0)
+- Session 2C merged-main typecheck: PASS (Node 24.19.0)
+- Session 2C merged-main non-demo browser regression: PASS (fixture-backed local browser run; 8/8 checks; Node 24.19.0)
+- Session 2C merged-main E2E harness syntax/import: PASS (26 `.mjs` files; 24 suite imports through `e2e/playwright.mjs`; zero global resolver references; Node 24.19.0)
 - Playwright prerequisite strategy: project-local exact `playwright@1.56.0` verified; no global package required.
 - Database / SQL: NOT RUN
 - Security / RLS: NOT RUN
-- E2E: NOT RUN
+- E2E full suite: NOT RUN
 - Build: NOT RUN
 
 ## Repository reference
@@ -101,19 +107,16 @@ with Git rather than relying on this file.
 ## Handoff
 
 Last completed:
-The lightweight repository-based handoff protocol was implemented, self-tested,
-reviewed, and merged into `main`.
-
-Session 1 confirmed the historical multi-role role-override defect is fixed in
-source; live non-demo behavior remains unverified.
+Session 2C merged the approved testing/documentation-only PR #46 and completed
+the required merged-main verification. The lightweight repository handoff
+protocol and the reproducible focused role-switching regression are now stable
+on `main`; live non-demo behavior remains unverified.
 
 Currently stopped at:
-After Session 2B verification: the local harness, browser installation, and
-focused fixture-backed scenario are all verified. The allowed testing-only
-change set is ready for final diff review and the approved GitHub workflow.
+A stable post-merge checkpoint. No feature, production, database,
+authentication, or deployment work is authorized by this pilot.
 
 Next smallest safe step:
-Perform the complete pre-commit safety review. If the diff remains within the
-approved testing/documentation scope and GitHub checks are green, commit, push,
-open the authorized PR, merge normally, synchronize `main`, and rerun the
-three targeted checks. Do not begin feature work.
+Obtain a separately scoped, explicitly approved task. Before any implementation,
+identify its durable documentation and current source of truth; do not begin
+feature work automatically.
