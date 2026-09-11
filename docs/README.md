@@ -84,6 +84,7 @@ on a specific area.
 | [Decisions](DECISIONS.md) | Why it is like that — 19 decisions with reasoning |
 | [Known Issues](KNOWN-ISSUES.md) | What is broken, and what only *looks* broken |
 | [Roadmap](ROADMAP.md) | Completed / in progress / next / future / blocked |
+| [Production Observation Backlog](OBSERVATION-BACKLOG.md) | Deduplicated manual production observations, their evidence, and the approved next investigation scope |
 
 ---
 
