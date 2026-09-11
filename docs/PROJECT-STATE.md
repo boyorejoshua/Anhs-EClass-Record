@@ -227,8 +227,10 @@ asking.
 3. **`public.permissions` is the only table of 46 without FORCE RLS**
    (from Phase 2.1). No tenant data, no `anon` access, one policy of
    `USING (true)`. Reported, not changed.
-4. **Seven demo passwords unrotated**, leaked-password protection off
-   in Supabase Auth (from Phase 0). Must close before real learner data.
+4. **Seven demo/test passwords were rotated on 2026-09-12.** Their production
+   account identities, roles, and learner links were read-only verified unchanged.
+   Leaked-password protection remains blocked by the current Free plan and must
+   close before real learner data.
 5. **`principal` exists as a DB role** (seeded, held by the owner
    account) **but has no client-side mapping** — no `ROLE_LABEL`, no
    `NAV` entry. Silently dropped by `rolesFromSession`. Not urgent; no

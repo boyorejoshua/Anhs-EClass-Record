@@ -55,11 +55,13 @@ One thing is genuinely *pending*, and it is not code:
 
 The order is not arbitrary; each item's dependency is named.
 
-### 1. Rotate demo passwords, enable leaked-password protection
-**Blocks: any real learner data.** `KNOWN-ISSUES.md` #1. A Supabase Auth
-configuration change plus seven rotations. No code, no migration, no
-test will catch it if skipped. Do this before anything that touches a
-real school.
+### 1. Enable leaked-password protection after the completed password rotation
+**Blocks: any real learner data.** `KNOWN-ISSUES.md` #1. The seven production
+demo/test-account passwords were manually rotated and their identities, roles,
+and learner links were read-only verified unchanged on 2026-09-12. The remaining
+control is unavailable on the current Free plan. It needs a separately authorized
+plan decision and Supabase Auth configuration change; no code, migration, or test
+will substitute for it.
 
 ### 2. Create a demo learner's portal account
 **Blocks: showing the student portal in a demonstration.**

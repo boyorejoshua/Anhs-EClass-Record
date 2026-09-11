@@ -7,8 +7,8 @@ Last updated: 2026-09-12
 Use the newly established repository-based AI handoff protocol through 2–3
 contained Codex sessions before broader Mendtrix rollout.
 
-No feature, production, database, authentication, or deployment work is
-authorized by this workstream.
+No continuing feature, database, authentication, or deployment work is
+authorized beyond the specifically completed Auth password-rotation task.
 
 ## Current state
 
@@ -33,6 +33,15 @@ authorized by this workstream.
   production authorization or runtime-code defect.
 - VERIFIED: The live review identified non-blocking UI layout/readability defects: Academic Years status alignment, Students filter text truncation, and cramped School Setup and My Account form spacing.
 - INCONCLUSIVE: My Account save-details and password-change behavior was not exercised because the live verification was read-only.
+- DOCUMENTED: Joshua manually rotated the seven existing production demo/test
+  account passwords on 2026-09-12. Credentials are intentionally not recorded.
+- VERIFIED: An authorized read-only production check confirmed all seven original
+  accounts predate the rotation; their identities, role assignments, and learner
+  link counts remain unchanged. The owner remains linked to Kent Ramirez and the
+  student-only account remains student-only with one learner link.
+- BLOCKED: Supabase leaked-password protection remains unavailable on the current
+  Free plan. This P0 control still blocks real learner data and needs a separately
+  authorized plan decision; no upgrade was attempted.
 
 ## Completed in current work
 
@@ -54,12 +63,19 @@ authorized by this workstream.
   The Student profile/history path is server-side and role switching cannot select
   a different learner. No RLS bypass or cross-learner exposure was found; the
   committed seed contains a conflicting learner name for the same linked IDs.
+- Session 2F: Joshua completed the seven production demo/test password rotations
+  manually. A read-only production check confirmed that the pre-existing accounts,
+  role assignments, and learner associations were preserved. Leaked-password
+  protection is still blocked by the current Free plan; no plan or Auth setting
+  change was attempted.
 
 ## Current task
 
 - [x] Investigate current role-switching and reports/documents behavior without changing code.
 - [x] Resolve OBS-001 account-to-learner mapping through source tracing and an
   authorized read-only production mapping check.
+- [x] Verify the completed seven-account production password rotation without
+  handling credentials or changing Auth configuration.
 
 ## Next tasks
 
@@ -68,7 +84,8 @@ authorized by this workstream.
 - [ ] Assess the handoff pilot after the intended contained sessions before proposing broader rollout.
 - [ ] Evaluate whether `progress.md` remains concise, accurate, and useful.
 - [ ] Decide whether to standardize the protocol across other Mendtrix repositories.
-- [ ] Separately authorize the next roadmap item: rotate demo passwords and enable leaked-password protection before any real learner data.
+- [ ] Separately authorize a Supabase plan decision, then enable
+  leaked-password protection before any real learner data.
 
 ## Blockers / risks
 
@@ -84,7 +101,11 @@ authorized by this workstream.
 - The owner account is not a valid student-isolation test account because its
   intentional staff roles authorize broader staff access. Use the documented
   student-only/demo learner account for such verification.
-- No production, Supabase/Auth, Vercel, RLS, grading-engine, or Phase 3 changes are authorized by this pilot.
+- The seven demo/test passwords are rotated, but leaked-password protection is
+  unavailable on the current Free plan. Do not upgrade the plan or change further
+  Auth settings without separate authorization.
+- No further production, Supabase/Auth, Vercel, RLS, grading-engine, or Phase 3
+  changes are authorized by this pilot.
 
 ## Important files
 
@@ -119,6 +140,10 @@ Last verification:
 - Session 2D manual production — Registrar Reports & Documents: PASS (expected planned/not-available state)
 - Session 2D manual production — console errors: NONE; production data changed: NO
 - Session 2D manual production — visible UI layout/readability defects: FOUND (Academic Years status alignment; Students filter truncation; School Setup and My Account spacing)
+- Session 2F production Auth rotation — seven accounts, identities, roles, and
+  learner-link counts: PASS (read-only production check; credentials not handled).
+- Session 2F leaked-password protection: BLOCKED (current Supabase Free plan; no
+  upgrade or Auth-setting change attempted).
 - Playwright prerequisite strategy: project-local exact `playwright@1.56.0` verified; no global package required.
 - Database / SQL: NOT RUN
 - Security / RLS: NOT RUN
@@ -133,18 +158,18 @@ with Git rather than relying on this file.
 ## Handoff
 
 Last completed:
-Session 2E resolved OBS-001 through source tracing and an authorized read-only
-production mapping check. The owner account is intentionally linked to Kent
-Ramirez; the Student Profile and Academic History behavior is not an authorization
-or code defect. The committed seed's name for the same IDs remains a fixture-data
-drift. Phase 2.2 is otherwise complete; separate UI layout/readability defects
-remain uninvestigated.
+Session 2F verified Joshua's completed manual password rotation for all seven
+production demo/test accounts. Their identities, roles, and learner associations
+remain intact; owner mapping to Kent and student-only isolation remain intact.
+Leaked-password protection is still blocked by the current Free plan. Phase 2.2
+is complete; separate UI layout/readability defects remain uninvestigated.
 
 Currently stopped at:
 A stable post-live-verification checkpoint. No feature, production, database,
 authentication, or deployment work is authorized by this pilot.
 
 Next smallest safe step:
-Obtain a separately scoped, explicitly approved task. The next documented
-roadmap item is to rotate demo passwords and enable leaked-password protection,
-which is a production Auth change and must not begin automatically.
+Do not start a feature automatically. The remaining P0 Auth prerequisite is an
+explicitly authorized Supabase plan decision followed by enabling
+leaked-password protection; the completed password rotations do not remove that
+blocker.

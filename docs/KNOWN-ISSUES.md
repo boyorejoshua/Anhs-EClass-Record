@@ -8,8 +8,9 @@ described a problem and this audit found it fixed, that is recorded in
 § Resolved rather than left standing — a stale bug report costs as much
 as a missing one.
 
-Status as of **2026-09-05**, verified against commit `8d51d5c` and a
-database rebuilt from all 44 migrations + `seed.sql`.
+Baseline status verified on **2026-09-05** against commit `8d51d5c` and a
+database rebuilt from all 44 migrations + `seed.sql`. Auth status was updated
+through an authorized read-only production check on **2026-09-12**.
 
 Severity: **High** = blocks real learner data or a school going live ·
 **Medium** = wrong behaviour or real risk, contained · **Low** =
@@ -19,19 +20,26 @@ cosmetic, latent, or unimplemented-by-choice.
 
 ## Open
 
-### 1 · Demo passwords unrotated; leaked-password protection off
-**Technical debt / security** · **High** · open since Phase 0
+### 1 · Leaked-password protection blocked by the current plan
+**Security / plan blocker** · **High** · open since Phase 0
 
-Seven demo accounts still carry their original passwords, and
-leaked-password protection is disabled in Supabase Auth.
+Joshua manually rotated the seven existing production demo/test-account
+passwords on 2026-09-12. The corresponding accounts, pre-existing identities,
+role assignments, and learner-link counts were verified unchanged through a
+read-only production check; no credential values are recorded here.
+
+Leaked-password protection remains unavailable while the connected Supabase
+organization is on its current Free plan. Supabase documents the control as a
+Pro-or-higher feature.
 
 **Must be closed before any real learner data enters the system.** This
-is the single highest-severity item in the file. It is not a code change
-— it is a Supabase Auth configuration change plus a password rotation,
-so no migration will fix it and no test will catch it.
+is still the single highest-severity item in the file. It is not a code change
+or migration; it requires an explicitly authorized plan decision followed by a
+Supabase Auth configuration change.
 
-**Next step:** rotate all seven, enable leaked-password protection in
-the Supabase dashboard for project `wxkxdqwhefezjfmysypa`.
+**Next step:** if Joshua separately authorizes a plan upgrade, enable
+leaked-password protection in the Supabase dashboard for project
+`wxkxdqwhefezjfmysypa`, then record only the non-secret completion state.
 
 ---
 

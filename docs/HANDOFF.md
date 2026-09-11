@@ -102,8 +102,8 @@ was triggered.
 Nothing is mid-edit. The unbuilt work, in priority order, is in
 `ROADMAP.md`. The short version:
 
-1. Rotate demo passwords + enable leaked-password protection — **blocks
-   real learner data**
+1. Enable leaked-password protection after the completed demo/test password
+   rotation — **still blocks real learner data on the current Free plan**
 2. Create a demo learner's portal account (needs explicit go-ahead —
    it is against production)
 3. Run the principal demo checklist
@@ -120,8 +120,9 @@ registrar will ask for it first.
 Full detail with severity and reproduction in `docs/KNOWN-ISSUES.md`.
 The three that will actually affect you:
 
-- **Demo passwords unrotated, leaked-password protection off.** Highest
-  severity in the project. Config, not code.
+- **Demo/test passwords were rotated on 2026-09-12; leaked-password protection
+  remains unavailable on the current Free plan.** Highest severity in the
+  project. Plan/Auth config, not code.
 - **`app.reject_write_to_archived_year()` only covers tables with
   `academic_year_id` directly.** Latent — nothing archives a year in-app
   yet. **Becomes live the moment anyone builds an archive action.**
@@ -245,8 +246,10 @@ and the seed applied without error.
   every role including `service_role`.
 - Writes carrying policy are RPCs; no client write grant on
   `period_grades`, `grade_submissions`, `generated_documents`.
-- **Outstanding:** seven demo passwords unrotated and leaked-password
-  protection disabled. Close before any real learner data.
+- **Outstanding:** leaked-password protection is unavailable on the current Free
+  plan. The seven demo/test passwords were rotated on 2026-09-12 and their
+  identities, roles, and learner links were read-only verified unchanged. Do not
+  introduce real learner data until the remaining Auth control is enabled.
 - Secrets live in `app/.env.production` (gitignored) and the Vercel
   dashboard. **No secret values appear anywhere in `docs/`.** Required
   variable *names* only: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`;
@@ -268,31 +271,21 @@ produce failures that look like application defects and are not.
 
 ## Current priority
 
-**Waiting on Joshua's live confirmation** that the production deploy
-works: sign in as `joshua@anhs.test`, click through all five roles,
-confirm "Academic Years" no longer says SOON.
+**P0 blocker:** the completed seven-account password rotation does not remove
+the requirement to enable Supabase leaked-password protection. The connected
+organization is on the Free plan, so an explicitly authorized plan decision is
+required before that control can be enabled. Do not upgrade or alter Auth settings
+automatically.
 
 ---
 
 ## Recommended next task
 
-If the deploy check passes and you are given the go-ahead:
-
-1. Confirm `resolveActiveRole` (`app/src/nav.ts`) and the Academic Years
-   route (`readiness: 'ready'`) are on **`main`** specifically — not just
-   on the feature branch.
-2. Follow `docs/28-principal-demo-checklist.md`. Default to `DEMO-0001`
-   unless told otherwise.
-3. Create that learner's portal account **for real**, against production.
-4. Run the checklist step by step and give an honest verdict.
-
-If instead starting fresh, unrelated work: read `PROJECT-STATE.md` and
-the latest `docs/session-log/*.md`, then confirm the baseline still
-passes before assuming it does.
-
-The highest-value *independent* task, needing no go-ahead: **rotate the
-demo passwords and enable leaked-password protection**
-(`KNOWN-ISSUES.md` #1). It blocks real learner data and nothing blocks it.
+Wait for a separately scoped task. If a plan upgrade is authorized and the
+control is enabled, record the non-secret completion result and verify the
+affected accounts through an approved credential-safe process. The demo learner
+portal account and checklist remain separate production work requiring their own
+explicit authorization.
 
 ---
 

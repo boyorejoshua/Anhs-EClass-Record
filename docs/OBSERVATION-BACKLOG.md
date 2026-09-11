@@ -539,15 +539,16 @@ backlog items.
 
 | ID | Existing documented item | Relationship to observation backlog | Priority | Status |
 | --- | --- | --- | --- | --- |
-| ROADMAP-001 | Rotate demo passwords and enable leaked-password protection | Existing P0 prerequisite before real learner data; not caused by a UI observation. | P0 | Not started; requires separate production/Auth authorization. |
+| ROADMAP-001 | Enable leaked-password protection after password rotation | Existing P0 prerequisite before real learner data; not caused by a UI observation. Seven passwords were rotated on 2026-09-12; the remaining setting requires a plan decision. | P0 | Blocked by current Free plan; do not upgrade without authorization. |
 | ROADMAP-002 | Reports & Documents screen and document engine | Registrar Reports & Documents remains intentionally planned, not a visual defect. | P4 | Deferred. |
 | ROADMAP-003 | Demo learner portal account and principal-demo rehearsal | Needed for a normal learner demonstration, but not authorization to alter production. | P4 | Requires explicit go-ahead. |
 | ROADMAP-004 | Public Enrollment / Phase 3 | Not started and outside this backlog. | P4 | Explicitly deferred. |
 
 ## Recommended execution order
 
-1. **ROADMAP-001 (P0, existing):** separately authorize Auth hardening before
-   any real learner data. Do not start it from this backlog.
+1. **ROADMAP-001 (P0, existing):** password rotation is complete; separately
+   authorize a Supabase plan decision before enabling leaked-password protection.
+   Do not upgrade or change Auth settings from this backlog.
 2. **OBS-003 (P1):** verify My Account writes only in an authorized,
    non-production/rehearsal environment.
 3. **OBS-013 (P2):** obtain a registrar/adviser decision on submission
