@@ -23,9 +23,10 @@ authorized by this workstream.
 - DOCUMENTED ENVIRONMENT INTERACTION: Under this machine's Node 26.5.0 runtime, the same pinned install completed the archive download but stalled during Chromium extraction. This is not evidence that Node 26 is unsupported.
 - VERIFIED: The fixture-backed non-demo `Your roles` browser regression passed all eight checks: held roles, no demo preview, Administrator → Registrar switch, Dashboard reset, Registrar navigation, and no page/console errors.
 - VERIFIED: The approved Session 2B testing/documentation-only change set was merged through PR #46, and the required post-merge local verification passed: `src/nav.test.ts` (33/33), typecheck, the focused eight-check browser regression, and E2E syntax/import validation.
-- DOCUMENTED BUT UNVERIFIED: Current live-site behavior for role switching and role-specific navigation has not been freshly exercised in this session.
-- DOCUMENTED BUT UNVERIFIED: Existing Phase 2.2 production/live behavior remains outside this pilot.
-- UNKNOWN: Current production environment state unless separately verified.
+- VERIFIED: Manual production verification on 2026-09-11 confirmed sign-in, all five owner-account roles, role switching with home reset, and role-specific navigation. Registrar Reports & Documents remains intentionally planned; Administrator Academic Years is available and no longer marked SOON. No console errors or production data changes were reported.
+- VERIFIED: The Phase 2.2 live verification gate is complete for the specified role-switching and Academic Years workflow.
+- VERIFIED: The live review identified non-blocking UI layout/readability defects: Academic Years status alignment, Students filter text truncation, and cramped School Setup and My Account form spacing.
+- INCONCLUSIVE: My Account save-details and password-change behavior was not exercised because the live verification was read-only.
 
 ## Completed in current work
 
@@ -41,6 +42,7 @@ authorized by this workstream.
 - Session 1C: reproducible local dependency setup completed without tracked dependency-file changes; the targeted role-navigation unit test passed. No application source or test was changed.
 - Session 2B: the project-local Playwright migration was completed and tested. The exact browser installation works with Node 24.19.0; the focused non-demo role-switching E2E passes all eight checks. E2E syntax (26 files), local resolver imports (24 suites), TypeScript, and `src/nav.test.ts` (33/33; latest 2.82s) pass. No application business logic changed.
 - Session 2C: PR #46 was merged using the normal GitHub merge method. On merged `main`, the targeted navigation unit test (33/33; 3.24s), typecheck, the focused non-demo browser regression (8/8), and E2E syntax/import validation (26 scripts; 24 shared imports; no global resolver references) passed. No application business logic changed.
+- Session 2D: manual production verification completed the Phase 2.2 live gate. Sign-in, five roles, role switching, dashboard reset, role-specific navigation, Registrar's planned Reports & Documents state, Administrator's ready Academic Years viewer, and console cleanliness passed. The supplied visual observations confirmed UI layout/readability defects but no production data was changed.
 
 ## Current task
 
@@ -49,9 +51,11 @@ authorized by this workstream.
 ## Next tasks
 
 - [x] Complete the contained Session 2 testing-only change set and its normal merge workflow.
+- [x] Complete the Phase 2.2 manual live verification gate.
 - [ ] Assess the handoff pilot after the intended contained sessions before proposing broader rollout.
 - [ ] Evaluate whether `progress.md` remains concise, accurate, and useful.
 - [ ] Decide whether to standardize the protocol across other Mendtrix repositories.
+- [ ] Separately authorize the next roadmap item: rotate demo passwords and enable leaked-password protection before any real learner data.
 
 ## Blockers / risks
 
@@ -62,6 +66,8 @@ authorized by this workstream.
 - Browser tooling is project-contained and version-pinned. On this machine, use the existing isolated Node 24.19.0 runtime if the Node 26.5.0 extraction stall recurs; do not replace global Node or change Playwright without approval.
 - `npm ci` reported three dependency audit findings (two moderate, one high) and one pending `esbuild` install-script notice. No audit, approval, or dependency change was performed in this test-only workstream.
 - Existing documented production/security risks remain authoritative in `docs/KNOWN-ISSUES.md`.
+- The confirmed live UI layout/readability defects need a separately scoped investigation; they do not invalidate the Phase 2.2 behavioral verification.
+- My Account write behavior remains unverified because testing it would modify production profile or password data.
 - No production, Supabase/Auth, Vercel, RLS, grading-engine, or Phase 3 changes are authorized by this pilot.
 
 ## Important files
@@ -93,6 +99,10 @@ Last verification:
 - Session 2C merged-main typecheck: PASS (Node 24.19.0)
 - Session 2C merged-main non-demo browser regression: PASS (fixture-backed local browser run; 8/8 checks; Node 24.19.0)
 - Session 2C merged-main E2E harness syntax/import: PASS (26 `.mjs` files; 24 suite imports through `e2e/playwright.mjs`; zero global resolver references; Node 24.19.0)
+- Session 2D manual production — sign-in, five roles, role switching/home reset, role navigation, and Academic Years: PASS
+- Session 2D manual production — Registrar Reports & Documents: PASS (expected planned/not-available state)
+- Session 2D manual production — console errors: NONE; production data changed: NO
+- Session 2D manual production — visible UI layout/readability defects: FOUND (Academic Years status alignment; Students filter truncation; School Setup and My Account spacing)
 - Playwright prerequisite strategy: project-local exact `playwright@1.56.0` verified; no global package required.
 - Database / SQL: NOT RUN
 - Security / RLS: NOT RUN
@@ -107,16 +117,16 @@ with Git rather than relying on this file.
 ## Handoff
 
 Last completed:
-Session 2C merged the approved testing/documentation-only PR #46 and completed
-the required merged-main verification. The lightweight repository handoff
-protocol and the reproducible focused role-switching regression are now stable
-on `main`; live non-demo behavior remains unverified.
+Session 2D completed the manual production verification for Phase 2.2. The
+role-switching and Academic Years workflow is verified live on `main`; the
+intentional Reports & Documents planned state is also confirmed. Separate UI
+layout/readability defects were observed and remain uninvestigated.
 
 Currently stopped at:
-A stable post-merge checkpoint. No feature, production, database,
+A stable post-live-verification checkpoint. No feature, production, database,
 authentication, or deployment work is authorized by this pilot.
 
 Next smallest safe step:
-Obtain a separately scoped, explicitly approved task. Before any implementation,
-identify its durable documentation and current source of truth; do not begin
-feature work automatically.
+Obtain a separately scoped, explicitly approved task. The next documented
+roadmap item is to rotate demo passwords and enable leaked-password protection,
+which is a production Auth change and must not begin automatically.
