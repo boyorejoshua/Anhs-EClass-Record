@@ -1,6 +1,6 @@
 # Current Work — Project Handoff
 
-Last updated: 2026-09-11
+Last updated: 2026-09-12
 
 ## Current objective
 
@@ -25,6 +25,12 @@ authorized by this workstream.
 - VERIFIED: The approved Session 2B testing/documentation-only change set was merged through PR #46, and the required post-merge local verification passed: `src/nav.test.ts` (33/33), typecheck, the focused eight-check browser regression, and E2E syntax/import validation.
 - VERIFIED: Manual production verification on 2026-09-11 confirmed sign-in, all five owner-account roles, role switching with home reset, and role-specific navigation. Registrar Reports & Documents remains intentionally planned; Administrator Academic Years is available and no longer marked SOON. No console errors or production data changes were reported.
 - VERIFIED: The Phase 2.2 live verification gate is complete for the specified role-switching and Academic Years workflow.
+- VERIFIED: OBS-001 is resolved. The production owner account's Student view is
+  intentionally associated with Kent Ramirez; selecting Student does not change
+  the authenticated identity or learner mapping. Student Profile and Academic
+  History use the same server-side resolver. The committed seed labels the same
+  linked identifier as Joshua Reyes Boyore, a fixture-data drift rather than a
+  production authorization or runtime-code defect.
 - VERIFIED: The live review identified non-blocking UI layout/readability defects: Academic Years status alignment, Students filter text truncation, and cramped School Setup and My Account form spacing.
 - INCONCLUSIVE: My Account save-details and password-change behavior was not exercised because the live verification was read-only.
 
@@ -43,10 +49,17 @@ authorized by this workstream.
 - Session 2B: the project-local Playwright migration was completed and tested. The exact browser installation works with Node 24.19.0; the focused non-demo role-switching E2E passes all eight checks. E2E syntax (26 files), local resolver imports (24 suites), TypeScript, and `src/nav.test.ts` (33/33; latest 2.82s) pass. No application business logic changed.
 - Session 2C: PR #46 was merged using the normal GitHub merge method. On merged `main`, the targeted navigation unit test (33/33; 3.24s), typecheck, the focused non-demo browser regression (8/8), and E2E syntax/import validation (26 scripts; 24 shared imports; no global resolver references) passed. No application business logic changed.
 - Session 2D: manual production verification completed the Phase 2.2 live gate. Sign-in, five roles, role switching, dashboard reset, role-specific navigation, Registrar's planned Reports & Documents state, Administrator's ready Academic Years viewer, and console cleanliness passed. The supplied visual observations confirmed UI layout/readability defects but no production data was changed.
+- Session 2E: OBS-001 read-only investigation confirmed that the intentional
+  multi-role owner/developer account is associated with Kent Ramirez in production.
+  The Student profile/history path is server-side and role switching cannot select
+  a different learner. No RLS bypass or cross-learner exposure was found; the
+  committed seed contains a conflicting learner name for the same linked IDs.
 
 ## Current task
 
 - [x] Investigate current role-switching and reports/documents behavior without changing code.
+- [x] Resolve OBS-001 account-to-learner mapping through source tracing and an
+  authorized read-only production mapping check.
 
 ## Next tasks
 
@@ -68,6 +81,9 @@ authorized by this workstream.
 - Existing documented production/security risks remain authoritative in `docs/KNOWN-ISSUES.md`.
 - The confirmed live UI layout/readability defects need a separately scoped investigation; they do not invalidate the Phase 2.2 behavioral verification.
 - My Account write behavior remains unverified because testing it would modify production profile or password data.
+- The owner account is not a valid student-isolation test account because its
+  intentional staff roles authorize broader staff access. Use the documented
+  student-only/demo learner account for such verification.
 - No production, Supabase/Auth, Vercel, RLS, grading-engine, or Phase 3 changes are authorized by this pilot.
 
 ## Important files
@@ -117,10 +133,12 @@ with Git rather than relying on this file.
 ## Handoff
 
 Last completed:
-Session 2D completed the manual production verification for Phase 2.2. The
-role-switching and Academic Years workflow is verified live on `main`; the
-intentional Reports & Documents planned state is also confirmed. Separate UI
-layout/readability defects were observed and remain uninvestigated.
+Session 2E resolved OBS-001 through source tracing and an authorized read-only
+production mapping check. The owner account is intentionally linked to Kent
+Ramirez; the Student Profile and Academic History behavior is not an authorization
+or code defect. The committed seed's name for the same IDs remains a fixture-data
+drift. Phase 2.2 is otherwise complete; separate UI layout/readability defects
+remain uninvestigated.
 
 Currently stopped at:
 A stable post-live-verification checkpoint. No feature, production, database,

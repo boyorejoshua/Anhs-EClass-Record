@@ -30,58 +30,67 @@ The 20 canonical observation items below deduplicate repeated role reports.
 | Classification | Count | IDs |
 | --- | ---: | --- |
 | Confirmed defect | 4 | OBS-004, OBS-005, OBS-006, OBS-007 |
-| Suspected defect - investigation required | 1 | OBS-001 |
+| Suspected defect - investigation required | 0 | — |
 | UX/UI improvement | 6 | OBS-008, OBS-009, OBS-010, OBS-011, OBS-012, OBS-014 |
 | Workflow / business-rule decision | 3 | OBS-013, OBS-016, OBS-017 |
 | Feature request | 0 | — |
-| Expected current behavior | 2 | OBS-002, OBS-019 |
+| Expected current behavior | 3 | OBS-001, OBS-002, OBS-019 |
 | Duplicate / cross-role issue | 0 canonical items | Repeated reports are mapped to their canonical items in the coverage ledger. |
 | Inconclusive | 4 | OBS-003, OBS-015, OBS-018, OBS-020 |
 
 | Priority | New observation items | Existing roadmap items | Total execution queue |
 | --- | ---: | ---: | ---: |
 | P0 | 0 | 1 | 1 |
-| P1 | 2 | 0 | 2 |
+| P1 | 1 | 0 | 1 |
 | P2 | 7 | 0 | 7 |
 | P3 | 5 | 0 | 5 |
-| P4 | 6 | 0 | 6 |
+| P4 | 7 | 0 | 7 |
 
 `ROADMAP-001` below is the documented P0 Auth-hardening prerequisite. It is
 not started or authorized by this observation review.
 
 ## Canonical backlog
 
-### OBS-001 - Verify the Student account-to-learner mapping
+### OBS-001 - Owner account's intentional Student association
 
 - **Affected roles / screen:** Student; My Profile, My Grades, Academic History,
   Schedule. The owner account is intentionally multi-role.
 - **Observation:** The Student Profile showed `Ramirez, Kent` while the signed-in
   account identified Joshua Boyore. The same Student role showed academic-history
   data that did not obviously belong to the signed-in person.
-- **Current repository behavior:** Every Student portal RPC takes no learner ID.
-  `app.current_student_id()` resolves the learner from the verified JWT by matching
-  `students.portal_user_id`; `my_profile()` and `my_academic_history()` use that
-  value. RLS tests assert that a learner sees only their own student and enrollment
-  rows. The committed seed maps `joshua@anhs.test` to the `Joshua Reyes Boyore`
-  student record, not to Kent Ramirez.
-- **Expected / requested behavior:** A signed-in person's Student role must resolve
-  to the intentionally assigned learner only. If the multi-role owner account is a
-  demonstration account, that assignment and the student-view label must be
-  unambiguous; it must never expose an unintended learner's record.
-- **Classification:** **SUSPECTED DEFECT - INVESTIGATION REQUIRED**.
-- **Severity / priority:** High / **P1**.
-- **Evidence:** Student Role observation document; `supabase/migrations/0005_students_enrollment.sql`
-  (`app.current_student_id()`); `supabase/migrations/0018_app_contracts_and_publication_gate.sql`
-  (`my_profile`, `my_academic_history`); `supabase/tests/02_student_privacy.sql`;
-  `supabase/seed.sql`.
-- **Dependencies:** An explicit, read-only authorization to compare the production
-  owner's authenticated user ID, `portal_user_id`, and returned learner ID, or an
-  equivalent non-production reproduction. Do not change data to investigate.
-- **Investigation required:** Yes.
-- **Smallest next step:** Define one read-only mapping test that records the
-  authenticated account ID and the learner ID returned by `my_profile()` without
-  exposing personal data in committed artifacts. Compare it with the intended
-  owner-account assignment before considering a code or data change.
+- **Current repository and production behavior:** Selecting Student changes only
+  client-side active-role/navigation state; it does not change the Supabase session,
+  JWT subject, or `students.portal_user_id` association. The server-side
+  `app.current_student_id()` resolves the learner from the verified JWT subject.
+  `my_profile()` and `my_academic_history()` both use that resolver and take no
+  learner ID from the client. A read-only production check confirmed that the owner
+  account is linked to `Kent Ramirez`; the Student observation and its Taytay
+  historical record are therefore internally consistent with that association.
+  Durable demo-readiness documentation explicitly defines this as the intentional
+  multi-role system-owner/developer configuration, not a student-isolation test.
+  The committed seed uses the same linked IDs but labels that learner `Joshua Reyes
+  Boyore`, creating a seed-fixture/documentation-data drift rather than a runtime
+  production mapping difference.
+- **Expected / requested behavior:** The owner account remains a deliberate
+  multi-role owner/developer account associated with Kent Ramirez. It must not be
+  used as evidence of a normal student-only portal experience; use the documented
+  student-only/demo learner account for that verification.
+- **Classification:** **EXPECTED CURRENT BEHAVIOR — RESOLVED**.
+- **Severity / priority:** Low operational risk / **P4**.
+- **Evidence:** Student Role observation document; `AGENTS.md`; Phase 1.5 and
+  Phase 2 demo-readiness documentation; `app.current_student_id()` in
+  `supabase/migrations/0005_students_enrollment.sql`; `my_profile` and
+  `my_academic_history` in
+  `supabase/migrations/0018_app_contracts_and_publication_gate.sql`; student RLS
+  tests; committed `supabase/seed.sql`; and the authorized read-only production
+  mapping check. No credentials, secrets, or production data are recorded here.
+- **Dependencies:** None for production runtime behavior. Future fixture
+  reconciliation requires a separately authorized decision; it must not alter the
+  production owner association merely to match the seed label.
+- **Investigation required:** No.
+- **Smallest next step:** No runtime fix. Preserve the owner-account warning in
+  student-test guidance and separately decide whether the seed fixture and durable
+  rehearsal material should be reconciled.
 
 ### OBS-002 - Explain historical external-school records correctly
 
@@ -101,8 +110,9 @@ not started or authorized by this observation review.
 - **Evidence:** Student Role observation document; `my_academic_history()` in
   migration 0018; seeded prior enrollment and comments in `supabase/seed.sql`;
   D-010 in `docs/DECISIONS.md`.
-- **Dependencies:** OBS-001 must establish that the production Student view is
-  mapped to the intended learner before its history can be interpreted.
+- **Dependencies:** OBS-001 is resolved: the production history belongs to the
+  intentionally linked Kent Ramirez record. The committed seed's label for that
+  same identifier is stale fixture data and does not change the history rule.
 - **Investigation required:** No separate implementation investigation.
 - **Smallest next step:** Retain the current history-provenance rule and explain it
   in any future Student-portal guidance. Reopen only if OBS-001 shows a wrong
@@ -538,22 +548,23 @@ backlog items.
 
 1. **ROADMAP-001 (P0, existing):** separately authorize Auth hardening before
    any real learner data. Do not start it from this backlog.
-2. **OBS-001 (P1):** resolve the Student account-to-learner mapping question
-   with a bounded, read-only evidence plan. This outranks visual work because an
-   unintended mapping could affect student privacy and data integrity.
-3. **OBS-003 (P1):** verify My Account writes only in an authorized,
+2. **OBS-003 (P1):** verify My Account writes only in an authorized,
    non-production/rehearsal environment.
-4. **OBS-013 (P2):** obtain a registrar/adviser decision on submission
+3. **OBS-013 (P2):** obtain a registrar/adviser decision on submission
    acknowledgement, return, withdrawal, and reopening before changing workflow.
-5. **OBS-005 (P3):** fix the visible filter truncation as the smallest confirmed,
+4. **OBS-005 (P3):** fix the visible filter truncation as the smallest confirmed,
    independently verifiable UI change once implementation is authorized. OBS-004,
    OBS-006, and OBS-007 can be handled in a separate shared-layout scope.
+5. **OBS-001 (P4, resolved):** use the documented student-only/demo learner account
+   for Student isolation verification. Do not change the production owner mapping;
+   seed-fixture reconciliation is a separate maintenance decision.
 
 ## Product decisions that require Joshua's direction
 
-1. **Owner account Student view:** Is `joshua@anhs.test` deliberately assigned to
-   a named learner for multi-role demonstration, and if so which learner should it
-   be? The current live observation and committed seed do not agree.
+1. **Seed-fixture reconciliation:** The production owner association is deliberately
+   Kent Ramirez. Should the committed seed's different label for the same linked
+   IDs be reconciled with the durable rehearsal documentation? This is a
+   maintenance/documentation decision, not authority to change production mapping.
 2. **Submission custody policy:** May a teacher/adviser withdraw after submission?
    Who acknowledges, returns, reopens, finalizes, and publishes at each stage?
 3. **Academic-year lifecycle:** Who may create, activate, close, and archive a
